@@ -1,0 +1,8 @@
+{
+  "name": "Beyond The Internet 2026 - Ứng dụng Quản lý Ngân hàng câu hỏi",
+  "description": "Ứng dụng hỗ trợ soạn thảo và quản lý ngân hàng câu hỏi của cuộc thi Beyond The Internet 2026",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,172 @@
+{
+  "entities": {
+    "GameState": {
+      "title": "GameState",
+      "description": "Global game state.",
+      "type": "object",
+      "properties": {
+        "qr_scan_count": {
+          "type": "number",
+          "description": "Estimated count of QR code scans and joins by audience members"
+        },
+        "last_scan_at": {
+          "type": "number",
+          "description": "Timestamp of the most recent QR scan"
+        },
+        "qr_history": {
+          "type": "array",
+          "description": "History of the last 5 generated QR code versions and configurations",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "UserResponse": {
+      "title": "UserResponse",
+      "description": "A single user's response to a question",
+      "type": "object",
+      "properties": {}
+    },
+    "Presence": {
+      "title": "Presence",
+      "description": "User presence information",
+      "type": "object",
+      "properties": {}
+    },
+    "AudienceShout": {
+      "title": "AudienceShout",
+      "description": "Real-time limited-char audience shout message appearing in live marquee",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "User ID of sender"
+        },
+        "sender_name": {
+          "type": "string",
+          "description": "Display name of sender",
+          "maxLength": 50
+        },
+        "sender_mssv": {
+          "type": "string",
+          "description": "Optional MSSV of sender"
+        },
+        "sender_avatar": {
+          "type": "string",
+          "description": "Avatar seed"
+        },
+        "text": {
+          "type": "string",
+          "description": "Shout message text limited to 80 chars",
+          "maxLength": 80
+        },
+        "emoji": {
+          "type": "string",
+          "description": "Optional emoji badge"
+        },
+        "color": {
+          "type": "string",
+          "description": "Color theme for the badge"
+        },
+        "timestamp": {
+          "type": "number",
+          "description": "Timestamp when shout was created"
+        },
+        "timestamp_iso": {
+          "type": "string",
+          "description": "ISO timestamp string"
+        },
+        "likes": {
+          "type": "number",
+          "description": "Total likes count"
+        },
+        "liked_by": {
+          "type": "array",
+          "description": "Array of UIDs who liked this shout"
+        },
+        "is_pinned": {
+          "type": "boolean",
+          "description": "Whether the shout is pinned on marquee"
+        },
+        "status": {
+          "type": "string",
+          "description": "Active or hidden status"
+        }
+      },
+      "required": ["uid", "sender_name", "text", "timestamp"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "System and contestant activity log record",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "timestamp": { "type": "number" }
+      }
+    },
+    "QrScanEvent": {
+      "title": "QrScanEvent",
+      "description": "Recorded QR code scan event",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "number" },
+        "source": { "type": "string" }
+      }
+    },
+    "CheerEvent": {
+      "title": "CheerEvent",
+      "description": "Audience live cheer and reaction event",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "timestamp": { "type": "number" }
+      }
+    },
+    "AudienceQA": {
+      "title": "AudienceQA",
+      "description": "Audience interactive question and answer record",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "timestamp": { "type": "number" }
+      }
+    }
+  },
+  "firestore": {
+    "/game_state/current": {
+      "schema": { "$ref": "#/entities/GameState" },
+      "description": "The global game state"
+    },
+    "/responses/{uid}": {
+      "schema": { "$ref": "#/entities/UserResponse" },
+      "description": "User responses"
+    },
+    "/presence/{uid}": {
+      "schema": { "$ref": "#/entities/Presence" },
+      "description": "User presence"
+    },
+    "/shouts/{shoutId}": {
+      "schema": { "$ref": "#/entities/AudienceShout" },
+      "description": "Real-time audience shout messages for marquee ticker"
+    },
+    "/activity_logs/{logId}": {
+      "schema": { "$ref": "#/entities/ActivityLog" },
+      "description": "Activity logs collection"
+    },
+    "/qr_scans/{scanId}": {
+      "schema": { "$ref": "#/entities/QrScanEvent" },
+      "description": "QR scan tracking collection"
+    },
+    "/cheer_events/{cheerId}": {
+      "schema": { "$ref": "#/entities/CheerEvent" },
+      "description": "Live cheering events collection"
+    },
+    "/audience_qa/{qaId}": {
+      "schema": { "$ref": "#/entities/AudienceQA" },
+      "description": "Audience Q&A collection"
+    }
+  }
+}
