@@ -52,6 +52,8 @@ import {
 import { soundFx } from '../../services/audioEffects';
 import { vibrateTap, vibrateSuccess, vibrateWarning } from '../../utils/hapticUtils';
 import { exportQuestionsToPdf } from '../../utils/printExport';
+import { QuestionQuickReviewModal } from './QuestionQuickReviewModal';
+import { questionReviewService, getStatusInfo } from '../../services/questionReviewService';
 
 interface ModeratorReviewViewProps {
   onEditQuestion: (question: QuestionItem) => void;
@@ -118,6 +120,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
     count: number;
   } | null>(null);
   const [bulkNotes, setBulkNotes] = useState('');
+  const [quickReviewQuestion, setQuickReviewQuestion] = useState<QuestionItem | null>(null);
 
   // Subscribe to QuestionBankManager updates
   useEffect(() => {
@@ -722,20 +725,41 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                   </div>
 
                   {/* Right Status Badge & Creation Metadata */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className={`px-2.5 py-0.5 rounded text-[11px] font-mono font-bold border flex items-center gap-1 ${
-                      q.approval_status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40' :
-                      q.approval_status === 'REJECTED' ? 'bg-rose-500/20 text-rose-300 border-rose-400/40' :
-                      q.approval_status === 'PENDING_REVIEW' ? 'bg-amber-500/20 text-amber-300 border-amber-400/40 animate-pulse' :
-                      'bg-slate-500/20 text-slate-300 border-slate-400/40'
-                    }`}>
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateTap();
+                        soundFx.playClick();
+                        setQuickReviewQuestion(q);
+                      }}
+                      className={`px-2.5 py-0.5 rounded text-[11px] font-mono font-bold border flex items-center gap-1 cursor-pointer hover:brightness-125 transition ${
+                        q.approval_status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40' :
+                        (q.approval_status === 'REJECTED' || q.approval_status === 'NEEDS_REVISION') ? 'bg-rose-500/20 text-rose-300 border-rose-400/40' :
+                        q.approval_status === 'PENDING_REVIEW' ? 'bg-amber-500/20 text-amber-300 border-amber-400/40 animate-pulse' :
+                        'bg-slate-500/20 text-slate-300 border-slate-400/40'
+                      }`}
+                      title="Nhấp để Review nhanh trạng thái & ghi chú (Lưu Firestore)"
+                    >
                       {q.approval_status === 'APPROVED' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                      {q.approval_status === 'REJECTED' && <XCircle className="w-3.5 h-3.5" />}
+                      {(q.approval_status === 'REJECTED' || q.approval_status === 'NEEDS_REVISION') && <XCircle className="w-3.5 h-3.5" />}
                       {q.approval_status === 'PENDING_REVIEW' && <Clock className="w-3.5 h-3.5" />}
-                      {q.approval_status === 'APPROVED' ? 'Đã Phê Duyệt' :
-                       q.approval_status === 'REJECTED' ? 'Từ Chối / Cần Sửa' :
-                       q.approval_status === 'PENDING_REVIEW' ? 'Chờ Thẩm Định' : 'Bản Thảo'}
-                    </span>
+                      {getStatusInfo(q.approval_status).label}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateTap();
+                        soundFx.playClick();
+                        setQuickReviewQuestion(q);
+                      }}
+                      className="px-2 py-0.5 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/35 text-[11px] font-mono font-bold flex items-center gap-1 transition cursor-pointer"
+                      title="Review nhanh trạng thái & ghi chú trực tiếp vào Firestore"
+                    >
+                      <ShieldCheck className="w-3 h-3 text-amber-400" />
+                      <span>Review nhanh</span>
+                    </button>
 
                     {q.approved_by && (
                       <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/30" title="Kiểm duyệt viên đã phê duyệt">
@@ -914,6 +938,20 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                   <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 font-mono text-xs">
                     {/* Left: AI Audit & Edit */}
                     <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setQuickReviewQuestion(q);
+                        }}
+                        className="px-3 py-1.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-400/40 flex items-center gap-1.5 transition cursor-pointer font-bold shadow-xs"
+                        title="Mở hộp thoại Review nhanh để đổi trạng thái và thêm ghi chú trực tiếp vào Firestore"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-300" />
+                        <span>⚡ Review Nhanh (Firestore)</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => handleAiAudit(q)}
@@ -1240,6 +1278,18 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {/* Quick Review Modal */}
+      {quickReviewQuestion && (
+        <QuestionQuickReviewModal
+          isOpen={Boolean(quickReviewQuestion)}
+          question={quickReviewQuestion}
+          onClose={() => setQuickReviewQuestion(null)}
+          onReviewSaved={(updatedQ, status, notes) => {
+            setQuestions([...questionBankManager.getQuestions()]);
+            onShowToast(`Đã cập nhật câu hỏi #${updatedQ.id} sang [${getStatusInfo(status).label}] và lưu Firestore thành công!`);
+          }}
+        />
       )}
     </div>
   );

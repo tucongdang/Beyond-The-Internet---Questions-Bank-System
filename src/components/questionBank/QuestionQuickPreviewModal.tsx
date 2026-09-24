@@ -21,7 +21,8 @@ import {
   HelpCircle,
   Sparkles,
   Layers,
-  FileText
+  FileText,
+  ShieldCheck
 } from 'lucide-react';
 import { QuestionItem } from '../../types';
 import { useLockBodyScroll } from '../../hooks/useLockBodyScroll';
@@ -44,13 +45,15 @@ interface QuestionQuickPreviewModalProps {
   onClose: () => void;
   question: QuestionItem | null;
   onEdit?: (question: QuestionItem) => void;
+  onQuickReview?: (question: QuestionItem) => void;
 }
 
 export const QuestionQuickPreviewModal: React.FC<QuestionQuickPreviewModalProps> = ({
   isOpen,
   onClose,
   question,
-  onEdit
+  onEdit,
+  onQuickReview
 }) => {
   useLockBodyScroll(isOpen);
 
@@ -411,6 +414,23 @@ export const QuestionQuickPreviewModal: React.FC<QuestionQuickPreviewModalProps>
               <span className="hidden sm:inline font-bold">Xuất PDF Lịch Sử</span>
               <span className="sm:hidden font-bold">PDF</span>
             </button>
+
+            {/* Quick Review */}
+            {onQuickReview && (
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateTap();
+                  soundFx.playClick();
+                  onQuickReview(question);
+                }}
+                className="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 hover:text-amber-200 border border-amber-500/40 font-mono text-xs flex items-center gap-1.5 cursor-pointer transition active:scale-95 font-bold"
+                title="Review nhanh trạng thái & ghi chú (Lưu Firestore)"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">Review nhanh</span>
+              </button>
+            )}
 
             {/* Edit Question */}
             {onEdit && (

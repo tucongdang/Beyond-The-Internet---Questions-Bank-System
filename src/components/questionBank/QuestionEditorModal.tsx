@@ -67,6 +67,8 @@ import { useLockBodyScroll } from '../../hooks/useLockBodyScroll';
 import { useQuestionBankToasts } from './QuestionBankToast';
 import { questionDraftService, QuestionDraft } from '../../services/questionDraftService';
 import { generateAutoTagsWithAI, mergeTagsList } from '../../services/aiAutoTaggingService';
+import { GooglePickerTriggerButton } from '../common/GooglePickerTriggerButton';
+import { googlePickerService } from '../../services/googlePickerService';
 
 const SUGGESTED_AI_TOPICS = [
   'Deepfake & Giả mạo giọng nói AI',
@@ -2473,7 +2475,22 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
 
                 {mediaType !== 'NONE' && (
                   <div>
-                    <label className="block text-white/60 font-mono mb-1">Đường dẫn liên kết (URL):</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-white/60 font-mono">Đường dẫn liên kết (URL):</label>
+                      <GooglePickerTriggerButton
+                        viewId={mediaType === 'IMAGE' ? 'DOCS_IMAGES' : (mediaType === 'VIDEO' ? 'DOCS_VIDEOS' : 'ALL')}
+                        label="Chọn từ Google Drive"
+                        variant="subtle"
+                        onFilePicked={async (file) => {
+                          if (mediaType === 'IMAGE') {
+                            const directUrl = await googlePickerService.getDirectImageUrl(file.id);
+                            setMediaUrl(directUrl);
+                          } else if (file.url) {
+                            setMediaUrl(file.url);
+                          }
+                        }}
+                      />
+                    </div>
                     <input
                       type="url"
                       value={mediaUrl}
@@ -2574,9 +2591,20 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
                     </div>
 
                     <div className="sm:col-span-6">
-                      <label className="block text-[10px] font-mono text-white/60 mb-1">
-                        Hoặc nhập đường dẫn ảnh (URL):
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[10px] font-mono text-white/60">
+                          Hoặc chọn ảnh từ Drive / URL:
+                        </label>
+                        <GooglePickerTriggerButton
+                          viewId="DOCS_IMAGES"
+                          label="Chọn ảnh từ Drive"
+                          variant="subtle"
+                          onFilePicked={async (file) => {
+                            const directUrl = await googlePickerService.getDirectImageUrl(file.id);
+                            setVcnvImage(directUrl);
+                          }}
+                        />
+                      </div>
                       <input
                         type="text"
                         value={vcnvImage.startsWith('data:') ? '(Ảnh tải từ máy tính)' : vcnvImage}

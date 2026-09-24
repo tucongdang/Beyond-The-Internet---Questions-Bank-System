@@ -22,10 +22,10 @@ async function startServer() {
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   async function generateWithFallback(ai: GoogleGenAI, params: any) {
-    // Approved models hierarchy with gemini-3.5-flash for Search Grounding
+    // Approved models hierarchy with gemini-3.8-flash for multimodal & fast text
     const fallbackModels = [
-      "gemini-3.5-flash",
       "gemini-3.8-flash",
+      "gemini-3.5-flash",
       "gemini-3.6-flash",
       "gemini-flash-latest",
       "gemini-3.1-flash-lite"
@@ -284,6 +284,190 @@ Yêu cầu chi tiết theo từng định dạng:
     } catch (error: any) {
       console.error("Gemini Quick Draft Error:", error);
       res.status(500).json({ error: error.message || "Lỗi khi tạo nhanh câu hỏi bằng Gemini API." });
+    }
+  });
+
+  // Multimodal Scanner Route: Scans camera snapshot images or document text files using Gemini
+  app.post("/api/ai/scan-and-extract-questions", async (req, res) => {
+    try {
+      const {
+        image,
+        text,
+        stage = 'BAN_KET_1',
+        roundGroup = 'KHOI_DONG',
+        defaultDomain = 'MIEN_4'
+      } = req.body;
+
+      if (!image && (!text || !text.trim())) {
+        return res.status(400).json({ error: "Vui lòng cung cấp ảnh chụp từ camera hoặc nội dung văn bản để quét." });
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: "Chưa cấu hình GEMINI_API_KEY trên máy chủ." });
+      }
+
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      const parts: any[] = [];
+
+      // 1. Process Image Part if present
+      if (image && image.base64) {
+        let cleanBase64 = image.base64;
+        let mime = image.mimeType || 'image/jpeg';
+        if (cleanBase64.includes(',')) {
+          const split = cleanBase64.split(',');
+          const match = split[0].match(/:(.*?);/);
+          if (match) mime = match[1];
+          cleanBase64 = split[1];
+        }
+
+        parts.push({
+          inlineData: {
+            mimeType: mime,
+            data: cleanBase64
+          }
+        });
+      }
+
+      // 2. Prompt instructions for OCR & structured conversion
+      const textPrompt = `Bạn là Trợ lý AI Khảo thí & OCR Chuyên sâu của Cuộc thi "Beyond The Internet 2026" (BTI 2026).
+Nhiệm vụ: Quét và phân tích toàn bộ tài liệu được cung cấp (ảnh chụp từ camera, ảnh chụp đề thi hoặc văn bản có sẵn), trích xuất TẤT CẢ các câu hỏi có trong tài liệu và chuyển đổi thành cấu trúc dữ liệu câu hỏi chuẩn BTI 2026.
+
+${text && text.trim() ? `NỘI DUNG VĂN BẢN ĐÍNH KÈM CẦN QUÉT:\n"""\n${text}\n"""\n` : ''}
+
+Ngữ cảnh mặc định:
+- Giai đoạn thi: ${stage}
+- Vòng thi: ${roundGroup}
+- Miền năng lực số mặc định nếu không xác định được: ${defaultDomain}
+
+Quy tắc trích xuất & chuyển đổi:
+1. Đọc và nhận diện toàn bộ các câu hỏi có trong ảnh/văn bản. Không bỏ sót câu nào.
+2. Nhận diện cấu trúc loại câu hỏi:
+   - MULTIPLE_CHOICE: Trắc nghiệm 4 phương án A, B, C, D.
+   - TRUE_FALSE_4: Đúng/Sai 4 ý (a, b, c, d).
+   - SHORT_ANSWER: Câu hỏi trả lời ngắn, điền từ vào chỗ trống.
+   - VCNV: Vượt chướng ngại vật (nếu có ô chữ / từ khóa / gợi ý).
+3. Xác định đáp án đúng (correctKey):
+   - Nếu đề thi có khoanh tròn, đánh dấu tích, gạch chân hoặc in đậm đáp án -> Chọn phương án đó làm correctKey.
+   - Nếu đề thi KHÔNG có đánh dấu đáp án -> Bạn hãy tự động giải và đưa ra đáp án chính xác nhất.
+   - Với TRUE_FALSE_4, format correctKey là chuỗi dạng "a:Đ,b:S,c:Đ,d:S" hoặc "A:Đ|B:S|C:Đ|D:S".
+4. Cung cấp lời giải thích (explanation) rõ ràng, khoa học, có lập luận logic.
+5. Gán căn cứ pháp lý (legalReference) chuẩn mực của Việt Nam về kỷ nguyên số (VD: "Thông tư 02/2025/TT-BGDĐT", "Nghị định 13/2023/NĐ-CP", "Luật An ninh mạng 2018", "Luật Giao dịch điện tử 2023"...).
+6. Tự động phân loại vào 6 Miền năng lực số BTI:
+   - MIEN_1: Khai thác dữ liệu & Thông tin số (1.1, 1.2, 1.3)
+   - MIEN_2: Giao tiếp & Hợp tác số (2.1, 2.2, 2.3, 2.4)
+   - MIEN_3: Sáng tạo nội dung số (3.1, 3.2, 3.3, 3.4)
+   - MIEN_4: An toàn & An ninh số (4.1, 4.2, 4.3, 4.4)
+   - MIEN_5: Giải quyết vấn đề trong môi trường số (5.1, 5.2, 5.3, 5.4)
+   - MIEN_6: Ứng dụng AI & Công nghệ tương lai (6.1, 6.2, 6.3)
+7. Đánh giá mức độ nhận thức: "NHAN_BIET" | "THONG_HIEU" | "VAN_DUNG" | "VAN_DUNG_CAO".
+8. Ước tính thời gian làm bài (timeLimit): 15-30 giây cho Khởi động, 20-30 giây cho Tăng tốc, 40-60 giây cho Về đích.
+9. Đề xuất điểm số (points): 10, 20, 30 hoặc 40 điểm.
+10. Gán các tags ngắn gọn (2-4 tags).
+
+Hãy trả về JSON hợp lệ theo Schema được quy định.`;
+
+      parts.push({ text: textPrompt });
+
+      const response = await generateWithFallback(ai, {
+        contents: parts.length === 1 ? parts[0].text : { parts },
+        useSearchGrounding: false,
+        config: {
+          systemInstruction: "Bạn là chuyên gia số hóa đề thi BTI 2026. Hãy đọc kỹ ảnh chụp và văn bản, trích xuất chuẩn xác thành JSON.",
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              extractedQuestions: {
+                type: Type.ARRAY,
+                description: "Danh sách tất cả câu hỏi được bóc tách từ ảnh/tài liệu",
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    questionText: { type: Type.STRING, description: "Nội dung câu hỏi" },
+                    roundType: { type: Type.STRING, description: "MULTIPLE_CHOICE | TRUE_FALSE_4 | SHORT_ANSWER | VCNV" },
+                    options: {
+                      type: Type.OBJECT,
+                      properties: {
+                        A: { type: Type.STRING },
+                        B: { type: Type.STRING },
+                        C: { type: Type.STRING },
+                        D: { type: Type.STRING }
+                      }
+                    },
+                    tfItems: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          key: { type: Type.STRING },
+                          text: { type: Type.STRING },
+                          isCorrect: { type: Type.BOOLEAN }
+                        },
+                        required: ["key", "text", "isCorrect"]
+                      }
+                    },
+                    vcnvData: {
+                      type: Type.OBJECT,
+                      properties: {
+                        obstacleKeyword: { type: Type.STRING },
+                        clue1: { type: Type.STRING },
+                        ans1: { type: Type.STRING },
+                        clue2: { type: Type.STRING },
+                        ans2: { type: Type.STRING },
+                        clue3: { type: Type.STRING },
+                        ans3: { type: Type.STRING },
+                        clue4: { type: Type.STRING },
+                        ans4: { type: Type.STRING }
+                      }
+                    },
+                    correctKey: { type: Type.STRING, description: "Đáp án đúng hoặc từ khóa chính" },
+                    explanation: { type: Type.STRING, description: "Lời giải thích chi tiết" },
+                    legalReference: { type: Type.STRING, description: "Căn cứ pháp lý viện dẫn" },
+                    domain: { type: Type.STRING, description: "MIEN_1 đến MIEN_6" },
+                    subCompetency: { type: Type.STRING, description: "Mã kỹ năng số ví dụ 4.2" },
+                    cognitiveLevel: { type: Type.STRING, description: "NHAN_BIET, THONG_HIEU, VAN_DUNG, VAN_DUNG_CAO" },
+                    timeLimit: { type: Type.INTEGER, description: "Thời gian làm bài tính bằng giây" },
+                    points: { type: Type.INTEGER, description: "Điểm số gợi ý" },
+                    tags: {
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING }
+                    },
+                    detectedRawText: { type: Type.STRING, description: "Trích đoạn văn bản gốc tương ứng" }
+                  },
+                  required: ["questionText", "correctKey", "explanation"]
+                }
+              },
+              scanSummary: {
+                type: Type.OBJECT,
+                properties: {
+                  totalDetected: { type: Type.INTEGER, description: "Tổng số câu hỏi phát hiện được" },
+                  notes: { type: Type.STRING, description: "Ghi chú chất lượng quét (ví dụ: ảnh mờ, chữ viết tay, phát hiện đáp án khoanh tròn...)" }
+                }
+              }
+            },
+            required: ["extractedQuestions"]
+          }
+        }
+      });
+
+      if (!response.text) {
+        throw new Error("Không nhận được nội dung trích xuất từ Gemini.");
+      }
+
+      const parsedData = JSON.parse(response.text.trim());
+      res.json({
+        success: true,
+        extractedQuestions: parsedData.extractedQuestions || [],
+        scanSummary: parsedData.scanSummary || { totalDetected: (parsedData.extractedQuestions || []).length }
+      });
+    } catch (error: any) {
+      console.error("Gemini Scan & Extract Error:", error);
+      res.status(500).json({ error: error.message || "Lỗi khi quét ảnh hoặc phân tích tài liệu bằng Gemini API." });
     }
   });
 

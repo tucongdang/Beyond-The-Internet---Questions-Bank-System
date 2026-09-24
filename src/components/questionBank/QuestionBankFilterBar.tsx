@@ -57,6 +57,7 @@ import {
 } from '../../services/fullTextSearchService';
 import { DifficultyQuickToggleBar } from './DifficultyBadgeAndMeter';
 import { FolderPlus, Folder } from 'lucide-react';
+import { BtiCompetencyMatrixFilterBar, MatrixStatusFilterType } from './BtiCompetencyMatrixFilterBar';
 
 interface QuestionBankFilterBarProps {
   questions: QuestionItem[];
@@ -93,6 +94,15 @@ interface QuestionBankFilterBarProps {
   filterDomain: string; // Digital Competency Domain
   onDomainChange: (dom: string) => void;
 
+  filterSubCompetency?: string; // Digital Sub-Competency (1.1 - 6.3)
+  onSubCompetencyChange?: (sub: string) => void;
+
+  filterMatrixStatus?: MatrixStatusFilterType; // Matrix Coverage Status
+  onMatrixStatusChange?: (st: MatrixStatusFilterType) => void;
+
+  onOpenAddQuestionForSlot?: (domainKey: DigitalCompetencyDomainKey, level: CognitiveLevel, subCode?: string) => void;
+  onNavigateToFullMatrix?: () => void;
+
   filterStage: string; // Competition Stage
   onStageChange: (stage: string) => void;
 
@@ -125,11 +135,18 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
   onSortChange,
   filterDomain,
   onDomainChange,
+  filterSubCompetency = 'ALL',
+  onSubCompetencyChange,
+  filterMatrixStatus = 'ALL',
+  onMatrixStatusChange,
+  onOpenAddQuestionForSlot,
+  onNavigateToFullMatrix,
   filterStage,
   onStageChange,
   onResetAllFilters
 }) => {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [isMatrixFilterOpen, setIsMatrixFilterOpen] = useState(true);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showSyntaxGuide, setShowSyntaxGuide] = useState(false);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
@@ -274,6 +291,8 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
     activeTagsList.length > 0 ||
     filterStatus !== 'ALL' ||
     filterDomain !== 'ALL' ||
+    filterSubCompetency !== 'ALL' ||
+    filterMatrixStatus !== 'ALL' ||
     filterStage !== 'ALL';
 
   // Count active advanced filters (beyond primary search & round)
@@ -354,6 +373,29 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
             );
           })}
         </div>
+
+        {/* Toggle BTI Competency Matrix Filter Bar */}
+        <button
+          type="button"
+          onClick={() => {
+            vibrateTap();
+            soundFx.playClick();
+            setIsMatrixFilterOpen(prev => !prev);
+          }}
+          className={`px-2.5 py-1 rounded-[4px] text-[11px] font-mono font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 border ${
+            isMatrixFilterOpen || filterDomain !== 'ALL' || filterMatrixStatus !== 'ALL' || filterSubCompetency !== 'ALL'
+              ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm font-bold'
+              : 'bg-[#241148] text-amber-300 border-amber-400/30 hover:text-white hover:bg-white/10'
+          }`}
+          title="Bật/Tắt Bộ Lọc Ma Trận Độ Phủ Khung Năng Lực BTI 2026 (TT 02/2025/TT-BGDĐT)"
+        >
+          <Target className="w-3.5 h-3.5" />
+          <span className="hidden xs:inline sm:inline">Ma Trận BTI</span>
+          {(filterDomain !== 'ALL' || filterMatrixStatus !== 'ALL' || filterSubCompetency !== 'ALL') && (
+            <span className="w-2 h-2 rounded-full bg-rose-500 inline-block animate-pulse" />
+          )}
+          {isMatrixFilterOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        </button>
 
         {/* Toggle Advanced Filters Button */}
         <button
@@ -611,6 +653,24 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
           </select>
         </div>
       </div>
+
+      {/* 2.4. Dedicated BTI Competency Matrix Filter Bar */}
+      {isMatrixFilterOpen && (
+        <BtiCompetencyMatrixFilterBar
+          questions={questions}
+          filteredCount={filteredCount}
+          filterDomain={filterDomain}
+          onDomainChange={onDomainChange}
+          filterSubCompetency={filterSubCompetency}
+          onSubCompetencyChange={onSubCompetencyChange || (() => {})}
+          filterLevel={filterLevel}
+          onLevelChange={onLevelChange}
+          filterMatrixStatus={filterMatrixStatus}
+          onMatrixStatusChange={onMatrixStatusChange || (() => {})}
+          onOpenAddQuestionForSlot={onOpenAddQuestionForSlot}
+          onNavigateToFullMatrix={onNavigateToFullMatrix}
+        />
+      )}
 
       {/* 2.5. Dedicated Quick-Toggle Difficulty Filter Bar */}
       <DifficultyQuickToggleBar
@@ -1159,10 +1219,45 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
             {/* Domain tag */}
             {filterDomain !== 'ALL' && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10.5px]">
-                <span>Miền: {DIGITAL_COMPETENCY_DOMAINS[filterDomain as DigitalCompetencyDomainKey]?.code || filterDomain}</span>
+                <span>Miền: {filterDomain === 'UNASSIGNED' ? 'Chưa gán' : (DIGITAL_COMPETENCY_DOMAINS[filterDomain as DigitalCompetencyDomainKey]?.code || filterDomain)}</span>
                 <button
                   type="button"
                   onClick={() => onDomainChange('ALL')}
+                  className="hover:text-rose-400 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {/* Sub-competency tag */}
+            {filterSubCompetency !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-400/30 text-[10.5px]">
+                <span>Tiêu chí: {filterSubCompetency}</span>
+                <button
+                  type="button"
+                  onClick={() => onSubCompetencyChange?.('ALL')}
+                  className="hover:text-rose-400 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {/* Matrix status tag */}
+            {filterMatrixStatus !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30 text-[10.5px]">
+                <span>
+                  Độ phủ: {
+                    filterMatrixStatus === 'GAP_DEFICIT' ? 'Thiếu (<3 câu)' :
+                    filterMatrixStatus === 'GAP_EMPTY' ? 'Vùng trắng (0 câu)' :
+                    filterMatrixStatus === 'MET_TARGET' ? 'Đạt chuẩn (≥3 câu)' :
+                    'Chưa gán BTI'
+                  }
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onMatrixStatusChange?.('ALL')}
                   className="hover:text-rose-400 cursor-pointer"
                 >
                   <X className="w-3 h-3" />

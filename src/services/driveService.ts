@@ -3,11 +3,13 @@ import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 
 const provider = new GoogleAuthProvider();
 provider.addScope('https://www.googleapis.com/auth/drive.file');
+provider.addScope('https://www.googleapis.com/auth/drive.metadata.readonly');
 provider.setCustomParameters({
   prompt: 'consent'
 });
 
 let cachedAccessToken: string | null = null;
+
 
 export const driveService = {
   async authenticate(): Promise<string | null> {

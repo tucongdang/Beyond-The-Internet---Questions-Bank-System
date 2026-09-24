@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { BarChart3, Target, ChevronRight, Sparkles } from 'lucide-react';
+import { BarChart3, Target, ChevronRight, Sparkles, PieChart as PieIcon } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { QuestionItem, DigitalCompetencyDomainKey } from '../../types';
 import { DIGITAL_COMPETENCY_DOMAINS } from '../../data/digitalCompetencyData';
@@ -65,18 +65,21 @@ export const BtiMatrixOverviewWidget: React.FC<BtiMatrixOverviewWidgetProps> = (
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            vibrateTap();
-            soundFx.playClick();
-            onOpenFullMatrix();
-          }}
-          className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/40 text-amber-200 border border-amber-400/40 rounded text-xs font-mono font-bold flex items-center gap-1 transition cursor-pointer"
-        >
-          <span>Xem Ma Trận Đầy Đủ</span>
-          <ChevronRight className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              vibrateTap();
+              soundFx.playClick();
+              onOpenFullMatrix();
+            }}
+            className="px-3 py-1.5 bg-gradient-to-r from-amber-500/30 to-purple-600/30 hover:from-amber-500/40 hover:to-purple-600/50 text-amber-200 border border-amber-400/50 rounded text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+          >
+            <PieIcon className="w-3.5 h-3.5 text-amber-400" />
+            <span>Biểu Đồ Trực Quan Recharts</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       <div className="h-64 w-full pt-1">

@@ -15,31 +15,34 @@ import {
   Settings2, 
   Check, 
   Layers, 
-  HelpCircle,
-  FileSpreadsheet,
-  Zap,
-  Info,
-  Search,
-  SlidersHorizontal,
-  ChevronDown,
-  ChevronUp,
-  FileUp,
-  Edit3,
-  AlertCircle,
-  Eye,
-  RefreshCw
+  HelpCircle, 
+  FileSpreadsheet, 
+  Zap, 
+  Info, 
+  Search, 
+  SlidersHorizontal, 
+  ChevronDown, 
+  ChevronUp, 
+  FileUp, 
+  Edit3, 
+  AlertCircle, 
+  Eye, 
+  RefreshCw,
+  HardDrive
 } from 'lucide-react';
 import { 
   QuestionItem, 
   CompetitionStage, 
   CognitiveLevel, 
-  DigitalCompetencyDomainKey,
-  QuestionRoundFormat,
-  ApprovalStatus
+  DigitalCompetencyDomainKey, 
+  QuestionRoundFormat, 
+  ApprovalStatus,
+  PickedDriveFile
 } from '../../types';
 import { DIGITAL_COMPETENCY_DOMAINS, COMPETITION_STAGES } from '../../data/digitalCompetencyData';
 import { questionBankManager } from '../../services/questionBankManager';
 import { excelService } from '../../services/excelService';
+import { googlePickerService } from '../../services/googlePickerService';
 import { soundFx } from '../../services/audioEffects';
 import { vibrateTap, vibrateSuccess } from '../../utils/hapticUtils';
 import { useLockBodyScroll } from '../../hooks/useLockBodyScroll';
@@ -48,6 +51,7 @@ interface BulkQuestionImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onImportSuccess?: (count: number) => void;
+  initialDriveFile?: PickedDriveFile | null;
 }
 
 type InputFormatMode = 'FILE_UPLOAD' | 'EXCEL_TSV' | 'SIMPLE_TEXT';
@@ -89,7 +93,8 @@ const DEFAULT_COLUMN_MAPPING: ColumnMapping = {
 export const BulkQuestionImportModal: React.FC<BulkQuestionImportModalProps> = ({
   isOpen,
   onClose,
-  onImportSuccess
+  onImportSuccess,
+  initialDriveFile
 }) => {
   useLockBodyScroll(isOpen);
 
@@ -103,6 +108,7 @@ export const BulkQuestionImportModal: React.FC<BulkQuestionImportModalProps> = (
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isLoadingFile, setIsLoadingFile] = useState<boolean>(false);
+  const [driveFileLoading, setDriveFileLoading] = useState<boolean>(false);
   const [fileSheetNames, setFileSheetNames] = useState<string[]>([]);
   const [selectedSheet, setSelectedSheet] = useState<string>('ALL');
   const [rawFileRows, setRawFileRows] = useState<any[][]>([]);
@@ -608,6 +614,55 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
       setIsLoadingFile(false);
     }
   };
+
+  // Process file directly from Google Drive via Google Picker
+  const loadFromDriveFile = async (driveFile: PickedDriveFile) => {
+    setDriveFileLoading(true);
+    setIsLoadingFile(true);
+    try {
+      const { blob } = await googlePickerService.downloadFileContent(driveFile.id, driveFile.mimeType);
+      const isSheet = driveFile.mimeType.includes('spreadsheet') || driveFile.name.endsWith('.xlsx');
+      const ext = isSheet ? '.xlsx' : (driveFile.name.endsWith('.csv') ? '.csv' : (driveFile.name.endsWith('.txt') ? '.txt' : '.xlsx'));
+      const filename = driveFile.name.includes('.') ? driveFile.name : `${driveFile.name}${ext}`;
+      const syntheticFile = new File([blob], filename, {
+        type: driveFile.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      setInputMode('FILE_UPLOAD');
+      await processUploadedFile(syntheticFile);
+      soundFx.playSuccess();
+      vibrateSuccess();
+    } catch (err: any) {
+      console.error('Error loading Google Drive file:', err);
+      alert('Không thể tải tệp từ Google Drive: ' + (err.message || 'Lỗi kết nối'));
+    } finally {
+      setIsLoadingFile(false);
+      setDriveFileLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && initialDriveFile) {
+      loadFromDriveFile(initialDriveFile);
+    }
+  }, [isOpen, initialDriveFile]);
+
+  const handlePickFromDrive = async () => {
+    vibrateTap();
+    soundFx.playClick();
+    try {
+      const files = await googlePickerService.openPicker({
+        viewId: 'SPREADSHEETS',
+        title: 'Chọn bảng tính đề thi từ Google Drive (Beyond The Internet 2026)',
+        mimeTypes: 'application/vnd.google-apps.spreadsheet,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv'
+      });
+      if (files && files.length > 0) {
+        await loadFromDriveFile(files[0]);
+      }
+    } catch (err: any) {
+      console.error('Picker error:', err);
+    }
+  };
+
 
   // Helper to parse rows using custom column mapping
   const parseRowsWithMapping = (rows: any[][], mapping: ColumnMapping): QuestionItem[] => {
@@ -1153,6 +1208,29 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
                         </p>
                       </div>
                     )}
+                  </div>
+
+                  {/* Google Drive Picker Button */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-px bg-white/10" />
+                      <span className="text-[10px] font-mono text-white/40 uppercase">HOẶC CHỌN TỪ ĐÁM MÂY</span>
+                      <div className="flex-1 h-px bg-white/10" />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handlePickFromDrive}
+                      disabled={isLoadingFile || driveFileLoading}
+                      className="w-full py-2.5 px-3 rounded-[5px] bg-gradient-to-r from-cyan-600 via-sky-600 to-blue-700 hover:from-cyan-500 hover:to-blue-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-cyan-950/40 border border-cyan-400/40 transition cursor-pointer active:scale-[0.99] disabled:opacity-50"
+                      title="Mở Google Picker để chọn bảng tính đề thi (.gsheet, .xlsx, .csv)"
+                    >
+                      <HardDrive className="w-4 h-4 text-cyan-200" />
+                      <span>{driveFileLoading ? 'Đang tải tệp từ Google Drive...' : 'Chọn từ Google Drive (Google Sheets / Excel)'}</span>
+                      <span className="px-1.5 py-0.5 rounded bg-black/30 text-[10px] font-mono text-cyan-200 border border-cyan-300/30">
+                        Google Picker
+                      </span>
+                    </button>
                   </div>
 
                   {/* Multi-Sheet Selector if Excel file has multiple sheets */}

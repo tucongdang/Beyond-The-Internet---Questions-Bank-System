@@ -23,6 +23,7 @@ interface BtiCompetencyMatrixQuickPopupProps {
   onClose: () => void;
   questions: QuestionItem[];
   onOpenAddQuestionForSlot?: (domainKey: DigitalCompetencyDomainKey, level: CognitiveLevel, subCode?: string) => void;
+  onFilterQuestions?: (domain: string, level: string) => void;
   onNavigateToFullMatrix?: () => void;
 }
 
@@ -31,6 +32,7 @@ export const BtiCompetencyMatrixQuickPopup: React.FC<BtiCompetencyMatrixQuickPop
   onClose,
   questions,
   onOpenAddQuestionForSlot,
+  onFilterQuestions,
   onNavigateToFullMatrix
 }) => {
   if (!isOpen) return null;
@@ -309,14 +311,32 @@ export const BtiCompetencyMatrixQuickPopup: React.FC<BtiCompetencyMatrixQuickPop
                         </p>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleQuickCreate(gap.domainKey, gap.level)}
-                        className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded text-xs flex items-center gap-1 transition cursor-pointer shrink-0 shadow-sm"
-                      >
-                        <PlusCircle className="w-3.5 h-3.5 text-amber-300" />
-                        <span>Soạn Đề Ngay</span>
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {gap.count > 0 && onFilterQuestions && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              vibrateTap();
+                              soundFx.playClick();
+                              onFilterQuestions(gap.domainKey, gap.level);
+                              onClose();
+                            }}
+                            className="px-2.5 py-1.5 bg-[#241148] hover:bg-[#341866] text-sky-300 hover:text-white border border-sky-400/40 font-bold rounded text-xs flex items-center gap-1 transition cursor-pointer"
+                            title={`Lọc ${gap.count} câu hỏi hiện có trong ô này`}
+                          >
+                            <Search className="w-3.5 h-3.5" />
+                            <span>Lọc ({gap.count})</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleQuickCreate(gap.domainKey, gap.level)}
+                          className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded text-xs flex items-center gap-1 transition cursor-pointer shadow-sm"
+                        >
+                          <PlusCircle className="w-3.5 h-3.5 text-amber-300" />
+                          <span>Soạn Đề Ngay</span>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

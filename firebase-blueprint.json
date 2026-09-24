@@ -133,6 +133,26 @@
         "text": { "type": "string" },
         "timestamp": { "type": "number" }
       }
+    },
+    "QuestionReview": {
+      "title": "QuestionReview",
+      "description": "Quick review status and notes for a question item in Firestore",
+      "type": "object",
+      "properties": {
+        "question_id": { "type": "string", "description": "Target question ID" },
+        "approval_status": { "type": "string", "description": "Review status: DRAFT, PENDING_REVIEW, APPROVED, REJECTED / NEEDS_REVISION" },
+        "status_label": { "type": "string", "description": "Human readable label in Vietnamese" },
+        "review_notes": { "type": "string", "description": "Quick review notes by moderator" },
+        "reviewed_by": { "type": "string", "description": "Name of reviewer" },
+        "reviewed_at": { "type": "number", "description": "Timestamp when review was saved" },
+        "last_updated": { "type": "number", "description": "Last updated timestamp" },
+        "history": {
+          "type": "array",
+          "description": "Audit trail of previous quick reviews",
+          "items": { "type": "object" }
+        }
+      },
+      "required": ["question_id", "approval_status", "reviewed_at"]
     }
   },
   "firestore": {
@@ -167,6 +187,10 @@
     "/audience_qa/{qaId}": {
       "schema": { "$ref": "#/entities/AudienceQA" },
       "description": "Audience Q&A collection"
+    },
+    "/question_reviews/{questionId}": {
+      "schema": { "$ref": "#/entities/QuestionReview" },
+      "description": "Real-time question reviews and notes collection"
     }
   }
 }

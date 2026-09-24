@@ -16,7 +16,8 @@ import {
   Lightbulb, 
   ArrowRight,
   Search,
-  BookOpen
+  BookOpen,
+  Camera
 } from 'lucide-react';
 import { BtiRoundGroupKey, BTI_ROUND_GROUPS, DIGITAL_COMPETENCY_DOMAINS } from '../../data/digitalCompetencyData';
 import { DigitalCompetencyDomainKey } from '../../types';
@@ -27,6 +28,8 @@ export interface QuestionBankEmptyStateProps {
   filterRoundGroup: BtiRoundGroupKey | 'ALL';
   filterTopic: string;
   filterDomain: string;
+  filterSubCompetency?: string;
+  filterMatrixStatus?: string;
   filterStage?: string;
   filterLevel?: string;
   searchQuery?: string;
@@ -34,6 +37,7 @@ export interface QuestionBankEmptyStateProps {
   onAddQuestion: () => void;
   onOpenAIStudio: () => void;
   onImportExcel: () => void;
+  onScanCamera?: () => void;
   onResetFilters: () => void;
 }
 
@@ -41,6 +45,8 @@ export const QuestionBankEmptyState: React.FC<QuestionBankEmptyStateProps> = ({
   filterRoundGroup,
   filterTopic,
   filterDomain,
+  filterSubCompetency = 'ALL',
+  filterMatrixStatus = 'ALL',
   filterStage = 'ALL',
   filterLevel = 'ALL',
   searchQuery = '',
@@ -48,12 +54,15 @@ export const QuestionBankEmptyState: React.FC<QuestionBankEmptyStateProps> = ({
   onAddQuestion,
   onOpenAIStudio,
   onImportExcel,
+  onScanCamera,
   onResetFilters
 }) => {
   const hasActiveFilters = 
     filterRoundGroup !== 'ALL' || 
     filterTopic !== 'ALL' || 
     filterDomain !== 'ALL' || 
+    filterSubCompetency !== 'ALL' || 
+    filterMatrixStatus !== 'ALL' || 
     filterStage !== 'ALL' || 
     filterLevel !== 'ALL' || 
     Boolean(searchQuery && searchQuery.trim().length > 0);
@@ -135,6 +144,27 @@ export const QuestionBankEmptyState: React.FC<QuestionBankEmptyStateProps> = ({
       return {
         title: `Chưa có câu hỏi nào cho ${roundInfo.shortName || roundInfo.name}`,
         description: advice
+      };
+    }
+
+    if (filterSubCompetency !== 'ALL') {
+      return {
+        title: `Chưa có câu hỏi cho tiêu chí ${filterSubCompetency}`,
+        description: `Kỹ năng thành phần này của Khung BTI 2026 hiện chưa có câu hỏi nào. Hãy bổ sung ngay để đảm bảo độ phủ kiến thức.`
+      };
+    }
+
+    if (filterMatrixStatus === 'GAP_EMPTY') {
+      return {
+        title: `Ô ma trận này hiện đang trống (0 câu hỏi)`,
+        description: `Đây là vùng khuyết trong Ma Trận Độ Phủ Khung Năng Lực BTI 2026. Hãy tạo câu hỏi mới hoặc sử dụng Trợ lý AI Studio để lấp đầy ô này.`
+      };
+    }
+
+    if (filterMatrixStatus === 'UNASSIGNED') {
+      return {
+        title: `Không có câu hỏi chưa gán Khung BTI`,
+        description: `Tuyệt vời! Toàn bộ câu hỏi trong ngân hàng đều đã được phân loại chuẩn hóa theo Khung Năng Lực BTI 2026.`
       };
     }
 
@@ -359,6 +389,22 @@ export const QuestionBankEmptyState: React.FC<QuestionBankEmptyStateProps> = ({
             <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
             <span>Nhập File Excel</span>
           </button>
+
+          {/* Button: Scan with Camera / Gemini */}
+          {onScanCamera && (
+            <button
+              type="button"
+              onClick={() => {
+                vibrateTap();
+                soundFx.playClick();
+                onScanCamera();
+              }}
+              className="px-4 py-2.5 rounded-[6px] bg-gradient-to-r from-amber-500 via-purple-600 to-indigo-600 hover:from-amber-400 hover:via-purple-500 hover:to-indigo-500 text-slate-950 font-black text-sm flex items-center gap-2 shadow-lg shadow-purple-900/40 transition cursor-pointer"
+            >
+              <Camera className="w-4 h-4 text-slate-950" />
+              <span>Quét Đề Camera (Gemini)</span>
+            </button>
+          )}
 
           {/* Button 4: Reset Filter (Shown if filters are active) */}
           {hasActiveFilters && (

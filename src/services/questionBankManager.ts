@@ -1157,6 +1157,54 @@ class QuestionBankManager {
     }
   }
 
+  public setQuestionReview(id: string, status: ApprovalStatus, notes?: string, reviewerName?: string): void {
+    const idx = this.questions.findIndex(q => q.id === id);
+    if (idx === -1) return;
+
+    const oldQ = this.questions[idx];
+    const reviewer = reviewerName || this.currentUser.name;
+    const statusLabels: Record<string, string> = {
+      'DRAFT': 'Đang soạn',
+      'PENDING_REVIEW': 'Chờ duyệt',
+      'APPROVED': 'Đã duyệt',
+      'REJECTED': 'Cần sửa / Từ chối',
+      'NEEDS_REVISION': 'Cần sửa'
+    };
+    const label = statusLabels[status] || status;
+
+    let updatedQ: QuestionItem = {
+      ...oldQ,
+      approval_status: status,
+      approved_by: reviewer,
+      review_notes: notes !== undefined ? notes : oldQ.review_notes
+    };
+
+    const newSnapshot = this.extractSnapshot(updatedQ);
+    const existingVersions = this.getQuestionVersions(id);
+    const nextVerNum = (existingVersions[0]?.versionNumber || existingVersions.length) + 1;
+    const summary = notes 
+      ? `Review nhanh: [${label}] - Ghi chú: ${notes}`
+      : `Review nhanh: Chuyển trạng thái sang [${label}]`;
+
+    const newVersion: QuestionVersion = {
+      id: `v_${Date.now()}_${nextVerNum}`,
+      versionNumber: nextVerNum,
+      timestamp: Date.now(),
+      modifiedBy: reviewer,
+      userRole: this.currentUser.role,
+      action: 'STATUS_CHANGED',
+      changeSummary: summary,
+      changedFields: [`Trạng thái: ${label}`, ...(notes ? ['Ghi chú review'] : [])],
+      snapshot: newSnapshot
+    };
+
+    updatedQ.versions = [newVersion, ...existingVersions];
+    updatedQ = this._logAction(updatedQ, 'STATUS_CHANGED', summary, nextVerNum, newVersion.id);
+    this.questions[idx] = updatedQ;
+    this.saveQuestions();
+    this.notify();
+  }
+
   public updateReviewNotes(id: string, notes: string): void {
     const idx = this.questions.findIndex(q => q.id === id);
     if (idx !== -1) {
@@ -1422,7 +1470,8 @@ class QuestionBankManager {
       APPROVED: 0,
       PENDING_REVIEW: 0,
       DRAFT: 0,
-      REJECTED: 0
+      REJECTED: 0,
+      NEEDS_REVISION: 0
     };
     const byRoundGroup: Record<BtiRoundGroupKey, number> = {
       KHOI_DONG: 0,

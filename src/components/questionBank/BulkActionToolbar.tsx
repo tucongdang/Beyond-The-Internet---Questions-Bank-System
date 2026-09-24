@@ -151,45 +151,72 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
           {hasSelection ? (
             <>
               {/* Delete Selected button - HIGH VISIBILITY PRIMARY BATCH ACTION */}
-              {canDelete && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    vibrateTap();
-                    soundFx.playClick();
-                    onDeleteSelected();
-                  }}
-                  className="px-3.5 py-1.5 rounded-[4px] bg-rose-600 hover:bg-rose-500 text-white border border-rose-400/50 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-md hover:scale-[1.02] active:scale-[0.98] ring-1 ring-rose-400/30"
-                  title="Xóa vĩnh viễn các câu hỏi đã chọn trong một lần thao tác hàng loạt"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>XÓA HÀNG LOẠT ({selectedCount})</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateTap();
+                  soundFx.playClick();
+                  onDeleteSelected();
+                }}
+                className="px-3.5 py-1.5 rounded-[4px] bg-rose-600 hover:bg-rose-500 text-white border border-rose-400/50 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-md hover:scale-[1.02] active:scale-[0.98] ring-1 ring-rose-400/30"
+                title="Xóa vĩnh viễn các câu hỏi đã chọn trong một lần thao tác hàng loạt"
+                data-testid="bulk-delete-button"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>XÓA HÀNG LOẠT ({selectedCount})</span>
+              </button>
 
-              {/* Set Status Dropdown */}
-              {canApprove && onChangeStatus && (
-                <div className="relative flex items-center">
-                  <select
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        vibrateTap();
-                        soundFx.playClick();
-                        onChangeStatus(e.target.value as any);
-                        e.target.value = '';
-                      }
-                    }}
-                    className="px-3 py-1.5 rounded-[4px] bg-indigo-900/40 hover:bg-indigo-900/60 text-indigo-200 hover:text-white border border-indigo-400/30 text-xs font-medium transition cursor-pointer appearance-none pr-8 focus:outline-none"
-                    title="Đổi trạng thái các câu hỏi đã chọn"
-                    defaultValue=""
+              {/* Set Status Dropdown - Change status in batch */}
+              {onChangeStatus && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="relative flex items-center">
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          vibrateTap();
+                          soundFx.playClick();
+                          onChangeStatus(e.target.value as any);
+                          e.target.value = '';
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-[4px] bg-[#3E1D74] hover:bg-[#4E2494] text-white border border-theme-accent/50 text-xs font-bold transition cursor-pointer appearance-none pr-8 focus:outline-none shadow-sm focus:ring-1 focus:ring-theme-accent"
+                      title="Đổi trạng thái đồng thời tự động phân loại và gắn thẻ theo ma trận độ phủ cho các câu hỏi đã chọn"
+                      defaultValue=""
+                      data-testid="bulk-status-select"
+                    >
+                      <option value="" disabled hidden>Đổi trạng thái ({selectedCount} câu)...</option>
+                      <option value="APPROVED" className="bg-[#190839] text-emerald-300 font-semibold">✓ Đã duyệt (Approved)</option>
+                      <option value="PENDING_REVIEW" className="bg-[#190839] text-amber-300 font-semibold">⏱ Chờ duyệt (Pending Review)</option>
+                      <option value="DRAFT" className="bg-[#190839] text-slate-200 font-semibold">📝 Bản nháp (Draft)</option>
+                      <option value="NEEDS_REVISION" className="bg-[#190839] text-rose-300 font-semibold">⚠️ Yêu cầu sửa (Needs Revision)</option>
+                      <option value="REJECTED" className="bg-[#190839] text-red-400 font-semibold">✕ Từ chối (Rejected)</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-theme-accent absolute right-2.5 pointer-events-none" />
+                  </div>
+
+                  {/* Auto-tag and matrix coverage indicator badge */}
+                  <span 
+                    className="hidden xl:inline-flex items-center gap-1 text-[10px] text-amber-300 font-mono bg-amber-500/15 px-2 py-1 rounded border border-amber-500/30"
+                    title="Hệ thống tự động phân loại miền năng lực số và gắn thẻ theo ma trận độ phủ BTI 2026 khi cập nhật trạng thái"
                   >
-                    <option value="" disabled hidden>Cập nhật trạng thái...</option>
-                    <option value="DRAFT" className="bg-[#190839] text-white">Chuyển thành: Nháp (Draft)</option>
-                    <option value="PENDING_REVIEW" className="bg-[#190839] text-amber-300">Chuyển thành: Chờ duyệt (Pending)</option>
-                    <option value="APPROVED" className="bg-[#190839] text-emerald-300">Chuyển thành: Đã duyệt (Approved)</option>
-                    <option value="REJECTED" className="bg-[#190839] text-rose-300">Chuyển thành: Từ chối (Rejected)</option>
-                  </select>
-                  <ChevronDown className="w-3.5 h-3.5 text-indigo-300 absolute right-2.5 pointer-events-none" />
+                    <Sparkles className="w-3 h-3 text-amber-300 animate-pulse" />
+                    <span>Auto-tag Ma trận</span>
+                  </span>
+
+                  {/* Quick 1-click Approval */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateTap();
+                      soundFx.playClick();
+                      onChangeStatus('APPROVED');
+                    }}
+                    className="px-2.5 py-1.5 rounded-[4px] bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/40 text-xs font-bold flex items-center gap-1 transition cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+                    title="Duyệt nhanh tất cả câu hỏi đã chọn sang ĐÃ DUYỆT (kèm tự động gắn thẻ ma trận)"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
+                    <span className="hidden sm:inline">Duyệt ({selectedCount})</span>
+                  </button>
                 </div>
               )}
 

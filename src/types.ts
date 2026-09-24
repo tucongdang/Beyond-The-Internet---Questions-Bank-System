@@ -244,7 +244,23 @@ export type QuestionRoundFormat =
   // 5. Câu Hỏi Phụ (Luật chơi mục 5)
   | 'CAU_HOI_PHU';         // 5. Câu hỏi phụ đấu loại trực tiếp (5 câu, 15s suy nghĩ, chuông nhanh);
 
-export type ApprovalStatus = 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+export type ApprovalStatus = 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'NEEDS_REVISION';
+
+export interface QuestionReviewRecord {
+  question_id: string;
+  approval_status: ApprovalStatus;
+  status_label: string;
+  review_notes: string;
+  reviewed_by: string;
+  reviewed_at: number;
+  last_updated: number;
+  history?: Array<{
+    status: ApprovalStatus;
+    notes: string;
+    by: string;
+    at: number;
+  }>;
+}
 
 export type UserRole = 'SUPER_ADMIN' | 'HEAD_EDITOR' | 'EXAMINER' | 'CONTRIBUTOR';
 
@@ -835,6 +851,18 @@ export interface QrScanTrendMetrics {
   currentHourScans: number;
   activeHoursCount: number;
   velocityTrend: 'UP' | 'DOWN' | 'STABLE';
+}
+
+export interface PickedDriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  url?: string;
+  embedUrl?: string;
+  iconUrl?: string;
+  sizeBytes?: number;
+  lastEditedUtc?: number;
+  description?: string;
 }
 
 

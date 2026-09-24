@@ -10,15 +10,19 @@ import {
   ExternalLink, 
   Sparkles, 
   BookOpen, 
-  Search,
-  Calendar,
-  Layers,
-  ArrowRight,
-  X
+  Search, 
+  Calendar, 
+  Layers, 
+  ArrowRight, 
+  X,
+  HardDrive
 } from 'lucide-react';
-import { LegalDocument } from '../../types';
+import { LegalDocument, PickedDriveFile } from '../../types';
 import { questionBankManager } from '../../services/questionBankManager';
+import { googlePickerService } from '../../services/googlePickerService';
+import { GooglePickerTriggerButton } from '../common/GooglePickerTriggerButton';
 import { soundFx } from '../../services/audioEffects';
+
 import { vibrateTap, vibrateSuccess } from '../../utils/hapticUtils';
 import { useLockBodyScroll } from '../../hooks/useLockBodyScroll';
 
@@ -100,6 +104,54 @@ export const LegalDocumentLibrary: React.FC<LegalDocumentLibraryProps> = ({ onSe
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
+
+  const handleDriveDocPicked = async (file: PickedDriveFile) => {
+    setIsUploading(true);
+    try {
+      let contentText = '';
+      try {
+        const result = await googlePickerService.downloadFileContent(file.id, file.mimeType);
+        contentText = result.text || '';
+      } catch (e) {
+        console.warn('Could not read full text of Drive file, creating reference entry:', e);
+      }
+
+      const filenameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+      const newDoc: LegalDocument = {
+        id: `DRIVE_${file.id}`,
+        title: filenameWithoutExt,
+        documentNumber: `DRIVE_${file.id.slice(0, 8).toUpperCase()}`,
+        issuingAuthority: 'Tài liệu Google Drive',
+        issuedDate: new Date().toISOString().slice(0, 10),
+        issueDate: new Date().toISOString().slice(0, 10),
+        effectiveDate: new Date().toISOString().slice(0, 10),
+        type: file.mimeType.includes('pdf') ? 'LUAT' : 'QUY_DINH_KHAC',
+        domain: 'MIEN_4',
+        summary: contentText ? contentText.slice(0, 300) : `Tệp được chọn từ Google Drive: ${file.name}.`,
+        fullText: contentText || `Tệp Google Drive: ${file.name}\nLiên kết: ${file.url || ''}`,
+        relatedDomains: ['MIEN_4'],
+        keyArticles: [
+          { article: 'Tệp nguồn Drive', content: file.url ? `Liên kết xem: ${file.url}` : 'Đã kết nối qua Google Picker' }
+        ],
+        uploadedAt: Date.now(),
+        uploadedBy: questionBankManager.getCurrentUser().name
+      };
+
+      questionBankManager.addDocument(newDoc);
+      const updated = questionBankManager.getDocuments();
+      setDocuments(updated);
+      setSelectedDocId(newDoc.id);
+      soundFx.playCorrect();
+      vibrateSuccess();
+    } catch (err: any) {
+      console.error('Error importing document from Google Drive:', err);
+      soundFx.playError();
+      alert('Không thể nhập tài liệu từ Google Drive: ' + (err.message || 'Lỗi'));
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
 
   const handleAddManualDoc = () => {
     if (!newDocForm.title || !newDocForm.documentNumber) {
@@ -189,6 +241,14 @@ export const LegalDocumentLibrary: React.FC<LegalDocumentLibraryProps> = ({ onSe
               <Upload className="w-4 h-4" />
               <span>{isUploading ? 'Đang Đọc File...' : 'Upload Văn Bản Mới'}</span>
             </button>
+
+            <GooglePickerTriggerButton
+              viewId="PDFS"
+              label="Chọn từ Drive (PDF/Doc)"
+              title="Chọn tài liệu căn cứ từ Google Drive (Google Picker)"
+              onFilePicked={handleDriveDocPicked}
+              className="py-2.5 px-3 rounded-[4px] shrink-0"
+            />
 
             <button
               type="button"

@@ -56,6 +56,7 @@ import {
 import { DIGITAL_COMPETENCY_DOMAINS } from '../../data/digitalCompetencyData';
 import { questionBankManager } from '../../services/questionBankManager';
 import { BtiMatrixReportExportModal } from './BtiMatrixReportExportModal';
+import { BtiCompetencyVisualDashboard } from './BtiCompetencyVisualDashboard';
 import { soundFx } from '../../services/audioEffects';
 import { vibrateTap, vibrateSuccess } from '../../utils/hapticUtils';
 
@@ -613,46 +614,27 @@ export const BtiCompetencyMatrixDashboard: React.FC<BtiCompetencyMatrixDashboard
 
       {/* VIEW MODE 0: RECHARTS VISUAL MATRIX CHARTS */}
       {viewMode === 'CHARTS_VISUAL' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          
-          {/* Chart 1: Stacked Bar Chart (6 Domains x 4 Cognitive Levels) */}
-          <div className="fluent-card p-4 rounded-[4px] bg-[#120424] border border-purple-500/30 space-y-3">
-            <div className="flex items-center justify-between border-b border-purple-500/20 pb-2">
-              <h3 className="text-xs font-bold text-amber-300 font-mono flex items-center gap-1.5 uppercase">
-                <BarChart3 className="w-4 h-4 text-amber-400" />
-                <span>Phân Phối Độ Phủ 6 Miền & Mức Độ Nhận Thức</span>
-              </h3>
-              <span className="text-[10.5px] font-mono text-slate-400">Recharts Stacked Bar</span>
-            </div>
+        <div className="space-y-6">
+          {/* Main Visual Recharts Dashboard with Pie & Bar Charts */}
+          <BtiCompetencyVisualDashboard
+            questions={questions}
+            onFilterQuestionsBySkill={(domainKey, subCode, level) => {
+              onFilterMatrixCell?.(domainKey, level || 'THONG_HIEU');
+            }}
+            onOpenAddQuestionForSkill={(domainKey, subCode, level) => {
+              onOpenAddQuestion?.({ domain: domainKey, level: level || 'THONG_HIEU' });
+            }}
+            onNavigateToFullMatrix={() => setViewMode('CELL_HEATMAP')}
+          />
 
-            <div className="h-72 w-full pt-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={rechartsStackedData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                  <XAxis dataKey="shortName" stroke="#B6A6D8" fontSize={11} tickLine={false} />
-                  <YAxis stroke="#B6A6D8" fontSize={11} tickLine={false} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#1C093B', borderColor: '#8b5cf6', borderRadius: '4px', color: '#fff', fontSize: '12px' }}
-                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-                  <Bar dataKey="Nhận biết" stackId="a" fill="#38bdf8" />
-                  <Bar dataKey="Thông hiểu" stackId="a" fill="#34d399" />
-                  <Bar dataKey="Vận dụng" stackId="a" fill="#fbbf24" />
-                  <Bar dataKey="Vận dụng cao" stackId="a" fill="#f43f5e" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Chart 2: Radar Chart (6 Domains vs Target Benchmark) */}
-          <div className="fluent-card p-4 rounded-[4px] bg-[#120424] border border-purple-500/30 space-y-3">
+          {/* Complementary Radar Chart: Balance Benchmark */}
+          <div className="fluent-card p-4 rounded-[4px] bg-[#120424] border border-purple-500/30 space-y-3 shadow-lg">
             <div className="flex items-center justify-between border-b border-purple-500/20 pb-2">
               <h3 className="text-xs font-bold text-sky-300 font-mono flex items-center gap-1.5 uppercase">
                 <Target className="w-4 h-4 text-sky-400" />
-                <span>Biểu Đồ Mạng Nhện Cân Bằng BTI 2026</span>
+                <span>III. BIỂU ĐỒ MẠNG NHỆN CÂN BẰNG 6 MIỀN BTI 2026 (RADAR BENCHMARK)</span>
               </h3>
-              <span className="text-[10.5px] font-mono text-slate-400">Radar Plot</span>
+              <span className="text-[10.5px] font-mono text-slate-400">Recharts Radar Plot</span>
             </div>
 
             <div className="h-72 w-full pt-2">
@@ -669,7 +651,6 @@ export const BtiCompetencyMatrixDashboard: React.FC<BtiCompetencyMatrixDashboard
               </ResponsiveContainer>
             </div>
           </div>
-
         </div>
       )}
 

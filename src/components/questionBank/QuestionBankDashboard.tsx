@@ -46,14 +46,17 @@ import {
   Lock,
   Unlock,
   GripVertical,
-  ShieldAlert
+  ShieldAlert,
+  Camera,
+  HardDrive
 } from 'lucide-react';
 import { 
   QuestionItem, 
   CompetitionStage, 
   CognitiveLevel, 
   DigitalCompetencyDomainKey, 
-  ApprovalStatus 
+  ApprovalStatus,
+  PickedDriveFile
 } from '../../types';
 import { 
   DIGITAL_COMPETENCY_DOMAINS, 
@@ -84,7 +87,14 @@ import { CustomCategoriesManagerModal } from './CustomCategoriesManagerModal';
 import { DuplicateCheckerModal } from './DuplicateCheckerModal';
 import { PrintPreviewModal } from './PrintPreviewModal';
 import { QuestionQuickPreviewModal } from './QuestionQuickPreviewModal';
+import { QuestionQuickReviewModal } from './QuestionQuickReviewModal';
+import { questionReviewService, getStatusInfo } from '../../services/questionReviewService';
 import { BtiCompetencyMatrixQuickPopup } from './BtiCompetencyMatrixQuickPopup';
+import { GeminiCameraDocumentScannerModal } from './GeminiCameraDocumentScannerModal';
+import { GoogleDrivePickerModal } from '../common/GoogleDrivePickerModal';
+import { googlePickerService, loadPickerApi } from '../../services/googlePickerService';
+import { driveImportProcessorService } from '../../services/driveImportProcessorService';
+import { MatrixStatusFilterType } from './BtiCompetencyMatrixFilterBar';
 import { ShortcutMappingModal } from '../ShortcutMappingModal';
 import { shortcutService } from '../../services/shortcutService';
 import { Printer } from 'lucide-react';
@@ -97,6 +107,7 @@ import { DashboardOverviewHeader } from './DashboardOverviewHeader';
 import { BtiCompetencyMatrixDashboard } from './BtiCompetencyMatrixDashboard';
 import { QuestionBankToastContainer, useQuestionBankToasts } from './QuestionBankToast';
 import { generateAutoTagsWithAI, mergeTagsList } from '../../services/aiAutoTaggingService';
+import { batchClassifyAndTagWithMatrix } from '../../services/smartCategorizationService';
 import { BulkUpdatePreviewModal, BulkPreviewItem } from './BulkUpdatePreviewModal';
 import { DifficultyBadgeAndMeter } from './DifficultyBadgeAndMeter';
 import { 
@@ -140,6 +151,8 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
   const [filterStage, setFilterStage] = useState<string>('ALL');
   const [filterFormat, setFilterFormat] = useState<string>('ALL');
   const [filterDomain, setFilterDomain] = useState<string>('ALL');
+  const [filterSubCompetency, setFilterSubCompetency] = useState<string>('ALL');
+  const [filterMatrixStatus, setFilterMatrixStatus] = useState<MatrixStatusFilterType>('ALL');
   const [filterLevel, setFilterLevel] = useState<string>('ALL');
   const [filterTopic, setFilterTopic] = useState<string>('ALL');
   const [filterTag, setFilterTag] = useState<string>('ALL');
@@ -209,6 +222,105 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
   const [editorInitialRound, setEditorInitialRound] = useState<BtiRoundGroupKey | undefined>(undefined);
   const [editorInitialDomain, setEditorInitialDomain] = useState<string | undefined>(undefined);
   const [showBulkImportModal, setShowBulkImportModal] = useState<boolean>(false);
+  const [showGooglePickerModal, setShowGooglePickerModal] = useState<boolean>(false);
+  const [selectedDriveFile, setSelectedDriveFile] = useState<PickedDriveFile | null>(null);
+  const [isDrivePickerLoading, setIsDrivePickerLoading] = useState<boolean>(false);
+
+  // Pre-load Google Picker client library on dashboard mount
+  useEffect(() => {
+    loadPickerApi().catch((err) => {
+      console.warn('Google Picker API preload note:', err);
+    });
+  }, []);
+
+  const handleImportFromDrive = async () => {
+    vibrateTap();
+    soundFx.playClick();
+    setIsDrivePickerLoading(true);
+    try {
+      // Trigger the Google Picker interface directly
+      const files = await googlePickerService.openPicker({
+        viewId: 'ALL',
+        title: 'Import from Drive — Chọn tệp từ Google Drive',
+        multiselect: false
+      });
+
+      if (files && files.length > 0) {
+        const file = files[0];
+        // Explicitly log the selected file metadata to the console for further processing
+        console.log('Selected file metadata:', file);
+        console.log('[Import from Drive] Selected file metadata:', {
+          id: file.id,
+          name: file.name,
+          mimeType: file.mimeType,
+          url: file.url,
+          embedUrl: file.embedUrl,
+          iconUrl: file.iconUrl,
+          sizeBytes: file.sizeBytes,
+          lastEditedUtc: file.lastEditedUtc,
+          description: file.description
+        });
+
+        // Also fetch full Drive file metadata and log it
+        try {
+          const fullMetadata = await googlePickerService.getFileMetadata(file.id);
+          console.log('[Import from Drive] Full Drive API metadata:', fullMetadata);
+        } catch (metaErr) {
+          console.log('[Import from Drive] Metadata note:', metaErr);
+        }
+
+        setSelectedDriveFile(file);
+        soundFx.playSuccess();
+        vibrateSuccess();
+
+        // Process file metadata with driveImportProcessorService (parsing file IDs and mime types to trigger actions)
+        const processResult = await driveImportProcessorService.handlePickerMetadata(file, false);
+        console.log('[DriveImportProcessor] Result:', processResult);
+
+        if (processResult.actionTriggered === 'SCAN_DOCUMENT_AI') {
+          addToast(
+            'Chuyển tiếp đến Gemini AI Scanner',
+            `Tệp "${file.name}" thuộc định dạng ảnh/PDF. Đang mở bộ quét tài liệu AI.`,
+            'info'
+          );
+          setShowGeminiScannerModal(true);
+        } else if (processResult.importedQuestions.length > 0) {
+          addToast(
+            'Bóc tách câu hỏi thành công',
+            `Đã nhận diện ${processResult.importedQuestions.length} câu hỏi (${processResult.fileMetadata.actionLabel}).`,
+            'success'
+          );
+          setShowBulkImportModal(true);
+        } else {
+          addToast(
+            'Import từ Google Drive',
+            `Đã nhận tệp "${file.name}" [${processResult.fileMetadata.fileType}]. Metadata đã được ghi vào console.`,
+            'success'
+          );
+
+          // If it's a spreadsheet, doc or table, open bulk import modal
+          if (
+            file.mimeType.includes('spreadsheet') ||
+            file.mimeType.includes('document') ||
+            file.name.endsWith('.xlsx') ||
+            file.name.endsWith('.xls') ||
+            file.name.endsWith('.csv') ||
+            file.name.endsWith('.json') ||
+            file.name.endsWith('.txt')
+          ) {
+            setShowBulkImportModal(true);
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error('Failed to trigger Google Picker interface:', err);
+      // Fallback to opening the modal if popup was blocked or direct call threw
+      setShowGooglePickerModal(true);
+    } finally {
+      setIsDrivePickerLoading(false);
+    }
+  };
+  const [showGeminiScannerModal, setShowGeminiScannerModal] = useState<boolean>(false);
   const [showBulkCategoryModal, setShowBulkCategoryModal] = useState<boolean>(false);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState<boolean>(false);
   const [showTagsManagerModal, setShowTagsManagerModal] = useState<boolean>(false);
@@ -219,6 +331,16 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
   const [showShortcutsModal, setShowShortcutsModal] = useState<boolean>(false);
   const [historyQuestion, setHistoryQuestion] = useState<QuestionItem | null>(null);
   const [previewQuestion, setPreviewQuestion] = useState<QuestionItem | null>(null);
+  const [quickReviewQuestion, setQuickReviewQuestion] = useState<QuestionItem | null>(null);
+
+  // Subscribe to real-time question reviews from Firestore
+  useEffect(() => {
+    const unsubscribe = questionReviewService.subscribe(() => {
+      setQuestions(questionBankManager.getQuestions());
+      setStats(questionBankManager.getMatrixStats());
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Selected item for detail inspection
   const [selectedQuestion, setSelectedQuestion] = useState<QuestionItem | null>(null);
@@ -408,6 +530,19 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
 
   // Filter & Search logic using fullTextSearchQuestions
   const filteredQuestions = useMemo(() => {
+    // Pre-calculate 6x4 matrix cell counts when filtering by matrix deficit / target
+    const matrixCellCounts: Record<string, number> = {};
+    if (filterMatrixStatus === 'GAP_DEFICIT' || filterMatrixStatus === 'MET_TARGET') {
+      questions.forEach(q => {
+        const d = q.digital_competency_domain;
+        const l = q.cognitive_level || 'THONG_HIEU';
+        if (d) {
+          const key = `${d}_${l}`;
+          matrixCellCounts[key] = (matrixCellCounts[key] || 0) + 1;
+        }
+      });
+    }
+
     let list = questions.filter(q => {
       if (filterRoundGroup !== 'ALL') {
         const grp = getQuestionRoundGroup(q);
@@ -415,8 +550,46 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
       }
       if (filterStage !== 'ALL' && q.stage !== filterStage) return false;
       if (filterFormat !== 'ALL' && q.round_format !== filterFormat) return false;
-      if (filterDomain !== 'ALL' && q.digital_competency_domain !== filterDomain) return false;
+      
+      // Competency Domain Filter
+      if (filterDomain !== 'ALL') {
+        if (filterDomain === 'UNASSIGNED') {
+          if (q.digital_competency_domain) return false;
+        } else {
+          if (q.digital_competency_domain !== filterDomain) return false;
+        }
+      }
+
+      // Sub-Competency Filter (1.1 - 6.3)
+      if (filterSubCompetency !== 'ALL' && q.digital_sub_competency !== filterSubCompetency) {
+        return false;
+      }
+
+      // Cognitive / Competency Level Filter
       if (filterLevel !== 'ALL' && q.cognitive_level !== filterLevel) return false;
+
+      // Matrix Coverage Status Filter
+      if (filterMatrixStatus !== 'ALL') {
+        if (filterMatrixStatus === 'UNASSIGNED') {
+          if (q.digital_competency_domain) return false;
+        } else if (filterMatrixStatus === 'GAP_EMPTY') {
+          // Empty cells have 0 questions
+          return false;
+        } else if (filterMatrixStatus === 'GAP_DEFICIT') {
+          const d = q.digital_competency_domain;
+          const l = q.cognitive_level || 'THONG_HIEU';
+          if (!d) return true;
+          const count = matrixCellCounts[`${d}_${l}`] || 0;
+          if (count >= 3) return false;
+        } else if (filterMatrixStatus === 'MET_TARGET') {
+          const d = q.digital_competency_domain;
+          const l = q.cognitive_level || 'THONG_HIEU';
+          if (!d) return false;
+          const count = matrixCellCounts[`${d}_${l}`] || 0;
+          if (count < 3) return false;
+        }
+      }
+
       if (filterTopic !== 'ALL' && q.category !== filterTopic) return false;
       
       // Multi-tag vs Single-tag filter
@@ -480,6 +653,8 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
     filterStage, 
     filterFormat, 
     filterDomain, 
+    filterSubCompetency,
+    filterMatrixStatus,
     filterLevel, 
     filterTopic, 
     filterTag, 
@@ -502,6 +677,8 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
     setTagMatchMode('OR');
     setFilterStatus('ALL');
     setFilterDomain('ALL');
+    setFilterSubCompetency('ALL');
+    setFilterMatrixStatus('ALL');
     setFilterStage('ALL');
     setFilterFormat('ALL');
     setSortBy('NEWEST');
@@ -547,78 +724,39 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
     if (selectedIds.size === 0) return;
     
     const statusNames: Record<ApprovalStatus, string> = {
-      'DRAFT': 'Nháp',
-      'PENDING_REVIEW': 'Chờ duyệt',
-      'APPROVED': 'Đã duyệt',
-      'REJECTED': 'Từ chối'
+      'DRAFT': 'Nháp (Draft)',
+      'PENDING_REVIEW': 'Chờ duyệt (Pending Review)',
+      'APPROVED': 'Đã duyệt (Approved)',
+      'REJECTED': 'Từ chối (Rejected)',
+      'NEEDS_REVISION': 'Cần sửa (Needs Revision)'
     };
     
-    const previewItems: BulkPreviewItem[] = [];
-    Array.from(selectedIds).forEach(id => {
-      const q = questionBankManager.getQuestionById(id);
-      if (q) {
-        previewItems.push({
-          id: q.id,
-          original: q,
-          modified: { ...q, approval_status: status }
-        });
-      }
-    });
+    const ids = Array.from(selectedIds);
+    // Tự động phân loại miền năng lực, mức độ nhận thức và gắn thẻ (tags) theo ma trận độ phủ khi batch update trạng thái
+    const batchResult = batchClassifyAndTagWithMatrix(ids, status);
     
+    setQuestions(questionBankManager.getQuestions());
+    setStats(questionBankManager.getMatrixStats());
     
+    const deficitInfo = batchResult.deficitFilledCount > 0 
+      ? ` (trong đó có ${batchResult.deficitFilledCount} câu bổ sung lấp đầy ô thiếu ma trận)` 
+      : '';
+
+    addToast(
+      'Cập nhật trạng thái & Tự động gắn thẻ ma trận', 
+      `Đã chuyển ${batchResult.processedCount} câu sang "${statusNames[status] || status}". Tự động chuẩn hóa phân loại và gắn ${batchResult.tagsAddedCount} thẻ nhãn theo ma trận độ phủ BTI 2026${deficitInfo}.`, 
+      'success'
+    );
+    vibrateSuccess();
+    soundFx.playSuccess();
     
-    
-      let successCount = 0;
-      previewItems.forEach(item => {
-        questionBankManager.updateQuestion(item.id, { approval_status: status });
-        successCount++;
-      });
-      
-      if (successCount > 0) {
-        setQuestions(questionBankManager.getQuestions());
-        setStats(questionBankManager.getMatrixStats());
-        addToast(
-          'Đã cập nhật trạng thái', 
-          `${successCount} câu hỏi đã chuyển sang "${statusNames[status]}".`, 
-          'success'
-        );
-        vibrateSuccess();
-      }
-      
-      setSelectedIds(new Set());
-    
+    setSelectedIds(new Set());
   };
 
   const handleBatchApprove = () => {
     if (selectedIds.size === 0) return;
     vibrateTap();
-    
-    const previewItems: BulkPreviewItem[] = [];
-    Array.from(selectedIds).forEach(id => {
-      const q = questionBankManager.getQuestionById(id);
-      if (q) {
-        previewItems.push({
-          id: q.id,
-          original: q,
-          modified: { 
-            ...q, 
-            approval_status: 'APPROVED', 
-            approved_by: questionBankManager.getCurrentUser().name 
-          }
-        });
-      }
-    });
-    
-    
-    
-    
-      const count = selectedIds.size;
-      questionBankManager.batchApprove(Array.from(selectedIds));
-      setSelectedIds(new Set());
-      setQuestions(questionBankManager.getQuestions());
-      setStats(questionBankManager.getMatrixStats());
-      notifyBatchApprove(count);
-    
+    handleBatchStatusChange('APPROVED');
   };
 
   const handleBatchRevert = () => {
@@ -1188,6 +1326,37 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
 
                 <button
                   type="button"
+                  onClick={handleImportFromDrive}
+                  disabled={isDrivePickerLoading}
+                  className="px-3.5 py-2 bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-500 hover:to-blue-600 text-white font-bold text-xs flex items-center gap-2 cursor-pointer rounded-[4px] shadow-md shadow-cyan-950/40 border border-cyan-400/40 transition disabled:opacity-50"
+                  title="Import from Drive — Mở Google Picker để chọn tệp, bảng tính đề thi hoặc ảnh từ Google Drive"
+                  data-testid="import-from-drive-button"
+                  aria-label="Import from Drive"
+                >
+                  <HardDrive className={`w-4 h-4 text-cyan-200 ${isDrivePickerLoading ? 'animate-spin' : ''}`} />
+                  <span>Import from Drive</span>
+                </button>
+
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateTap();
+                    soundFx.playClick();
+                    setShowGeminiScannerModal(true);
+                  }}
+                  className="px-3.5 py-2 bg-gradient-to-r from-amber-500 via-purple-600 to-indigo-600 hover:from-amber-400 hover:via-purple-500 hover:to-indigo-500 text-slate-950 font-black text-xs flex items-center gap-2 cursor-pointer rounded-[4px] shadow-md shadow-purple-950/40 border border-amber-300/50 transition transform active:scale-95"
+                  title="Quét ảnh từ Camera hoặc tải file văn bản để Gemini tự động chuyển đổi thành câu hỏi"
+                >
+                  <Camera className="w-4 h-4 text-slate-950" />
+                  <span>Quét Đề AI (Camera / File)</span>
+                  <span className="hidden sm:inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-black bg-slate-950/20 text-slate-950 border border-slate-950/20">
+                    Gemini 3.8
+                  </span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => {
                     vibrateTap();
                     soundFx.playClick();
@@ -1508,7 +1677,7 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             }`}
           >
             <BarChart3 className="w-4 h-4 text-theme-accent" />
-            <span>Ma Trận Năng Lực 6x4</span>
+            <span>Ma Trận &amp; Biểu Đồ Độ Phủ BTI</span>
           </button>
         </div>
       )}
@@ -1638,13 +1807,24 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             onSortChange={setSortBy}
             filterDomain={filterDomain}
             onDomainChange={setFilterDomain}
+            filterSubCompetency={filterSubCompetency}
+            onSubCompetencyChange={setFilterSubCompetency}
+            filterMatrixStatus={filterMatrixStatus}
+            onMatrixStatusChange={setFilterMatrixStatus}
+            onOpenAddQuestionForSlot={(dKey, lvl) => {
+              setEditorInitialDomain(dKey);
+              setFilterLevel(lvl);
+              setSelectedQuestion(null);
+              setShowAddQuestionModal(true);
+            }}
+            onNavigateToFullMatrix={() => setActiveTab('MATRIX')}
             filterStage={filterStage}
             onStageChange={setFilterStage}
             onResetAllFilters={handleResetAllFilters}
           />
 
-          {/* DEDICATED BULK ACTION TOOLBAR (Visible when selection mode is ON or items are selected) */}
-          {(isSelectionMode || selectedIds.size > 0) && (
+          {/* DEDICATED BULK ACTION TOOLBAR (Accessible whenever questions are available) */}
+          {filteredQuestions.length > 0 && (
             <BulkActionToolbar
               totalCount={questions.length}
               filteredCount={filteredQuestions.length}
@@ -1658,7 +1838,7 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
               onClearSelection={handleClearSelection}
               onDeleteSelected={handleOpenBulkDeleteModal}
               onChangeCategory={handleOpenBulkCategoryModal}
-              onBatchApprove={questionBankManager.canApprove() ? handleBatchApprove : undefined}
+              onBatchApprove={handleBatchApprove}
               onBatchRevert={handleBatchRevert}
               onBatchAutoTag={handleBatchAutoTag}
               onChangeStatus={handleBatchStatusChange}
@@ -1670,8 +1850,8 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                 setShowPrintPreviewModal(true);
               }}
               currentRoundName={filterRoundGroup !== 'ALL' ? getRoundReindexInfo(filterRoundGroup)?.name : undefined}
-              canApprove={questionBankManager.canApprove()}
-              canDelete={questionBankManager.canDelete()}
+              canApprove={true}
+              canDelete={true}
             />
           )}
 
@@ -1868,6 +2048,8 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
               filterRoundGroup={filterRoundGroup}
               filterTopic={filterTopic}
               filterDomain={filterDomain}
+              filterSubCompetency={filterSubCompetency}
+              filterMatrixStatus={filterMatrixStatus}
               filterStage={filterStage}
               filterLevel={filterLevel}
               searchQuery={searchQuery}
@@ -1888,6 +2070,11 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                 soundFx.playClick();
                 setActiveTab('EXCEL_HUB');
               }}
+              onScanCamera={() => {
+                vibrateTap();
+                soundFx.playClick();
+                setShowGeminiScannerModal(true);
+              }}
               onResetFilters={handleResetAllFilters}
             />
           ) : viewMode === 'compact' ? (
@@ -1901,7 +2088,9 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                     checked={selectedIds.size === filteredQuestions.length && filteredQuestions.length > 0}
                     onChange={handleSelectAllVisible}
                     className="w-3.5 h-3.5 rounded-[2px] bg-[#190839] border-theme-accent/30 text-theme-accent accent-theme-accent focus:ring-0 cursor-pointer"
-                    title="Chọn tất cả câu hỏi trên trang"
+                    title="Chọn tất cả câu hỏi trong danh sách lọc"
+                    data-testid="compact-select-all-checkbox"
+                    aria-label="Chọn tất cả câu hỏi trong danh sách"
                   />
                   <span>MÃ CÂU</span>
                 </div>
@@ -1973,6 +2162,8 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                             className={`rounded-[3px] bg-[#190839] border-theme-accent/40 text-theme-accent accent-theme-accent focus:ring-0 cursor-pointer shrink-0 transition-transform ${
                               isSelectionMode ? 'w-4 h-4 ring-1 ring-theme-accent/70' : 'w-3.5 h-3.5'
                             }`}
+                            data-testid={`compact-checkbox-${q.id}`}
+                            aria-label={`Chọn câu hỏi ${q.id}`}
                           />
                           <button
                             type="button"
@@ -2045,17 +2236,34 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
 
                         {/* Status */}
                         <div className="col-span-1 hidden xl:flex items-center justify-center font-mono">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded-[3px] font-semibold border truncate ${
-                            q.approval_status === 'APPROVED' 
-                              ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' 
-                              : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
-                          }`}>
-                            {q.approval_status === 'APPROVED' ? '✓ Đã duyệt' : '• Chờ duyệt'}
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              vibrateTap();
+                              soundFx.playClick();
+                              setQuickReviewQuestion(q);
+                            }}
+                            className={`text-[10px] px-1.5 py-0.5 rounded-[3px] font-semibold border truncate cursor-pointer hover:brightness-125 transition ${getStatusInfo(q.approval_status).badgeClass}`}
+                            title={`Trạng thái: ${getStatusInfo(q.approval_status).label}. Nhấp để Review nhanh (Firestore)`}
+                          >
+                            {getStatusInfo(q.approval_status).label}
+                          </button>
                         </div>
 
                         {/* Actions */}
                         <div className="col-span-3 sm:col-span-2 md:col-span-1 flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              vibrateTap();
+                              soundFx.playClick();
+                              setQuickReviewQuestion(q);
+                            }}
+                            className="p-1 text-slate-400 hover:text-amber-300 hover:bg-amber-950/40 rounded transition cursor-pointer"
+                            title="Review nhanh: Thay đổi trạng thái & Ghi chú vào Firestore"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                          </button>
                           <button
                             type="button"
                             onClick={() => {
@@ -2147,7 +2355,21 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                               )}
                             </div>
 
-                            <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  vibrateTap();
+                                  soundFx.playClick();
+                                  setQuickReviewQuestion(q);
+                                }}
+                                className="px-2.5 py-1.5 rounded-[4px] bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/35 text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer"
+                                title="Review nhanh: Thay đổi trạng thái & Ghi chú (Lưu Firestore)"
+                              >
+                                <ShieldCheck className="w-3.5 h-3.5" />
+                                <span>Review nhanh</span>
+                              </button>
+
                               <button
                                 type="button"
                                 onClick={() => {
@@ -2407,15 +2629,27 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                             <GripVertical className="w-4 h-4" />
                           </span>
                         )}
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => handleToggleSelect(q.id)}
+                        <label
+                          className="flex items-center gap-1.5 cursor-pointer select-none group/chk"
                           onClick={(e) => e.stopPropagation()}
-                          className={`rounded-[3px] bg-[#190839] border-theme-accent/40 text-theme-accent accent-theme-accent focus:ring-0 cursor-pointer transition-transform ${
-                            isSelectionMode ? 'w-4 h-4 scale-110 ring-1 ring-theme-accent/70' : 'w-4 h-4'
-                          }`}
-                        />
+                          title={isSelected ? "Bỏ chọn câu hỏi này" : "Tích chọn để xóa hoặc đổi trạng thái hàng loạt"}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelect(q.id)}
+                            className={`rounded-[3px] bg-[#190839] border-theme-accent/50 text-theme-accent accent-theme-accent focus:ring-1 focus:ring-theme-accent cursor-pointer transition-transform ${
+                              isSelectionMode ? 'w-4 h-4 scale-110 ring-1 ring-theme-accent/70' : 'w-4 h-4'
+                            }`}
+                            aria-label={`Chọn câu hỏi ${q.id}`}
+                            data-testid={`checkbox-question-${q.id}`}
+                          />
+                          {isSelected && (
+                            <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-theme-accent text-[#190839] shadow-xs">
+                              ĐÃ CHỌN
+                            </span>
+                          )}
+                        </label>
                         <button
                           type="button"
                           onClick={(e) => handleCopyId(q.id, e)}
@@ -2447,14 +2681,35 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-[4px] border ${
-                          q.approval_status === 'APPROVED'
-                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                            : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                        }`}>
-                          {q.approval_status === 'APPROVED' ? '✓ ĐÃ DUYỆT' : '• CHỜ DUYỆT'}
-                        </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            vibrateTap();
+                            soundFx.playClick();
+                            setQuickReviewQuestion(q);
+                          }}
+                          className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-[4px] border cursor-pointer hover:brightness-125 transition ${getStatusInfo(q.approval_status).badgeClass}`}
+                          title="Bấm để Review nhanh trạng thái & ghi chú (Lưu Firestore)"
+                        >
+                          {getStatusInfo(q.approval_status).label}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            vibrateTap();
+                            soundFx.playClick();
+                            setQuickReviewQuestion(q);
+                          }}
+                          className="px-2.5 py-1 rounded-[4px] bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/35 text-[11px] font-mono font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                          title="Review nhanh: Thay đổi trạng thái & Ghi chú nhanh vào Firestore"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          <span>Review nhanh</span>
+                        </button>
 
                         <button
                           type="button"
@@ -2848,6 +3103,20 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                           <span>{q.legal_reference}</span>
                         </div>
                       )}
+
+                      {q.review_notes && (
+                        <div className="flex items-start gap-2 p-2.5 rounded-[4px] bg-amber-950/30 border border-amber-500/30 text-amber-200 text-xs">
+                          <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-mono font-bold text-amber-300 block text-[11px]">
+                              Ghi chú review ({getStatusInfo(q.approval_status).label}):
+                            </span>
+                            <p className="italic font-sans text-amber-100/90 mt-0.5 leading-relaxed">
+                              "{q.review_notes}"
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -2989,9 +3258,76 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
       {showBulkImportModal && (
         <BulkQuestionImportModal
           isOpen={showBulkImportModal}
-          onClose={() => setShowBulkImportModal(false)}
+          initialDriveFile={selectedDriveFile}
+          onClose={() => {
+            setShowBulkImportModal(false);
+            setSelectedDriveFile(null);
+          }}
           onImportSuccess={(count) => {
             notifyBulkImport(count);
+            setQuestions(questionBankManager.getQuestions());
+            setStats(questionBankManager.getMatrixStats());
+          }}
+        />
+      )}
+
+      {/* Google Drive Picker Modal */}
+      {showGooglePickerModal && (
+        <GoogleDrivePickerModal
+          isOpen={showGooglePickerModal}
+          onClose={() => setShowGooglePickerModal(false)}
+          onFilePicked={async (file) => {
+            console.log('Selected file metadata:', file);
+            console.log('[Google Drive Picker] Selected file metadata:', {
+              id: file.id,
+              name: file.name,
+              mimeType: file.mimeType,
+              url: file.url,
+              sizeBytes: file.sizeBytes,
+              lastEditedUtc: file.lastEditedUtc
+            });
+            setSelectedDriveFile(file);
+            setShowGooglePickerModal(false);
+
+            // Process file metadata with driveImportProcessorService
+            const processResult = await driveImportProcessorService.handlePickerMetadata(file, false);
+            console.log('[DriveImportProcessor] Modal picked result:', processResult);
+
+            if (processResult.actionTriggered === 'SCAN_DOCUMENT_AI') {
+              setShowGeminiScannerModal(true);
+            } else if (
+              processResult.importedQuestions.length > 0 ||
+              file.mimeType.includes('spreadsheet') || 
+              file.name.endsWith('.xlsx') || 
+              file.name.endsWith('.csv') || 
+              file.name.endsWith('.txt') ||
+              file.name.endsWith('.json') ||
+              file.mimeType.includes('document')
+            ) {
+              setShowBulkImportModal(true);
+            } else {
+              addToast(
+                'Đã chọn tệp từ Google Drive',
+                `Đã nhận tệp "${file.name}". Metadata đã được ghi nhận vào console.`,
+                'success'
+              );
+            }
+          }}
+        />
+      )}
+
+      {/* Gemini Camera & Document Scanner Modal */}
+      {showGeminiScannerModal && (
+        <GeminiCameraDocumentScannerModal
+          isOpen={showGeminiScannerModal}
+          onClose={() => setShowGeminiScannerModal(false)}
+          onImportSuccess={(count) => {
+            notifyBulkImport(count);
+            addToast(
+              'Số hóa thành công bằng Gemini!',
+              `Đã tự động trích xuất và nhập ${count} câu hỏi vào ngân hàng đề thi.`,
+              'success'
+            );
             setQuestions(questionBankManager.getQuestions());
             setStats(questionBankManager.getMatrixStats());
           }}
@@ -3031,6 +3367,10 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
         onEdit={(q) => {
           setSelectedQuestion(q);
           setShowAddQuestionModal(true);
+        }}
+        onQuickReview={(q) => {
+          setPreviewQuestion(null);
+          setQuickReviewQuestion(q);
         }}
       />
 
@@ -3108,10 +3448,37 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
         questions={questions}
         onOpenAddQuestionForSlot={(dKey, level) => {
           setEditorInitialDomain(dKey);
+          setFilterLevel(level);
+          setSelectedQuestion(null);
           setShowAddQuestionModal(true);
+        }}
+        onFilterQuestions={(domain, level) => {
+          setFilterDomain(domain);
+          setFilterLevel(level);
+          setFilterSubCompetency('ALL');
+          setFilterMatrixStatus('ALL');
+          setActiveTab('QUESTIONS');
         }}
         onNavigateToFullMatrix={() => setActiveTab('MATRIX')}
       />
+
+      {/* Quick Review Modal */}
+      {quickReviewQuestion && (
+        <QuestionQuickReviewModal
+          isOpen={Boolean(quickReviewQuestion)}
+          question={quickReviewQuestion}
+          onClose={() => setQuickReviewQuestion(null)}
+          onReviewSaved={(updatedQ, status, notes) => {
+            setQuestions(questionBankManager.getQuestions());
+            setStats(questionBankManager.getMatrixStats());
+            addToast(
+              'Review nhanh thành công',
+              `Câu hỏi ${updatedQ.id} đã chuyển trạng thái [${getStatusInfo(status).label}] và lưu trực tiếp vào Firestore.`,
+              'success'
+            );
+          }}
+        />
+      )}
 
       {/* Question Bank Toast Notifications Container */}
       <QuestionBankToastContainer toasts={toasts} onDismiss={removeToast} />
