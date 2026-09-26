@@ -1,6 +1,7 @@
 /**
  * Gemini Studio Service: Multi-turn Chat, Image Creation & Editing, Veo Video Generation
  */
+import { geminiKeyService } from './geminiKeyService';
 
 export interface ChatMessage {
   id: string;
@@ -67,7 +68,7 @@ export async function sendGeminiChat(
 ): Promise<{ text: string; usedModel: string }> {
   const response = await fetch('/api/ai/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...geminiKeyService.getAuthHeaders() },
     body: JSON.stringify({ messages, systemInstruction, model }),
   });
 
@@ -88,7 +89,7 @@ export async function generateOrEditImage(options: {
 }): Promise<{ imageUrl: string; usedModel: string }> {
   const response = await fetch('/api/ai/generate-image', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...geminiKeyService.getAuthHeaders() },
     body: JSON.stringify(options),
   });
 

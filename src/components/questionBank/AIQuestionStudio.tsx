@@ -15,13 +15,18 @@ import {
   FileCheck2,
   ShieldCheck,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Image as ImageIcon,
   Target,
   Lightbulb,
   MessageSquare,
   Film,
   Globe,
-  ExternalLink
+  ExternalLink,
+  Award,
+  Zap,
+  Info
 } from 'lucide-react';
 import { 
   CompetitionStage, 
@@ -50,7 +55,6 @@ interface AIQuestionStudioProps {
   onEditQuestion?: (q: QuestionItem) => void;
   onOpenGeminiStudio?: (tab?: 'CHAT' | 'IMAGE' | 'VIDEO') => void;
 }
-
 
 const AI_KEYWORD_SUGGESTIONS: Record<string, string[]> = {
   'MIEN_1': [
@@ -91,6 +95,13 @@ const AI_KEYWORD_SUGGESTIONS: Record<string, string[]> = {
   ]
 };
 
+const COGNITIVE_PILLS: { level: CognitiveLevel; short: string; label: string; activeClass: string; badgeClass: string }[] = [
+  { level: 'NHAN_BIET', short: 'NB', label: 'Nhận biết', activeClass: 'bg-sky-500 text-slate-950 font-bold border-sky-400 shadow-sm', badgeClass: 'text-sky-300' },
+  { level: 'THONG_HIEU', short: 'TH', label: 'Thông hiểu', activeClass: 'bg-emerald-500 text-slate-950 font-bold border-emerald-400 shadow-sm', badgeClass: 'text-emerald-300' },
+  { level: 'VAN_DUNG', short: 'VD', label: 'Vận dụng', activeClass: 'bg-amber-500 text-slate-950 font-bold border-amber-400 shadow-sm', badgeClass: 'text-amber-300' },
+  { level: 'VAN_DUNG_CAO', short: 'VDC', label: 'VD Cao', activeClass: 'bg-rose-500 text-white font-bold border-rose-400 shadow-sm', badgeClass: 'text-rose-300' },
+];
+
 export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCreated, onEditQuestion, onOpenGeminiStudio }) => {
   const documents = questionBankManager.getDocuments();
 
@@ -106,6 +117,7 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
   const [useSearchGrounding, setUseSearchGrounding] = useState<boolean>(true);
   const [groundingSources, setGroundingSources] = useState<{ title: string; uri: string }[]>([]);
   const [searchQueries, setSearchQueries] = useState<string[]>([]);
+  const [showRuleDetails, setShowRuleDetails] = useState<boolean>(false);
 
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generatedQuestions, setGeneratedQuestions] = useState<any[]>([]);
@@ -202,7 +214,7 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
     }
   };
 
-    const createQuestionItemFromAI = (q: any, idx: number): QuestionItem => {
+  const createQuestionItemFromAI = (q: any, idx: number): QuestionItem => {
     const formatMeta = QUESTION_ROUND_FORMATS[roundFormat];
     
     let roundName = formatMeta?.roundGroupName || 'Câu hỏi AI Sinh';
@@ -247,9 +259,7 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
   const handleEditBeforeSave = (q: any, idx: number) => {
     if (onEditQuestion) {
       const draftItem = createQuestionItemFromAI(q, idx);
-      // Optional: don't save yet, let the modal save it
       onEditQuestion(draftItem);
-      // Mark as saved since it will be opened in modal
       setSavedIds(prev => new Set(prev).add(idx));
     }
   };
@@ -299,118 +309,113 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
     setRoundGroup(grp);
   };
 
+  const currentFormatMeta = QUESTION_ROUND_FORMATS[roundFormat];
+
   return (
-    <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="fluent-box p-4 sm:p-5 relative overflow-hidden bg-gradient-to-r from-blue-950/40 via-purple-950/30 to-black/60 border border-blue-500/20 rounded-[4px]">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4 animate-fadeIn">
+      {/* 1. COMPACT TOP HEADER STRIP */}
+      <div className="fluent-card px-4 py-3 bg-gradient-to-r from-[#190839] via-[#241148] to-[#190839] border border-theme-accent/25 rounded-[6px] shadow-md flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-[4px] bg-theme-accent/15 border border-theme-accent/30 flex items-center justify-center text-theme-accent shrink-0">
+            <Sparkles className="w-4 h-4 text-theme-accent" />
+          </div>
           <div>
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-mono font-bold mb-2 border border-blue-400/30">
-              <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-              <span>AI Question Drafting Studio • TT 02/2025/TT-BGDĐT</span>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-bold text-white tracking-wide">
+                Trợ Lý AI Soạn Thảo Đề Thi BTI 2026
+              </h2>
+              <span className="text-[10px] px-2 py-0.2 rounded bg-purple-500/20 text-purple-300 font-mono font-semibold border border-purple-400/30">
+                TT 02/2025/TT-BGDĐT
+              </span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black text-white tracking-wide">
-              Trợ Lý AI Soạn Thảo Đề Thi BTI 2026
-            </h2>
-            <p className="text-xs sm:text-sm text-white/60 mt-1 max-w-2xl">
-              Tạo câu hỏi phân hóa cao bám sát 6 Miền năng lực số, 4 mức độ nhận thức chuẩn Bộ GD&ĐT và trích dẫn chuẩn xác các văn bản pháp lý hiện hành.
+            <p className="text-[11px] text-[#B6A6D8] font-mono">
+              Sinh câu hỏi phân hóa cao theo ma trận 6 miền năng lực số và căn cứ pháp lý hiện hành
             </p>
           </div>
-
-          {/* Gemini AI Studio Quick Action Bar */}
-          {onOpenGeminiStudio && (
-            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => onOpenGeminiStudio('CHAT')}
-                className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
-                title="Mở Chatbot Gemini đa lượt với vai trò Cố vấn khảo thí"
-              >
-                <MessageSquare className="w-3.5 h-3.5 text-purple-300" />
-                <span>Chatbot Cố vấn</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onOpenGeminiStudio('IMAGE')}
-                className="px-3 py-2 rounded-lg bg-gradient-to-r from-theme-accent/20 to-purple-500/20 hover:from-theme-accent/30 hover:to-purple-500/30 border border-theme-accent/40 text-theme-accent text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
-                title="Tạo hoặc chỉnh sửa ảnh minh họa bằng gemini-3.1-flash-image-preview"
-              >
-                <ImageIcon className="w-3.5 h-3.5 text-theme-accent" />
-                <span>Tạo & Sửa Ảnh</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onOpenGeminiStudio('VIDEO')}
-                className="px-3 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/30 text-cyan-300 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
-                title="Animate ảnh thành video bằng Veo 3.1 Fast Preview"
-              >
-                <Film className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Video Veo</span>
-              </button>
-            </div>
-          )}
         </div>
+
+        {/* Gemini AI Studio Quick Shortcuts */}
+        {onOpenGeminiStudio && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => onOpenGeminiStudio('CHAT')}
+              className="px-2.5 py-1 rounded-[4px] bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[11px] font-mono font-medium flex items-center gap-1.5 transition cursor-pointer"
+              title="Chatbot Gemini Cố vấn khảo thí"
+            >
+              <MessageSquare className="w-3 h-3 text-purple-300" />
+              <span>Cố vấn</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onOpenGeminiStudio('IMAGE')}
+              className="px-2.5 py-1 rounded-[4px] bg-theme-accent/15 hover:bg-theme-accent/25 border border-theme-accent/30 text-theme-accent text-[11px] font-mono font-medium flex items-center gap-1.5 transition cursor-pointer"
+              title="Tạo ảnh minh họa câu hỏi với Gemini Flash Image"
+            >
+              <ImageIcon className="w-3 h-3 text-theme-accent" />
+              <span>Tạo Ảnh</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onOpenGeminiStudio('VIDEO')}
+              className="px-2.5 py-1 rounded-[4px] bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/30 text-cyan-300 text-[11px] font-mono font-medium flex items-center gap-1.5 transition cursor-pointer"
+              title="Tạo video minh họa với Veo 3.1"
+            >
+              <Film className="w-3 h-3 text-cyan-300" />
+              <span>Video Veo</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Main Form Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left 5 Cols: Configuration Panel */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="fluent-box p-4 sm:p-5 space-y-4 rounded-[4px] border border-white/10">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2 pb-2 border-b border-white/10">
-              <Layers className="w-4 h-4 text-sky-400" />
-              Tham Số Khảo Thí & Căn Cứ
-            </h3>
-
-            {/* 1. Stage */}
-            <div>
-              <label className="block text-xs font-mono text-white/70 mb-1.5 font-semibold">
-                1. Giai Đoạn Vòng Thi:
-              </label>
-              <select
-                value={stage}
-                onChange={e => handleStageChange(e.target.value as CompetitionStage)}
-                className="w-full bg-black/50 border border-white/15 rounded-[4px] px-3 py-2 text-xs text-white focus:border-sky-400 focus:outline-none"
-              >
-                {Object.values(COMPETITION_STAGES).map(s => (
-                  <option key={s.stage} value={s.stage}>
-                    {s.name} ({s.subTitle})
-                  </option>
-                ))}
-              </select>
+      {/* 2. MAIN 2-COLUMN WORKSPACE GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+        {/* LEFT COLUMN (5 COLS): STREAMLINED CONFIGURATION PANEL */}
+        <div className="lg:col-span-5 space-y-3">
+          <div className="fluent-card p-3.5 sm:p-4 rounded-[6px] bg-[#1a073a]/90 border border-theme-accent/25 space-y-3">
+            {/* Group Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-white/10 text-xs">
+              <span className="font-bold text-white font-mono uppercase tracking-wider flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-sky-400" />
+                Cấu Hình Khảo Thí &amp; Ma Trận
+              </span>
+              <span className="text-[10px] text-theme-accent font-mono">BTI Studio</span>
             </div>
 
-            {/* 2. Hierarchical 2-Level Selection */}
-            <div className="p-3 bg-white/[0.03] border border-white/10 rounded-[4px] space-y-2.5">
-              <div className="flex items-center justify-between text-[11px] font-mono font-bold text-sky-300">
-                <span>🎯 PHÂN LOẠI 2 MỨC: VÒNG THI ⇒ DẠNG ĐỀ</span>
-                <span className="text-emerald-400 font-normal">Chuẩn BTI 2026</span>
+            {/* Row 1: Giai đoạn & Vòng thi (2 cols) */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] font-mono text-white/70 mb-1 font-semibold">
+                  1. Giai đoạn:
+                </label>
+                <select
+                  value={stage}
+                  onChange={e => handleStageChange(e.target.value as CompetitionStage)}
+                  className="w-full bg-[#120427] border border-white/15 rounded-[4px] px-2 py-1.5 text-xs text-white focus:border-theme-accent focus:outline-none truncate font-medium"
+                >
+                  {Object.values(COMPETITION_STAGES).map(s => (
+                    <option key={s.stage} value={s.stage}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {/* Mức 1: Vòng thi / Giai đoạn đề thi */}
               <div>
-                <label className="block text-[11px] font-mono text-sky-300 mb-1 font-semibold flex items-center justify-between">
-                  <span>🏆 MỨC 1: {stage === 'VONG_LOAI' ? 'GIAI ĐOẠN ĐỀ THI' : 'CHỌN VÒNG THI'}</span>
-                  <span className="text-[10px] text-white/40 font-normal">
-                    {stage === 'VONG_LOAI' ? 'Đề 28 câu chuẩn hóa' : '5 vòng Gameshow'}
-                  </span>
+                <label className="block text-[11px] font-mono text-sky-300 mb-1 font-semibold">
+                  2. Phần thi / Vòng:
                 </label>
                 {stage === 'VONG_LOAI' ? (
-                  <div className="p-2 bg-sky-950/40 border border-sky-400/30 rounded-[4px] text-xs space-y-0.5">
-                    <div className="text-sky-300 font-bold font-mono text-[11px]">
-                      Đề thi Vòng Loại (28 câu duy nhất)
-                    </div>
-                    <p className="text-white/60 text-[10px]">
-                      Vòng loại chỉ có 1 dạng đề gồm 28 câu (24 câu Phần I và 4 câu Phần II), không chọn các vòng thi như Bán kết và Chung kết.
-                    </p>
+                  <div className="px-2 py-1.5 bg-sky-950/40 border border-sky-400/30 rounded-[4px] text-xs text-sky-300 font-mono truncate font-medium">
+                    Chuẩn 28 câu
                   </div>
                 ) : (
                   <select
                     value={roundGroup}
                     onChange={e => handleRoundGroupChange(e.target.value as BtiRoundGroupKey)}
-                    className="w-full bg-black/70 border border-sky-500/40 rounded-[4px] px-2.5 py-1.5 text-xs text-white focus:border-sky-400 focus:outline-none"
+                    className="w-full bg-[#120427] border border-sky-500/30 rounded-[4px] px-2 py-1.5 text-xs text-sky-200 focus:border-sky-400 focus:outline-none truncate font-medium"
                   >
                     {getRoundGroupsForStage(stage).map(g => (
                       <option key={g.key} value={g.key}>
@@ -420,134 +425,146 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
                   </select>
                 )}
               </div>
+            </div>
 
-              {/* Mức 2: Dạng đề / Phần thi */}
+            {/* Row 2: Dạng đề thi & Rule summary strip */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-mono text-amber-300 font-semibold">
+                  3. Dạng câu hỏi / Thể thức:
+                </label>
+                {currentFormatMeta && (
+                  <button
+                    type="button"
+                    onClick={() => setShowRuleDetails(!showRuleDetails)}
+                    className="text-[10px] text-amber-300/80 hover:text-amber-200 underline font-mono cursor-pointer flex items-center gap-0.5"
+                  >
+                    <span>{showRuleDetails ? 'Ẩn luật' : 'Xem luật'}</span>
+                    {showRuleDetails ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
+                  </button>
+                )}
+              </div>
+              <select
+                value={roundFormat}
+                onChange={e => handleFormatChange(e.target.value as QuestionRoundFormat)}
+                className="w-full bg-[#120427] border border-amber-500/30 rounded-[4px] px-2.5 py-1.5 text-xs text-amber-200 focus:border-amber-400 focus:outline-none font-medium truncate"
+              >
+                {getActiveFormatsForRoundGroup(stage === 'VONG_LOAI' ? 'VONG_LOAI' : roundGroup).map(fmt => (
+                  <option key={fmt.format} value={fmt.format}>
+                    {fmt.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Compact Format Rules Pill Strip */}
+              {currentFormatMeta && (
+                <div className="mt-1.5 space-y-1">
+                  <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#B6A6D8] flex-wrap">
+                    <span className="px-1.5 py-0.2 rounded bg-black/40 text-sky-300 border border-white/5">
+                      ⏱️ {currentFormatMeta.defaultTimeLimit}s
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded bg-black/40 text-amber-300 border border-white/5">
+                      ⭐ {currentFormatMeta.defaultPoints} điểm
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded bg-black/40 text-rose-300 border border-white/5 truncate max-w-[180px]">
+                      📝 {currentFormatMeta.ruleSection}
+                    </span>
+                  </div>
+
+                  {showRuleDetails && (
+                    <div className="p-2 bg-amber-950/30 border border-amber-500/25 rounded-[4px] text-[10.5px] text-white/80 space-y-1 animate-fadeIn">
+                      <p><strong className="text-white">Mô tả:</strong> {currentFormatMeta.description}</p>
+                      <p className="text-emerald-300"><strong className="text-emerald-400">Cách chấm:</strong> {currentFormatMeta.scoringRule}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Row 3: Miền Năng Lực & Năng Lực Thành Phần (2 cols) */}
+            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-white/5">
               <div>
-                <label className="block text-[11px] font-mono text-amber-300 mb-1 font-semibold flex items-center justify-between">
-                  <span>📋 MỨC 2: {stage === 'VONG_LOAI' ? 'PHẦN THI TRONG ĐỀ 28 CÂU' : 'DẠNG ĐỀ THI'}</span>
-                  <span className="text-[10px] text-amber-400/80 font-normal">
-                    {getActiveFormatsForRoundGroup(stage === 'VONG_LOAI' ? 'VONG_LOAI' : roundGroup).length} dạng
-                  </span>
+                <label className="block text-[11px] font-mono text-white/70 mb-1 font-semibold">
+                  4. Miền năng lực (TT 02):
                 </label>
                 <select
-                  value={roundFormat}
-                  onChange={e => handleFormatChange(e.target.value as QuestionRoundFormat)}
-                  className="w-full bg-black/70 border border-amber-500/40 rounded-[4px] px-2.5 py-1.5 text-xs text-amber-200 focus:border-amber-400 focus:outline-none"
+                  value={domain}
+                  onChange={e => handleDomainChange(e.target.value as DigitalCompetencyDomainKey)}
+                  className="w-full bg-[#120427] border border-white/15 rounded-[4px] px-2 py-1.5 text-xs text-white focus:border-theme-accent focus:outline-none truncate font-medium"
                 >
-                  {getActiveFormatsForRoundGroup(stage === 'VONG_LOAI' ? 'VONG_LOAI' : roundGroup).map(fmt => (
-                    <option key={fmt.format} value={fmt.format}>
-                      {fmt.name}
+                  {Object.values(DIGITAL_COMPETENCY_DOMAINS).map(d => (
+                    <option key={d.key} value={d.key}>
+                      {d.code}: {d.name}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {QUESTION_ROUND_FORMATS[roundFormat] && (
-                <div className="p-2.5 bg-amber-950/40 border border-amber-500/40 rounded-[4px] text-[11px] space-y-1.5 mt-2 shadow-sm">
-                  <div className="flex items-center gap-1.5 font-bold text-amber-300 border-b border-amber-500/20 pb-1.5">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    <span>Luật Chơi: {QUESTION_ROUND_FORMATS[roundFormat].ruleSection}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2 text-[10px] mb-1">
-                    <span className="px-1.5 py-0.5 bg-black/40 rounded text-sky-300">
-                      ⏱️ {QUESTION_ROUND_FORMATS[roundFormat].defaultTimeLimit} giây
-                    </span>
-                    <span className="px-1.5 py-0.5 bg-black/40 rounded text-amber-300">
-                      ⭐ {QUESTION_ROUND_FORMATS[roundFormat].defaultPoints} điểm
-                    </span>
-                    <span className="px-1.5 py-0.5 bg-black/40 rounded text-rose-300">
-                      📝 {QUESTION_ROUND_FORMATS[roundFormat].defaultRoundType}
-                    </span>
-                  </div>
-                  <p className="text-white/80 leading-snug">
-                    <strong className="text-white">Mô tả:</strong> {QUESTION_ROUND_FORMATS[roundFormat].description}
-                  </p>
-                  <p className="text-emerald-400/90 leading-snug">
-                    <strong className="text-emerald-400">Tính điểm:</strong> {QUESTION_ROUND_FORMATS[roundFormat].scoringRule}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* 3. Domain */}
-            <div>
-              <label className="block text-xs font-mono text-white/70 mb-1.5 font-semibold">
-                3. Miền Năng Lực Số (Thông tư 02/2025):
-              </label>
-              <select
-                value={domain}
-                onChange={e => handleDomainChange(e.target.value as DigitalCompetencyDomainKey)}
-                className="w-full bg-black/50 border border-white/15 rounded-[4px] px-3 py-2 text-xs text-white focus:border-sky-400 focus:outline-none"
-              >
-                {Object.values(DIGITAL_COMPETENCY_DOMAINS).map(d => (
-                  <option key={d.key} value={d.key}>
-                    {d.code}: {d.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* 4. Sub-competency */}
-            <div>
-              <label className="block text-xs font-mono text-white/70 mb-1.5 font-semibold">
-                4. Năng Lực Thành Phần:
-              </label>
-              <select
-                value={subCompetency}
-                onChange={e => setSubCompetency(e.target.value)}
-                className="w-full bg-black/50 border border-white/15 rounded-[4px] px-3 py-2 text-xs text-white focus:border-sky-400 focus:outline-none"
-              >
-                {DIGITAL_COMPETENCY_DOMAINS[domain].subCompetencies.map(sub => (
-                  <option key={sub.code} value={sub.code}>
-                    {sub.code}: {sub.name}
-                  </option>
-                ))}
-              </select>
-              <p className="text-[11px] text-white/50 mt-1 italic">
-                {DIGITAL_COMPETENCY_DOMAINS[domain].subCompetencies.find(s => s.code === subCompetency)?.description}
-              </p>
-            </div>
-
-            {/* 5. Cognitive Level */}
-            <div>
-              <label className="block text-xs font-mono text-white/70 mb-1.5 font-semibold">
-                5. Mức Độ Nhận Thức (Chuẩn Bộ GD&ĐT):
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {Object.values(COGNITIVE_LEVELS).map(lvl => (
-                  <button
-                    key={lvl.level}
-                    type="button"
-                    onClick={() => setCognitiveLevel(lvl.level)}
-                    className={`px-2.5 py-2 rounded-[4px] border text-left transition text-xs ${
-                      cognitiveLevel === lvl.level
-                        ? 'border-sky-400 bg-sky-500/20 text-white font-bold shadow-sm'
-                        : 'border-white/10 bg-white/5 text-white/60 hover:text-white'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span>{lvl.name}</span>
-                      {cognitiveLevel === lvl.level && <CheckCircle2 className="w-3 h-3 text-sky-300" />}
-                    </div>
-                    <span className="text-[10px] opacity-70 block font-normal">{lvl.levelsRange}</span>
-                  </button>
-                ))}
+              <div>
+                <label className="block text-[11px] font-mono text-white/70 mb-1 font-semibold">
+                  5. Năng lực thành phần:
+                </label>
+                <select
+                  value={subCompetency}
+                  onChange={e => setSubCompetency(e.target.value)}
+                  className="w-full bg-[#120427] border border-white/15 rounded-[4px] px-2 py-1.5 text-xs text-purple-200 focus:border-purple-400 focus:outline-none truncate font-medium"
+                >
+                  {DIGITAL_COMPETENCY_DOMAINS[domain].subCompetencies.map(sub => (
+                    <option key={sub.code} value={sub.code}>
+                      {sub.code}: {sub.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
-            {/* 6. Legal Document Context Grounding */}
+            {/* Row 4: Mức Độ Nhận Thức (4-Pill Segmented Buttons) */}
             <div>
-              <label className="block text-xs font-mono text-white/70 mb-1.5 font-semibold flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Scale className="w-3.5 h-3.5 text-amber-400" />
-                  6. Văn Bản Pháp Lý Tham Chiếu:
+              <label className="block text-[11px] font-mono text-white/70 mb-1.5 font-semibold">
+                6. Mức độ nhận thức (Độ khó):
+              </label>
+              <div className="grid grid-cols-4 gap-1.5">
+                {COGNITIVE_PILLS.map(p => {
+                  const isSelected = cognitiveLevel === p.level;
+                  return (
+                    <button
+                      key={p.level}
+                      type="button"
+                      onClick={() => {
+                        vibrateTap();
+                        soundFx.playClick();
+                        setCognitiveLevel(p.level);
+                      }}
+                      className={`py-1.5 px-1 rounded-[4px] border text-center transition cursor-pointer text-xs font-mono select-none ${
+                        isSelected
+                          ? p.activeClass
+                          : 'bg-black/30 border-white/10 text-white/60 hover:text-white hover:bg-white/5'
+                      }`}
+                      title={p.label}
+                    >
+                      <span className="block font-bold">{p.short}</span>
+                      <span className="text-[9px] block opacity-80 truncate">{p.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Row 5: Văn Bản Pháp Lý Tham Chiếu */}
+            <div>
+              <label className="block text-[11px] font-mono text-white/70 mb-1 font-semibold flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <Scale className="w-3 h-3 text-emerald-400" />
+                  <span>7. Căn cứ văn bản pháp lý:</span>
                 </span>
-                <span className="text-[10px] text-emerald-400">Đã cập nhật {documents.length} văn bản</span>
+                <span className="text-[10px] text-emerald-400 font-normal">
+                  {documents.length} văn bản
+                </span>
               </label>
               <select
                 value={selectedDocId}
                 onChange={e => setSelectedDocId(e.target.value)}
-                className="w-full bg-black/50 border border-white/15 rounded-[4px] px-3 py-2 text-xs text-white focus:border-sky-400 focus:outline-none"
+                className="w-full bg-[#120427] border border-white/15 rounded-[4px] px-2 py-1.5 text-xs text-white focus:border-theme-accent focus:outline-none truncate font-medium"
               >
                 {documents.map(doc => (
                   <option key={doc.id} value={doc.id}>
@@ -557,80 +574,82 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
               </select>
             </div>
 
-            {/* 7. Topic & Prompt */}
+            {/* Row 6: Chủ Đề / Gợi Ý Prompt */}
             <div>
-              <label className="block text-xs font-mono text-white/70 mb-1.5 font-semibold flex items-center justify-between">
-                <span>7. Chủ Đề / Gợi Ý Nội Dung Soạn Thảo:</span>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-mono text-white/70 font-semibold">
+                  8. Gợi ý chủ đề / Tình huống thực tế:
+                </label>
                 <button
                   type="button"
                   onClick={() => {
+                    vibrateTap();
+                    soundFx.playClick();
                     const suggestions = AI_KEYWORD_SUGGESTIONS[domain as string] || AI_KEYWORD_SUGGESTIONS['MIEN_4'];
                     const randomKeyword = suggestions[Math.floor(Math.random() * suggestions.length)];
                     setTopicPrompt(randomKeyword);
                   }}
-                  className="text-amber-400 hover:text-amber-300 font-normal flex items-center gap-1 bg-amber-950/30 px-2 py-0.5 rounded border border-amber-500/20 transition-colors"
+                  className="text-[10px] text-amber-300 hover:text-amber-200 font-mono flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 cursor-pointer transition"
                 >
-                  <Lightbulb className="w-3.5 h-3.5" />
-                  Gợi ý ngẫu nhiên
+                  <Lightbulb className="w-3 h-3 text-amber-300" />
+                  <span>Gợi ý ngẫu nhiên</span>
                 </button>
-              </label>
+              </div>
+
               <textarea
                 value={topicPrompt}
                 onChange={e => setTopicPrompt(e.target.value)}
-                rows={3}
+                rows={2}
                 placeholder="Nhập tình huống, công nghệ thực tế, hoặc gợi ý cụ thể..."
-                className="w-full bg-black/50 border border-white/15 rounded-[4px] p-2.5 text-xs text-white placeholder-white/30 focus:border-sky-400 focus:outline-none mb-2"
+                className="w-full bg-[#120427] border border-white/15 rounded-[4px] p-2 text-xs text-white placeholder-white/30 focus:border-theme-accent focus:outline-none leading-relaxed"
               />
-              
+
               {/* Keyword Chips */}
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                <span className="text-[10px] text-white/40 flex items-center pt-0.5 mr-1"><Sparkles className="w-3 h-3 mr-1" /> Gợi ý AI:</span>
-                {(AI_KEYWORD_SUGGESTIONS[domain as string] || []).map((keyword, i) => (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {(AI_KEYWORD_SUGGESTIONS[domain as string] || []).slice(0, 3).map((keyword, i) => (
                   <button
                     key={i}
                     type="button"
-                    onClick={() => setTopicPrompt(keyword)}
-                    className="text-[10px] px-2 py-0.5 rounded-full bg-sky-900/30 hover:bg-sky-800/60 text-sky-200 border border-sky-500/30 transition-colors text-left max-w-full truncate"
+                    onClick={() => {
+                      vibrateTap();
+                      setTopicPrompt(keyword);
+                    }}
+                    className="text-[10px] px-2 py-0.5 rounded-full bg-sky-950/40 hover:bg-sky-900/60 text-sky-200 border border-sky-500/25 transition cursor-pointer truncate max-w-full text-left"
                     title={keyword}
                   >
-                    {keyword}
+                    #{keyword}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* 8. Google Search Grounding Toggle */}
-            <div className="p-3 rounded-[4px] bg-gradient-to-r from-emerald-950/40 via-blue-950/30 to-black/50 border border-emerald-500/30 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-emerald-300">
-                  <input
-                    type="checkbox"
-                    checked={useSearchGrounding}
-                    onChange={e => setUseSearchGrounding(e.target.checked)}
-                    className="w-4 h-4 rounded border-emerald-500 bg-black text-emerald-500 focus:ring-emerald-400"
-                  />
-                  <span className="flex items-center gap-1.5">
-                    <Globe className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                    Tra cứu Google Search Grounding
-                  </span>
-                </label>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 font-mono font-bold">
-                  Gemini 3.5 Flash
+            {/* Row 7: Google Search Grounding Inline Switch */}
+            <div className="flex items-center justify-between p-2 rounded-[4px] bg-emerald-950/25 border border-emerald-500/25 text-xs">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-emerald-300">
+                <input
+                  type="checkbox"
+                  checked={useSearchGrounding}
+                  onChange={e => setUseSearchGrounding(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-emerald-500 bg-black text-emerald-500 focus:ring-emerald-400 accent-emerald-500 cursor-pointer"
+                />
+                <span className="flex items-center gap-1.5 font-mono text-[11px]">
+                  <Globe className="w-3 h-3 text-emerald-400" />
+                  <span>Tra cứu Google Search Grounding</span>
                 </span>
-              </div>
-              <p className="text-[11px] text-white/70 leading-relaxed pl-6">
-                Tự động tìm kiếm tin tức an toàn thông tin, tình huống thực tế & văn bản quy phạm pháp luật mới nhất 2025-2026 trên Google.
-              </p>
+              </label>
+              <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-400/30">
+                Web 2026
+              </span>
             </div>
 
-            {/* Number of questions & Submit button */}
-            <div className="flex items-center gap-3 pt-2">
-              <div className="w-28 shrink-0">
-                <label className="block text-[11px] font-mono text-white/60 mb-1">Số lượng:</label>
+            {/* Row 8: Question Count & Primary Submit Button */}
+            <div className="flex items-center gap-2 pt-1 border-t border-white/10">
+              <div className="w-24 shrink-0">
                 <select
                   value={questionCount}
                   onChange={e => setQuestionCount(Number(e.target.value))}
-                  className="w-full bg-black/50 border border-white/15 rounded-[4px] px-2 py-2 text-xs text-white text-center focus:border-sky-400 focus:outline-none"
+                  className="w-full bg-[#120427] border border-white/15 rounded-[4px] px-2 py-2 text-xs text-white text-center focus:border-theme-accent focus:outline-none font-mono font-bold"
+                  title="Số lượng câu hỏi cần sinh"
                 >
                   <option value={1}>1 câu</option>
                   <option value={2}>2 câu</option>
@@ -643,16 +662,16 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
                 type="button"
                 onClick={handleGenerate}
                 disabled={isGenerating}
-                className="flex-1 mt-4 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-[4px] text-xs font-bold uppercase tracking-wider font-mono flex items-center justify-center gap-2 shadow-lg shadow-blue-900/30 transition disabled:opacity-50 cursor-pointer"
+                className="flex-1 py-2 px-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-[4px] text-xs font-bold uppercase tracking-wider font-mono flex items-center justify-center gap-2 shadow-lg shadow-purple-900/30 transition disabled:opacity-50 cursor-pointer active:scale-[0.99]"
               >
                 {isGenerating ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
                     <span>AI Đang Soạn Đề...</span>
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4 text-amber-300" />
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                     <span>Khởi Tạo Bằng AI</span>
                   </>
                 )}
@@ -661,9 +680,10 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
           </div>
         </div>
 
-        {/* Right 7 Cols: Results & Auditing Preview */}
-        <div className="lg:col-span-7 space-y-4">
-          <div className="flex items-center justify-between">
+        {/* RIGHT COLUMN (7 COLS): GENERATED RESULTS & AUDIT CARDS */}
+        <div className="lg:col-span-7 space-y-3">
+          {/* Header Row */}
+          <div className="flex items-center justify-between pb-1">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-emerald-400" />
               Kết Quả AI Soạn Thảo ({generatedQuestions.length})
@@ -672,16 +692,17 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
               <button
                 type="button"
                 onClick={handleSaveAll}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold font-mono rounded-[4px] transition flex items-center gap-1.5 shadow-md shadow-emerald-950/40 cursor-pointer"
+                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold font-mono rounded-[4px] transition flex items-center gap-1.5 shadow-md shadow-emerald-950/40 cursor-pointer"
               >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Lưu Tất Cả Vào Ngân Hàng
+                <CheckCircle2 className="w-3 h-3" />
+                Lưu Tất Cả ({generatedQuestions.length - savedIds.size})
               </button>
             )}
           </div>
 
+          {/* Error Banner */}
           {errorMsg && (
-            <div className="fluent-box p-4 border-rose-500/40 bg-rose-950/30 text-rose-300 text-xs rounded-[4px] flex items-start gap-2.5">
+            <div className="fluent-card p-3 border-rose-500/40 bg-rose-950/30 text-rose-300 text-xs rounded-[4px] flex items-start gap-2.5 animate-fadeIn">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold">Lỗi biên soạn câu hỏi:</p>
@@ -692,52 +713,54 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
 
           {/* Search Grounding Sources Display */}
           {groundingSources.length > 0 && (
-            <div className="fluent-box p-3.5 bg-emerald-950/30 border border-emerald-500/30 rounded-[4px] space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
-                  <Globe className="w-4 h-4 text-emerald-400" />
-                  Nguồn Trích Dẫn Google Search Grounding ({groundingSources.length}):
+            <div className="fluent-card p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-[4px] space-y-1.5 animate-fadeIn">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-emerald-300 flex items-center gap-1.5 font-mono text-[11px]">
+                  <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                  Nguồn Trích Dẫn Thực Tế ({groundingSources.length}):
                 </span>
                 {searchQueries.length > 0 && (
                   <span className="text-[10px] text-white/50 font-mono truncate max-w-xs">
-                    Từ khóa: {searchQueries.join(', ')}
+                    {searchQueries.join(', ')}
                   </span>
                 )}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
                 {groundingSources.map((source, idx) => (
                   <a
                     key={idx}
                     href={source.uri}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 bg-black/40 hover:bg-black/70 border border-emerald-500/20 hover:border-emerald-400/50 rounded flex items-center justify-between text-emerald-200 transition-colors group"
+                    className="p-1.5 bg-black/40 hover:bg-black/70 border border-emerald-500/20 hover:border-emerald-400/50 rounded flex items-center justify-between text-emerald-200 transition text-[11px] group"
                   >
                     <span className="truncate pr-2 font-medium group-hover:underline">{source.title || source.uri}</span>
-                    <ExternalLink className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <ExternalLink className="w-3 h-3 text-emerald-400 shrink-0" />
                   </a>
                 ))}
               </div>
             </div>
           )}
 
+          {/* Loading Animation State */}
           {isGenerating && (
-            <div className="fluent-box p-8 rounded-[4px] border border-sky-500/30 text-center space-y-3 animate-pulse">
-              <RefreshCw className="w-8 h-8 text-sky-400 animate-spin mx-auto" />
-              <p className="text-sm font-bold text-white font-mono">Đang kết nối Gemini Pro & Khảo thí TT 02/2025...</p>
-              <p className="text-xs text-white/50 max-w-md mx-auto">
-                Mô hình đang đối chiếu câu hỏi với {selectedDocId ? 'văn bản pháp lý đã chọn' : 'Khung năng lực số'} và tạo phương án nhiễu khoa học.
+            <div className="fluent-card p-6 rounded-[6px] border border-sky-500/30 text-center space-y-2.5 animate-pulse bg-[#190839]">
+              <RefreshCw className="w-6 h-6 text-sky-400 animate-spin mx-auto" />
+              <p className="text-xs font-bold text-white font-mono">Đang kết nối Gemini Pro &amp; Khảo thí TT 02/2025...</p>
+              <p className="text-[11px] text-white/50 max-w-md mx-auto font-mono">
+                Đối chiếu căn cứ pháp lý, tính điểm phân hóa và tạo phương án nhiễu khoa học...
               </p>
             </div>
           )}
 
+          {/* Empty State */}
           {!isGenerating && generatedQuestions.length === 0 && !errorMsg && (
-            <div className="fluent-box p-12 rounded-[4px] border border-white/10 text-center space-y-3">
-              <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-white/40">
-                <Sparkles className="w-6 h-6" />
+            <div className="fluent-card p-8 rounded-[6px] border border-white/10 text-center space-y-2 bg-[#190839]">
+              <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-theme-accent">
+                <Sparkles className="w-5 h-5 text-theme-accent" />
               </div>
-              <p className="text-sm font-bold text-white font-mono">Chưa có câu hỏi nào được tạo</p>
-              <p className="text-xs text-white/50 max-w-md mx-auto">
+              <p className="text-xs font-bold text-white font-mono">Chưa có câu hỏi nào được sinh</p>
+              <p className="text-[11px] text-white/50 max-w-md mx-auto">
                 Chọn giai đoạn thi, miền năng lực số và bấm &quot;Khởi Tạo Bằng AI&quot; để trợ lý tự động biên soạn câu hỏi chuẩn xác kèm căn cứ pháp lý.
               </p>
             </div>
@@ -752,66 +775,67 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
             return (
               <div 
                 key={idx} 
-                className={`fluent-box p-4 sm:p-5 rounded-[4px] border transition-all space-y-3.5 ${
-                  isSaved ? 'border-emerald-500/40 bg-emerald-950/10' : 'border-white/15 bg-black/40'
+                className={`fluent-card p-3.5 sm:p-4 rounded-[6px] border transition-all space-y-2.5 ${
+                  isSaved ? 'border-emerald-500/40 bg-emerald-950/15' : 'border-white/15 bg-[#190839]'
                 }`}
               >
                 {/* Header Meta */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-white/10">
-                  <div className="flex items-center flex-wrap gap-2">
-                    <span className="text-xs font-mono font-bold text-sky-400 bg-sky-950/60 border border-sky-500/30 px-2 py-0.5 rounded">
-                      Câu #{idx + 1}
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-white/10">
+                  <div className="flex items-center flex-wrap gap-1.5">
+                    <span className="text-[11px] font-mono font-bold text-sky-300 bg-sky-950/60 border border-sky-500/30 px-2 py-0.2 rounded">
+                      #{idx + 1}
                     </span>
-                    <span className="text-xs font-mono text-white/60 bg-white/5 px-2 py-0.5 rounded border border-white/10">
-                      {stage}
-                    </span>
-                    <span className="text-xs font-mono text-purple-300 bg-purple-950/40 px-2 py-0.5 rounded border border-purple-500/30">
+                    <span className="text-[10px] font-mono text-purple-300 bg-purple-950/40 px-1.5 py-0.2 rounded border border-purple-500/30">
                       {q.cognitiveLevel || cognitiveLevel}
                     </span>
                     {q.mediaType && q.mediaType !== 'NONE' && (
-                      <span className="text-xs font-mono text-pink-300 bg-pink-950/40 px-2 py-0.5 rounded border border-pink-500/30 flex items-center gap-1">
-                        <ImageIcon className="w-3 h-3" /> {q.mediaType}
+                      <span className="text-[10px] font-mono text-pink-300 bg-pink-950/40 px-1.5 py-0.2 rounded border border-pink-500/30 flex items-center gap-1">
+                        <ImageIcon className="w-2.5 h-2.5" /> {q.mediaType}
                       </span>
                     )}
                     {q.tags && q.tags.map((tag: string, i: number) => (
-                      <span key={i} className="text-[10px] font-mono text-amber-300/80 bg-amber-950/30 px-1.5 py-0.5 rounded border border-amber-500/20">
+                      <span key={i} className="text-[9.5px] font-mono text-amber-300/80 bg-amber-950/30 px-1.5 py-0.2 rounded border border-amber-500/20">
                         #{tag}
                       </span>
                     ))}
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  {/* Actions */}
+                  <div className="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => handleAuditQuestion(q, idx)}
                       disabled={isAuditing}
-                      className="px-2.5 py-1 text-[11px] font-mono font-bold text-amber-300 bg-amber-950/40 hover:bg-amber-900/50 border border-amber-500/30 rounded flex items-center gap-1 transition cursor-pointer"
+                      className="px-2 py-1 text-[10.5px] font-mono font-bold text-amber-300 bg-amber-950/40 hover:bg-amber-900/50 border border-amber-500/30 rounded flex items-center gap-1 transition cursor-pointer"
+                      title="Chấm điểm thẩm định hội đồng khảo thí"
                     >
                       {isAuditing ? <RefreshCw className="w-3 h-3 animate-spin" /> : <ShieldCheck className="w-3 h-3 text-amber-400" />}
-                      <span>Thẩm Định AI</span>
+                      <span>Thẩm Định</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => handleEditBeforeSave(q, idx)}
                       disabled={isSaved}
-                      className={`px-2.5 py-1 text-[11px] font-mono font-bold rounded flex items-center gap-1 transition cursor-pointer ${
+                      className={`px-2 py-1 text-[10.5px] font-mono font-bold rounded flex items-center gap-1 transition cursor-pointer ${
                         isSaved 
                           ? 'bg-purple-900/40 text-purple-300 border border-purple-500/30' 
                           : 'bg-purple-600 hover:bg-purple-500 text-white'
                       }`}
+                      title="Mở trình soạn thảo chi tiết trước khi lưu"
                     >
                       <Sparkles className="w-3 h-3" />
-                      <span>Sửa & Lưu</span>
+                      <span>Sửa &amp; Lưu</span>
                     </button>
+
                     <button
                       type="button"
                       onClick={() => handleSaveToBank(q, idx)}
                       disabled={isSaved}
-                      className={`px-2.5 py-1 text-[11px] font-mono font-bold rounded flex items-center gap-1 transition cursor-pointer ${
+                      className={`px-2 py-1 text-[10.5px] font-mono font-bold rounded flex items-center gap-1 transition cursor-pointer ${
                         isSaved 
                           ? 'bg-emerald-900/60 text-emerald-300 border border-emerald-500/40' 
-                          : 'bg-blue-600 hover:bg-blue-500 text-white'
+                          : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
                       }`}
                     >
                       <CheckCircle2 className="w-3 h-3" />
@@ -820,37 +844,41 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
                   </div>
                 </div>
 
-                {/* Question Text & VCNV Info */}
+                {/* Obstacle Info if VCNV */}
                 {q.obstacleInfo && (
-                  <div className="mb-2 p-2 bg-amber-950/20 border border-amber-500/20 rounded text-xs space-y-1">
-                    <div className="flex items-center gap-1.5 text-amber-300 font-bold mb-1 border-b border-amber-500/20 pb-1">
-                      <Target className="w-3.5 h-3.5" />
+                  <div className="p-2 bg-amber-950/20 border border-amber-500/20 rounded text-xs space-y-0.5 font-mono">
+                    <div className="flex items-center gap-1.5 text-amber-300 font-bold mb-0.5">
+                      <Target className="w-3 h-3" />
                       <span>Thông tin Vượt Chướng Ngại Vật</span>
                     </div>
-                    <p className="text-white/80"><span className="text-white/50">Hàng ngang:</span> {q.obstacleInfo.rowNumber} <span className="text-white/50 ml-2">Độ dài:</span> {q.obstacleInfo.rowLength} ký tự</p>
-                    <p className="text-white/80"><span className="text-white/50">Gợi ý:</span> {q.obstacleInfo.clueText}</p>
+                    <p className="text-white/80">
+                      Hàng ngang: <strong className="text-white">{q.obstacleInfo.rowNumber}</strong> ({q.obstacleInfo.rowLength} ký tự)
+                    </p>
+                    <p className="text-white/70">Gợi ý: {q.obstacleInfo.clueText}</p>
                   </div>
                 )}
-                <p className="text-sm sm:text-base font-semibold text-white leading-relaxed">
+
+                {/* Question Text */}
+                <p className="text-sm font-semibold text-white leading-relaxed">
                   {q.questionText}
                 </p>
 
-                {/* Options (if multiple choice or True/False) */}
+                {/* Options Grid */}
                 {q.options && Object.keys(q.options).length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-0.5">
                     {Object.entries(q.options).map(([optKey, optText]) => {
                       const isCorrect = q.correctKey === optKey || q.correctKey?.includes(optKey);
                       return (
                         <div
                           key={optKey}
-                          className={`p-2.5 rounded-[4px] border text-xs flex items-start gap-2 ${
+                          className={`p-2 rounded-[4px] border text-xs flex items-start gap-2 ${
                             isCorrect
-                              ? 'bg-emerald-950/30 border-emerald-500/50 text-emerald-200 font-semibold'
+                              ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-200 font-semibold shadow-sm'
                               : 'bg-white/5 border-white/10 text-white/80'
                           }`}
                         >
-                          <span className={`w-5 h-5 rounded flex items-center justify-center font-bold text-[11px] shrink-0 ${
-                            isCorrect ? 'bg-emerald-500 text-black' : 'bg-white/10 text-white'
+                          <span className={`w-4 h-4 rounded flex items-center justify-center font-bold text-[10px] shrink-0 font-mono ${
+                            isCorrect ? 'bg-emerald-500 text-slate-950' : 'bg-white/10 text-white'
                           }`}>
                             {optKey}
                           </span>
@@ -861,39 +889,39 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
                   </div>
                 )}
 
-                {/* Answer & Explanation */}
-                <div className="p-3 bg-white/5 rounded-[4px] border border-white/10 space-y-1.5 text-xs">
+                {/* Answer, Explanation & Legal Reference */}
+                <div className="p-2.5 bg-white/5 rounded-[4px] border border-white/10 space-y-1 text-xs font-mono">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[11px] text-emerald-400 font-bold uppercase">Đáp án chuẩn:</span>
-                    <span className="font-bold text-white bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/30">
+                    <span className="text-[10px] text-emerald-400 font-bold uppercase">Đáp án:</span>
+                    <span className="font-bold text-white bg-emerald-500/20 px-2 py-0.2 rounded border border-emerald-500/30 text-[11px]">
                       {q.correctKey}
                     </span>
                   </div>
-                  <p className="text-white/70 leading-relaxed">
+                  <p className="text-white/70 text-[11px] leading-relaxed">
                     <span className="font-semibold text-white/90">Giải thích:</span> {q.explanation}
                   </p>
                   {q.legalReference && (
-                    <p className="text-amber-300/90 text-[11px] flex items-center gap-1.5 pt-1 border-t border-white/5">
+                    <p className="text-amber-300/90 text-[10.5px] flex items-center gap-1 pt-1 border-t border-white/5">
                       <Scale className="w-3 h-3 text-amber-400 shrink-0" />
-                      <span>Căn cứ pháp lý: <strong>{q.legalReference}</strong></span>
+                      <span>Căn cứ: <strong>{q.legalReference}</strong></span>
                     </p>
                   )}
                 </div>
 
-                {/* Audit Feedback Panel (if evaluated) */}
+                {/* Audit Feedback Panel */}
                 {audit && (
-                  <div className="p-3.5 bg-amber-950/20 border border-amber-500/40 rounded-[4px] space-y-2 text-xs animate-fadeIn">
+                  <div className="p-2.5 bg-amber-950/20 border border-amber-500/40 rounded-[4px] space-y-1.5 text-xs animate-fadeIn font-mono">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold font-mono text-amber-300 flex items-center gap-1.5">
+                      <span className="font-bold text-amber-300 flex items-center gap-1.5 text-[11px]">
                         <FileCheck2 className="w-3.5 h-3.5" />
                         Đánh Giá Thẩm Định Hội Đồng Khảo Thí:
                       </span>
-                      <span className="font-mono font-bold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-500/30">
+                      <span className="font-bold text-emerald-400 bg-emerald-950/40 px-2 py-0.2 rounded border border-emerald-500/30 text-[11px]">
                         {audit.qualityScore}/100 Điểm
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-white/80 pt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10.5px] text-white/80 pt-0.5">
                       <div>
                         <span className="text-emerald-400 font-bold block">Ưu điểm:</span>
                         <ul className="list-disc pl-4 space-y-0.5 text-white/70">

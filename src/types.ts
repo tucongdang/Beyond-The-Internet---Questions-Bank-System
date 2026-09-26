@@ -49,6 +49,8 @@ export interface UserInfo {
   registeredAt?: number;
   teamId?: string;
   teamName?: string;
+  email?: string;
+  emailVerified?: boolean;
 }
 
 export interface QuestionActivityLog {
@@ -277,6 +279,39 @@ export interface AppUser {
   lastActive?: number;
 }
 
+export type TechnicalRole =
+  | 'SERVER_OPERATOR'
+  | 'LED_OPERATOR'
+  | 'STAGE_COORDINATOR'
+  | 'SUPER_ADMIN'
+  | 'HEAD_EDITOR'
+  | 'EXAMINER'
+  | 'CONTRIBUTOR';
+
+export const TECHNICAL_ROLES: Record<TechnicalRole, { label: string; description: string; icon?: string }> = {
+  SERVER_OPERATOR: { label: '🖥️ Máy chủ Realtime', description: 'Vận hành cụm máy chủ thời gian thực & API' },
+  LED_OPERATOR: { label: '📺 Màn chiếu LED', description: 'Điều hành màn LED sân khấu & Projector' },
+  STAGE_COORDINATOR: { label: '🛠️ Sân khấu', description: 'Giám sát điều hành kỹ thuật sàn đấu' },
+  SUPER_ADMIN: { label: '🛡️ Super Admin', description: 'Quản trị viên tối cao hệ thống' },
+  HEAD_EDITOR: { label: '📝 Trưởng Ban Đề Thi', description: 'Phê duyệt & xuất bản ngân hàng đề' },
+  EXAMINER: { label: '⚖️ Ban Giám Khảo', description: 'Khảo thí & chấm điểm thi đấu' },
+  CONTRIBUTOR: { label: '✍️ Người Biên Soạn', description: 'Soạn thảo & biên tập câu hỏi' }
+};
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  fullName: string;
+  email: string;
+  technicalRole?: TechnicalRole;
+  role?: UserRole;
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  approvedAt?: number;
+  approvedBy?: string;
+  createdAt?: number;
+  lastActive?: number;
+}
+
 export interface LegalDocument {
   id: string;
   title: string;
@@ -297,6 +332,16 @@ export interface LegalDocument {
   uploadedBy?: string;
 }
 
+export interface ScenarioBranch {
+  key?: string; // 'A' | 'B' | 'C' | 'D'
+  text: string; // Nội dung phương án lựa chọn
+  isOptimal?: boolean; // Phương án tối ưu / đúng nhất
+  reactionScript: string; // Lời thoại & kịch bản diễn biến tiếp theo trên sân khấu
+  consequence: string; // Hệ quả số / kết quả thực tế
+  feedback: string; // Nhận xét sư phạm, phân tích chuyên môn & căn cứ pháp lý
+  statusType?: 'SUCCESS' | 'WARNING' | 'DANGER' | 'INFO'; // Trạng thái hiển thị
+}
+
 export interface InteractiveScenario {
   id: string;
   title: string;
@@ -309,10 +354,12 @@ export interface InteractiveScenario {
   dilemmaQuestion: string;
   options?: Record<string, string>;
   correctOption?: string;
+  branches?: Record<string, ScenarioBranch>; // 4 nhánh kịch bản phía sau ứng với A, B, C, D
+  subOptimalScript?: string; // Ô kịch bản ứng biến trên sân khấu khi thí sinh chọn các phương án sai / chưa tối ưu (MC & Cố vấn can thiệp)
   actionChecklist: string[];
   timeLimitThought: number; // 15s, 20s, 30s
   timeLimitAction: number;  // 30s, 60s, 90s
-  rubric: Array<{ criterion: string; maxPoints: number; description: string }>;
+  rubric?: Array<{ criterion: string; maxPoints: number; description: string }>;
   legalBasis: string;
   status: ApprovalStatus;
   author: string;

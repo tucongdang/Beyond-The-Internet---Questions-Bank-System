@@ -22,6 +22,7 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronRight,
+  MoreHorizontal,
   Zap,
   Rocket,
   Flag,
@@ -79,7 +80,6 @@ import { InteractiveScenarioEditor } from './InteractiveScenarioEditor';
 import { LegalDocumentLibrary } from './LegalDocumentLibrary';
 import { RandomExamGeneratorModal } from './RandomExamGeneratorModal';
 import { AiMockQuizGeneratorModal } from './AiMockQuizGeneratorModal';
-import { UserRoleManagerModal } from './UserRoleManagerModal';
 import { QuestionEditorModal } from './QuestionEditorModal';
 import { BulkQuestionImportModal } from './BulkQuestionImportModal';
 import { BulkActionToolbar } from './BulkActionToolbar';
@@ -222,10 +222,10 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
   };
 
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showOverviewHeaderInQuestions, setShowOverviewHeaderInQuestions] = useState<boolean>(false);
 
   // Modals
   const [showExamModal, setShowExamModal] = useState<boolean>(false);
-  const [showUserModal, setShowUserModal] = useState<boolean>(false);
   const [showAddQuestionModal, setShowAddQuestionModal] = useState<boolean>(false);
   const [editorInitialRound, setEditorInitialRound] = useState<BtiRoundGroupKey | undefined>(undefined);
   const [editorInitialDomain, setEditorInitialDomain] = useState<string | undefined>(undefined);
@@ -374,6 +374,32 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
   const [historyQuestion, setHistoryQuestion] = useState<QuestionItem | null>(null);
   const [previewQuestion, setPreviewQuestion] = useState<QuestionItem | null>(null);
   const [quickReviewQuestion, setQuickReviewQuestion] = useState<QuestionItem | null>(null);
+
+  // Hero Command Bar Dropdowns State
+  const [activeHeaderMenu, setActiveHeaderMenu] = useState<'import' | 'export' | 'ai' | 'more' | null>(null);
+  const headerMenuRef = useRef<HTMLDivElement>(null);
+
+  // Tab Tools Dropdown State
+  const [isToolsDropdownOpen, setIsToolsDropdownOpen] = useState(false);
+  const toolsDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (headerMenuRef.current && !headerMenuRef.current.contains(event.target as Node)) {
+        setActiveHeaderMenu(null);
+      }
+      if (toolsDropdownRef.current && !toolsDropdownRef.current.contains(event.target as Node)) {
+        setIsToolsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Compute pending moderation count for Tab badge
+  const pendingModerationCount = useMemo(() => {
+    return questions.filter(q => (q as any).approval_status === 'PENDING_REVIEW' || (q as any).approvalStatus === 'PENDING_REVIEW' || (q as any).status === 'PENDING_REVIEW').length;
+  }, [questions]);
 
   // Subscribe to real-time question reviews from Firestore
   useEffect(() => {
@@ -1018,13 +1044,20 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
           soundFx.playClick();
           return;
         }
+        if (isFocusMode) {
+          e.preventDefault();
+          vibrateTap();
+          soundFx.playClick();
+          if (onToggleFocusMode) onToggleFocusMode();
+          else setInternalIsFocusMode(false);
+          return;
+        }
       }
 
       // If any modal is open, don't intercept typing or editor shortcuts
       const isModalOpen =
         showAddQuestionModal ||
         showExamModal ||
-        showUserModal ||
         showBulkImportModal ||
         showBulkCategoryModal ||
         showBulkDeleteModal ||
@@ -1247,7 +1280,7 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
       window.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [
-    showAddQuestionModal, showExamModal, showUserModal, showBulkImportModal,
+    showAddQuestionModal, showExamModal, showBulkImportModal,
     showBulkCategoryModal, showBulkDeleteModal, showTagsManagerModal,
     showCategoriesManagerModal, showPrintPreviewModal, showExportModal, showShortcutsModal,
     isCompareModalOpen, previewQuestion, historyQuestion, activeTab, selectedIds,
@@ -1255,26 +1288,19 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
   ]);
 
   return (
-    <div className="space-y-6">
-      {/* Focus Mode Workspace Header Bar (Visible when Focus Mode is ON) */}
+    <div className="space-y-6 pb-20 sm:pb-6">
+      {/* Sleek Minimal Focus Mode Bar */}
       {isFocusMode && (
-        <div className="p-3 px-4 rounded-[4px] bg-gradient-to-r from-amber-950/80 via-[#241148] to-purple-950/80 border border-amber-500/50 shadow-lg flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-[4px] bg-amber-400 text-[#190839] flex items-center justify-center font-black text-sm shadow-md">
-              <Target className="w-4 h-4 text-[#190839]" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xs sm:text-sm font-bold text-amber-300 font-mono tracking-tight uppercase flex items-center gap-1.5">
-                  <span>🎯 CHẾ ĐỘ TẬP TRUNG (FOCUS MODE)</span>
-                  <span className="text-[10px] bg-amber-400/20 text-amber-300 px-1.5 py-0.2 rounded border border-amber-400/30">MAXIMIZED WORKSPACE</span>
-                </h2>
-                <span className="text-[11px] text-white/50 font-mono hidden md:inline">• Đã tối đa hóa diện tích làm việc</span>
-              </div>
-              <p className="text-[11px] text-[#B6A6D8]">
-                Đã ẩn thanh điều hướng, biểu đồ &amp; các bảng chức năng phụ. Tập trung hoàn toàn vào danh sách &amp; bộ biên soạn câu hỏi.
-              </p>
-            </div>
+        <div className="flex items-center justify-between gap-3 px-3.5 py-1.5 rounded-[4px] bg-[#241148]/90 border border-amber-500/40 text-xs backdrop-blur-md shadow-md animate-fadeIn">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shadow-[0_0_8px_#fbbf24]" />
+            <span className="font-mono font-bold text-amber-300 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+              <Target className="w-3.5 h-3.5 text-amber-400" />
+              <span>Focus Mode</span>
+            </span>
+            <span className="text-[10px] text-white/50 hidden md:inline font-mono">
+              • Đã ẩn các công cụ phụ để tối đa không gian soạn câu hỏi
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1286,7 +1312,7 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                 setSelectedQuestion(null);
                 setShowAddQuestionModal(true);
               }}
-              className="fluent-btn-primary px-3 py-1.5 text-xs flex items-center gap-1.5 cursor-pointer rounded-[4px]"
+              className="fluent-btn-primary px-2.5 py-1 text-xs flex items-center gap-1.5 cursor-pointer rounded-[4px]"
               title="Thêm Câu Hỏi Mới (Ctrl + N)"
             >
               <Plus className="w-3.5 h-3.5 text-[#190839]" />
@@ -1301,11 +1327,11 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                 if (onToggleFocusMode) onToggleFocusMode();
                 else setInternalIsFocusMode(false);
               }}
-              className="px-3 py-1.5 rounded-[4px] bg-amber-400 hover:bg-amber-300 text-[#190839] font-mono font-bold text-xs flex items-center gap-1.5 cursor-pointer transition shadow-md"
-              title="Thoát Chế Độ Tập Trung (Alt + F)"
+              className="px-2.5 py-1 rounded-[4px] bg-white/10 hover:bg-white/20 text-white font-mono text-xs flex items-center gap-1.5 cursor-pointer transition border border-white/20"
+              title="Thoát Chế Độ Tập Trung (Alt + F hoặc Esc)"
             >
-              <Minimize2 className="w-3.5 h-3.5" />
-              <span>Thoát Focus Mode (Alt+F)</span>
+              <Minimize2 className="w-3.5 h-3.5 text-amber-300" />
+              <span>Thoát [Alt+F / Esc]</span>
             </button>
           </div>
         </div>
@@ -1313,7 +1339,7 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
 
       {/* Top Banner & User Profile Header (Hidden in Focus Mode) */}
       {!isFocusMode && (
-        <div className="fluent-card p-4 sm:p-5 relative overflow-hidden rounded-[4px] shadow-md">
+        <div className="fluent-card p-4 sm:p-5 relative rounded-[4px] shadow-md z-30">
           <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-4">
             <div className="min-w-[280px] flex-1 space-y-1.5">
               <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-[4px] bg-theme-accent/15 text-theme-accent text-xs font-mono font-semibold mb-1 border border-theme-accent/30">
@@ -1328,286 +1354,407 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
               </p>
             </div>
 
-            {/* User Persona & Quick Actions Organized in 2 Rows */}
-            <div className="flex flex-col gap-2 shrink-0 xl:items-end">
-              {/* Row 1: Primary Actions & User Role */}
-              <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+            {/* Clean 1-Row Command Bar with Purpose-Grouped Dropdowns */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0 xl:items-center relative" ref={headerMenuRef}>
+              {/* Primary Action Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateTap();
+                  soundFx.playClick();
+                  setSelectedQuestion(null);
+                  setShowAddQuestionModal(true);
+                }}
+                className="fluent-btn-primary px-4 py-2 text-xs font-bold flex items-center gap-2 cursor-pointer rounded-[4px] shadow-lg shadow-theme-accent/20 hover:scale-[1.02] active:scale-[0.98] transition"
+                title="Thêm Câu Hỏi Mới (Ctrl + N)"
+              >
+                <Plus className="w-4 h-4 text-[#190839]" />
+                <span>Thêm Câu Hỏi</span>
+                <kbd className="hidden sm:inline-block text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/20 text-[#190839] border border-black/20 font-bold ml-0.5">
+                  Ctrl+N
+                </kbd>
+              </button>
+
+              {/* Nhập Dropdown Group */}
+              <div className="relative">
                 <button
                   type="button"
                   onClick={() => {
                     vibrateTap();
-                    soundFx.playClick();
-                    setShowUserModal(true);
+                    setActiveHeaderMenu(prev => prev === 'import' ? null : 'import');
                   }}
-                  className="px-3 py-2 bg-[#241148]/80 hover:bg-[#3E1D74]/80 border border-theme-accent/25 hover:border-theme-accent/40 rounded-[4px] flex items-center gap-2.5 transition text-xs cursor-pointer shadow-sm"
-                  title="Nhấn để đổi vai trò / xem phân quyền"
+                  className={`px-3 py-2 text-xs font-semibold rounded-[4px] border flex items-center gap-1.5 cursor-pointer transition ${
+                    activeHeaderMenu === 'import'
+                      ? 'bg-emerald-600 text-white border-emerald-400'
+                      : 'bg-[#241148]/80 hover:bg-[#3E1D74]/80 text-emerald-300 border-emerald-500/30'
+                  }`}
+                  title="Nhập câu hỏi từ Excel, Google Drive hoặc Quét AI"
                 >
-                  <div className="w-6 h-6 rounded-[4px] bg-theme-accent text-[#190839] flex items-center justify-center font-bold text-[11px] shadow-sm">
-                    {currentUser.name.charAt(0)}
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                  <span>Nhập</span>
+                  <ChevronDown className={`w-3 h-3 transition-transform ${activeHeaderMenu === 'import' ? 'rotate-180' : ''}`} />
+                </button>
+
+                {activeHeaderMenu === 'import' && (
+                  <div className="absolute right-0 mt-2 w-64 py-1.5 bg-[#170933]/98 backdrop-blur-2xl border border-emerald-500/30 rounded-[6px] shadow-2xl shadow-black/80 z-[110] animate-fadeIn text-xs divide-y divide-white/10 font-sans">
+                    <div className="py-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
+                          setShowBulkImportModal(true);
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-emerald-600/20 transition cursor-pointer"
+                      >
+                        <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                        <div>
+                          <div className="font-bold">Nhập Hàng Loạt (Text/Excel)</div>
+                          <div className="text-[10px] text-[#B6A6D8]">Paste từ Excel, Word hoặc tệp thô</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
+                          setShowGeminiScannerModal(true);
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-purple-600/20 transition cursor-pointer"
+                      >
+                        <Camera className="w-4 h-4 text-amber-300" />
+                        <div>
+                          <div className="font-bold flex items-center gap-1.5">
+                            <span>Quét Đề AI (Camera / PDF)</span>
+                            <span className="text-[9px] bg-amber-400/20 text-amber-300 px-1 rounded font-mono">Gemini 3.8</span>
+                          </div>
+                          <div className="text-[10px] text-[#B6A6D8]">Chuyển ảnh/scan thành câu hỏi chuẩn</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          setActiveHeaderMenu(null);
+                          handleImportFromDrive();
+                        }}
+                        disabled={isDrivePickerLoading}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-cyan-600/20 transition cursor-pointer disabled:opacity-50"
+                      >
+                        <HardDrive className={`w-4 h-4 text-cyan-400 ${isDrivePickerLoading ? 'animate-spin' : ''}`} />
+                        <div>
+                          <div className="font-bold">Import từ Google Drive</div>
+                          <div className="text-[10px] text-[#B6A6D8]">Chọn file Doc/Sheet trực tiếp từ Drive</div>
+                        </div>
+                      </button>
+                    </div>
                   </div>
-                  <div className="text-left font-mono">
-                    <span className="font-semibold text-slate-100 block text-[11px] leading-tight">{currentUser.name}</span>
-                    <span className="text-[10px] text-theme-accent font-mono">{currentUser.role}</span>
-                  </div>
-                  <ChevronDown className="w-3.5 h-3.5 text-[#B6A6D8]" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    vibrateTap();
-                    soundFx.playClick();
-                    setSelectedQuestion(null);
-                    setShowAddQuestionModal(true);
-                  }}
-                  className="fluent-btn-primary px-3.5 py-2 text-xs flex items-center gap-2 cursor-pointer rounded-[4px]"
-                  title="Thêm Câu Hỏi Mới (Ctrl + N)"
-                >
-                  <Plus className="w-4 h-4 text-[#190839]" />
-                  <span>Thêm Câu Hỏi</span>
-                  <kbd className="hidden sm:inline-block text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/20 text-[#190839] border border-black/20 font-bold ml-0.5">
-                    Ctrl+N
-                  </kbd>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    vibrateTap();
-                    soundFx.playClick();
-                    setShowBulkImportModal(true);
-                  }}
-                  className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-bold text-xs flex items-center gap-2 cursor-pointer rounded-[4px] shadow-md shadow-emerald-950/40 border border-emerald-400/40 transition"
-                  title="Nhập hàng loạt câu hỏi từ file văn bản hoặc copy-paste từ Excel/Sheets"
-                >
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
-                  <span>Nhập Hàng Loạt (Text/Excel)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleImportFromDrive}
-                  disabled={isDrivePickerLoading}
-                  className="px-3.5 py-2 bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-500 hover:to-blue-600 text-white font-bold text-xs flex items-center gap-2 cursor-pointer rounded-[4px] shadow-md shadow-cyan-950/40 border border-cyan-400/40 transition disabled:opacity-50"
-                  title="Import from Drive — Mở Google Picker để chọn tệp, bảng tính đề thi hoặc ảnh từ Google Drive"
-                  data-testid="import-from-drive-button"
-                  aria-label="Import from Drive"
-                >
-                  <HardDrive className={`w-4 h-4 text-cyan-200 ${isDrivePickerLoading ? 'animate-spin' : ''}`} />
-                  <span>Import from Drive</span>
-                </button>
-
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    vibrateTap();
-                    soundFx.playClick();
-                    setShowGeminiScannerModal(true);
-                  }}
-                  className="px-3.5 py-2 bg-gradient-to-r from-amber-500 via-purple-600 to-indigo-600 hover:from-amber-400 hover:via-purple-500 hover:to-indigo-500 text-slate-950 font-black text-xs flex items-center gap-2 cursor-pointer rounded-[4px] shadow-md shadow-purple-950/40 border border-amber-300/50 transition transform active:scale-95"
-                  title="Quét ảnh từ Camera hoặc tải file văn bản để Gemini tự động chuyển đổi thành câu hỏi"
-                >
-                  <Camera className="w-4 h-4 text-slate-950" />
-                  <span>Quét Đề AI (Camera / File)</span>
-                  <span className="hidden sm:inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-black bg-slate-950/20 text-slate-950 border border-slate-950/20">
-                    Gemini 3.8
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    vibrateTap();
-                    soundFx.playClick();
-                    if (onToggleFocusMode) onToggleFocusMode();
-                    else setInternalIsFocusMode(true);
-                  }}
-                  className="px-3.5 py-2 bg-gradient-to-r from-amber-600/30 via-amber-700/40 to-amber-800/40 hover:from-amber-500/40 hover:to-amber-600/50 border border-amber-500/50 rounded-[4px] flex items-center gap-2 text-xs font-bold text-amber-300 cursor-pointer shadow-sm transition"
-                  title="Bật Chế Độ Tập Trung (Focus Mode) (Alt + F)"
-                >
-                  <Target className="w-4 h-4 text-amber-400" />
-                  <span>Focus Mode</span>
-                  <kbd className="hidden lg:inline-block text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/40 text-amber-300 border border-amber-400/30 font-bold ml-0.5">
-                    Alt+F
-                  </kbd>
-                </button>
+                )}
               </div>
 
-              {/* Row 2: Secondary Utilities & Export Tools */}
-              <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+              {/* Quick Print A4 */}
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateTap();
+                  soundFx.playClick();
+                  setShowPrintPreviewModal(true);
+                }}
+                className="fluent-btn-secondary px-3 py-2 text-xs flex items-center gap-1.5 cursor-pointer rounded-[4px] border border-white/15 hover:border-emerald-400/40 text-slate-200 hover:text-white transition"
+                title="Xem Trước & In A4 (PDF)"
+              >
+                <Printer className="w-4 h-4 text-emerald-400" />
+                <span className="hidden sm:inline">In A4</span>
+              </button>
+
+              {/* Xuất Dropdown Group */}
+              <div className="relative">
                 <button
                   type="button"
                   onClick={() => {
                     vibrateTap();
-                    soundFx.playClick();
-                    setShowBtiMatrixQuickPopup(true);
+                    setActiveHeaderMenu(prev => prev === 'export' ? null : 'export');
                   }}
-                  className="px-3.5 py-2 bg-gradient-to-r from-amber-500/20 via-purple-600/30 to-indigo-600/30 hover:from-amber-500/30 hover:to-indigo-600/40 border border-amber-400/50 rounded-[4px] flex items-center gap-2 text-xs font-bold text-amber-200 cursor-pointer shadow-sm transition"
-                  title="Tra cứu nhanh độ phủ Ma trận BTI 2026 (Popup popup)"
+                  className={`px-3 py-2 text-xs font-semibold rounded-[4px] border flex items-center gap-1.5 cursor-pointer transition ${
+                    activeHeaderMenu === 'export'
+                      ? 'bg-sky-600 text-white border-sky-400'
+                      : 'bg-[#241148]/80 hover:bg-[#3E1D74]/80 text-sky-300 border-sky-500/30'
+                  }`}
+                  title="Xuất Ngân Hàng Câu Hỏi thành tệp PDF hoặc JSON"
                 >
-                  <Target className="w-4 h-4 text-amber-400 animate-pulse" />
-                  <span>Tra Cứu Ma Trận BTI</span>
+                  <Download className="w-4 h-4 text-sky-400" />
+                  <span>Xuất</span>
+                  <ChevronDown className={`w-3 h-3 transition-transform ${activeHeaderMenu === 'export' ? 'rotate-180' : ''}`} />
                 </button>
 
+                {activeHeaderMenu === 'export' && (
+                  <div className="absolute right-0 mt-2 w-56 py-1.5 bg-[#170933]/98 backdrop-blur-2xl border border-sky-500/30 rounded-[6px] shadow-2xl shadow-black/80 z-[110] animate-fadeIn text-xs divide-y divide-white/10 font-sans">
+                    <div className="py-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
+                          setShowExportModal(true);
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-sky-600/20 transition cursor-pointer"
+                      >
+                        <Download className="w-4 h-4 text-sky-400" />
+                        <div>
+                          <div className="font-bold">Xuất Đề (PDF • JSON)</div>
+                          <div className="text-[10px] text-[#B6A6D8]">Tùy chọn format và chia sẻ</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
+                          setShowPrintPreviewModal(true);
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-emerald-600/20 transition cursor-pointer"
+                      >
+                        <Printer className="w-4 h-4 text-emerald-400" />
+                        <div>
+                          <div className="font-bold">In & Xuất Trang Đề A4</div>
+                          <div className="text-[10px] text-[#B6A6D8]">Chuẩn A4 khảo thí chính thức</div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* AI Tools Dropdown */}
+              <div className="relative">
                 <button
                   type="button"
                   onClick={() => {
                     vibrateTap();
-                    soundFx.playClick();
-                    setShowPrintPreviewModal(true);
+                    setActiveHeaderMenu(prev => prev === 'ai' ? null : 'ai');
                   }}
-                  className="fluent-btn-secondary px-3.5 py-2 text-xs flex items-center gap-2 cursor-pointer rounded-[4px]"
-                  title="Xem Trước & In A4 (PDF)"
+                  className={`px-3 py-2 text-xs font-semibold rounded-[4px] border flex items-center gap-1.5 cursor-pointer transition ${
+                    activeHeaderMenu === 'ai'
+                      ? 'bg-purple-700 text-white border-purple-400'
+                      : 'bg-[#241148]/80 hover:bg-[#3E1D74]/80 text-amber-300 border-amber-400/30'
+                  }`}
+                  title="Bộ công cụ trí tuệ nhân tạo Gemini AI Studio"
                 >
-                  <Printer className="w-4 h-4 text-emerald-400" />
-                  <span>In / Xem A4</span>
+                  <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
+                  <span>AI Tools</span>
+                  <ChevronDown className={`w-3 h-3 transition-transform ${activeHeaderMenu === 'ai' ? 'rotate-180' : ''}`} />
                 </button>
 
+                {activeHeaderMenu === 'ai' && (
+                  <div className="absolute right-0 mt-2 w-64 py-1.5 bg-[#170933]/98 backdrop-blur-2xl border border-purple-500/40 rounded-[6px] shadow-2xl shadow-black/80 z-[110] animate-fadeIn text-xs divide-y divide-white/10 font-sans">
+                    <div className="py-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
+                          setShowExamModal(true);
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-amber-600/20 transition cursor-pointer"
+                      >
+                        <Sparkles className="w-4 h-4 text-amber-300" />
+                        <div>
+                          <div className="font-bold flex items-center gap-1">
+                            <span>AI Mock Quiz Generator</span>
+                            <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1 rounded font-mono">Auto</span>
+                          </div>
+                          <div className="text-[10px] text-[#B6A6D8]">Tạo đề thi cân bằng ma trận BTI</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
+                          setShowDuplicateCheckerModal(true);
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-rose-600/20 transition cursor-pointer"
+                      >
+                        <ShieldAlert className="w-4 h-4 text-rose-300" />
+                        <div>
+                          <div className="font-bold flex items-center gap-1">
+                            <span>Detect Duplicates AI</span>
+                            <span className="text-[9px] bg-rose-500/20 text-rose-300 px-1 rounded font-mono">Gemini</span>
+                          </div>
+                          <div className="text-[10px] text-[#B6A6D8]">Quét & xử lý câu hỏi trùng lặp</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
+                          setShowDifficultyBatchModal(true);
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-amber-600/20 transition cursor-pointer"
+                      >
+                        <Sparkles className="w-4 h-4 text-amber-300" />
+                        <div>
+                          <div className="font-bold flex items-center gap-1">
+                            <span>Advisor Độ Khó AI</span>
+                            <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1 rounded font-mono">BTI Matrix</span>
+                          </div>
+                          <div className="text-[10px] text-[#B6A6D8]">Gợi ý & chuẩn hóa độ khó theo chuẩn TT 02/2025</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
+                          setShowGeminiScannerModal(true);
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-purple-600/20 transition cursor-pointer"
+                      >
+                        <Camera className="w-4 h-4 text-purple-300" />
+                        <div>
+                          <div className="font-bold">Quét Đề AI (Camera / PDF)</div>
+                          <div className="text-[10px] text-[#B6A6D8]">Tự động bóc tách từ ảnh & file</div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Overflow More (...) Dropdown */}
+              <div className="relative">
                 <button
                   type="button"
                   onClick={() => {
                     vibrateTap();
-                    soundFx.playClick();
-                    setShowExportModal(true);
+                    setActiveHeaderMenu(prev => prev === 'more' ? null : 'more');
                   }}
-                  className="px-3.5 py-2 bg-gradient-to-r from-sky-600/30 via-indigo-600/30 to-purple-600/30 hover:from-sky-600/50 hover:to-indigo-600/50 border border-sky-400/50 rounded-[4px] flex items-center gap-2 text-xs font-bold text-sky-200 cursor-pointer shadow-sm transition"
-                  title="Xuất Ngân Hàng Câu Hỏi thành tệp PDF hoặc JSON để in ấn và chia sẻ ngoại tuyến (Ctrl + E)"
+                  className={`px-2.5 py-2 text-xs font-semibold rounded-[4px] border flex items-center gap-1 cursor-pointer transition ${
+                    activeHeaderMenu === 'more'
+                      ? 'bg-theme-accent text-[#190839] border-theme-accent'
+                      : 'bg-[#241148]/80 hover:bg-[#3E1D74]/80 text-[#F5EFF9]/80 hover:text-white border-theme-accent/25'
+                  }`}
+                  title="Thêm tiện ích & quản lý khác"
                 >
-                  <Download className="w-4 h-4 text-sky-300" />
-                  <span>Xuất Đề (PDF • JSON)</span>
+                  <MoreHorizontal className="w-4 h-4" />
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    vibrateTap();
-                    soundFx.playClick();
-                    setShowExamModal(true);
-                  }}
-                  className="px-3.5 py-2 bg-gradient-to-r from-amber-500/30 via-orange-500/30 to-purple-600/30 hover:from-amber-500/40 hover:to-purple-600/40 border border-amber-400/50 rounded-[4px] flex items-center gap-2 text-xs font-bold text-amber-200 cursor-pointer shadow-sm transition"
-                  title="AI Mock Quiz Generator - Tự động tạo đề thi thử cân bằng độ khó & miền tri thức"
-                  data-testid="ai-mock-quiz-generator-button"
-                >
-                  <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-                  <span>AI Mock Quiz Generator</span>
-                  <span className="hidden sm:inline-block px-1.5 py-0.2 rounded text-[9.5px] font-mono bg-amber-500/20 text-amber-300 border border-amber-400/30">
-                    Auto-Balance
-                  </span>
-                </button>
+                {activeHeaderMenu === 'more' && (
+                  <div className="absolute right-0 mt-2 w-60 py-1.5 bg-[#170933]/98 backdrop-blur-2xl border border-theme-accent/30 rounded-[6px] shadow-2xl shadow-black/80 z-[110] animate-fadeIn text-xs divide-y divide-white/10 font-sans">
+                    <div className="py-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
+                          setShowBtiMatrixQuickPopup(true);
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-white/10 transition cursor-pointer"
+                      >
+                        <Target className="w-4 h-4 text-amber-400" />
+                        <div>
+                          <div className="font-bold">Tra Cứu Ma Trận BTI</div>
+                          <div className="text-[10px] text-[#B6A6D8]">Kiểm tra độ phủ khung năng lực số</div>
+                        </div>
+                      </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    vibrateTap();
-                    soundFx.playClick();
-                    setShowTagsManagerModal(true);
-                  }}
-                  className="fluent-btn-secondary px-3.5 py-2 text-xs flex items-center gap-2 cursor-pointer rounded-[4px]"
-                  title="Quản lý Phân loại (Tags)"
-                >
-                  <Tag className="w-4 h-4 text-purple-400" />
-                  <span>Quản Lý Tags</span>
-                </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
+                          setShowTagsManagerModal(true);
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-white/10 transition cursor-pointer"
+                      >
+                        <Tag className="w-4 h-4 text-purple-400" />
+                        <div>
+                          <div className="font-bold">Quản Lý Tags</div>
+                          <div className="text-[10px] text-[#B6A6D8]">Thẻ phân loại câu hỏi</div>
+                        </div>
+                      </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    vibrateTap();
-                    soundFx.playClick();
-                    setShowDuplicateCheckerModal(true);
-                  }}
-                  className="px-3.5 py-2 bg-gradient-to-r from-rose-600/40 via-rose-700/50 to-purple-800/50 hover:from-rose-500/50 hover:to-purple-700/60 border border-rose-500/50 rounded-[4px] flex items-center gap-2 text-xs font-bold text-rose-200 cursor-pointer shadow-sm transition"
-                  title="Detect Duplicates - Quét & Xử Lý Câu Hỏi Trùng Lặp bằng AI Gemini"
-                  data-testid="detect-duplicates-button"
-                >
-                  <ShieldAlert className="w-4 h-4 text-rose-300" />
-                  <span>Detect Duplicates AI</span>
-                  <span className="hidden sm:inline-block px-1.5 py-0.2 rounded text-[9.5px] font-mono bg-rose-500/20 text-rose-300 border border-rose-400/30">
-                    Gemini 3.8
-                  </span>
-                </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
+                          setShowCategoriesManagerModal(true);
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-white/10 transition cursor-pointer"
+                      >
+                        <FolderPlus className="w-4 h-4 text-sky-400" />
+                        <div>
+                          <div className="font-bold">Quản Lý Danh Mục</div>
+                          <div className="text-[10px] text-[#B6A6D8]">Cấu trúc cây chủ đề & miền năng lực</div>
+                        </div>
+                      </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    vibrateTap();
-                    soundFx.playClick();
-                    setShowShortcutsModal(true);
-                  }}
-                  className="fluent-btn-secondary px-3.5 py-2 text-xs flex items-center gap-2 cursor-pointer rounded-[4px] border border-purple-500/40 text-purple-200 hover:text-white hover:bg-purple-600/30 transition"
-                  title="Mở Bảng Ánh Xạ & Cấu Hình Phím Tắt [Ctrl + K / ? / F1]"
-                >
-                  <Keyboard className="w-4 h-4 text-purple-300 animate-pulse" />
-                  <span>Phím Tắt</span>
-                  <kbd className="hidden lg:inline-block text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/40 text-purple-300 border border-purple-400/30 font-bold ml-0.5">
-                    Ctrl+K
-                  </kbd>
-                </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
+                          setShowShortcutsModal(true);
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center justify-between text-white hover:bg-white/10 transition cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Keyboard className="w-4 h-4 text-amber-300" />
+                          <span>Bảng Phím Tắt</span>
+                        </div>
+                        <kbd className="text-[9px] font-mono px-1 py-0.2 rounded bg-black/40 text-theme-accent border border-theme-accent/30 font-bold">
+                          Ctrl+K
+                        </kbd>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
+                          if (onToggleFocusMode) onToggleFocusMode();
+                          else setInternalIsFocusMode(true);
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center justify-between text-amber-300 hover:bg-amber-500/10 transition cursor-pointer border-t border-white/10 mt-1 pt-2 font-medium"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Target className="w-4 h-4 text-amber-400" />
+                          <span>Bật Focus Mode</span>
+                        </div>
+                        <kbd className="text-[9px] font-mono px-1 py-0.2 rounded bg-black/40 text-amber-300 border border-amber-500/30 font-bold">
+                          Alt+F
+                        </kbd>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Editorial Keyboard Shortcuts Bar (Hidden in Focus Mode) */}
-      {!isFocusMode && (
-        <div className="flex flex-wrap items-center justify-between gap-2.5 px-3.5 py-2 rounded-[4px] bg-[#190839]/90 border border-theme-accent/25 text-xs text-[#B6A6D8] shadow-sm">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono font-bold text-amber-300 flex items-center gap-1.5 text-[11px]">
-              <Keyboard className="w-4 h-4 text-amber-400" />
-              <span>PHÍM TẮT BIÊN TẬP:</span>
-            </span>
-            <span className="inline-flex items-center gap-1 font-mono text-[11px]">
-              <kbd className="px-1.5 py-0.5 rounded bg-black/60 text-theme-accent border border-theme-accent/30 font-bold shadow-sm">Ctrl + N</kbd>
-              <span className="text-slate-300">Thêm mới</span>
-            </span>
-            <span className="text-white/20">•</span>
-            <span className="inline-flex items-center gap-1 font-mono text-[11px]">
-              <kbd className="px-1.5 py-0.5 rounded bg-black/60 text-amber-300 border border-amber-500/30 font-bold shadow-sm">Ctrl + F / /</kbd>
-              <span className="text-slate-300">Tìm kiếm</span>
-            </span>
-            <span className="text-white/20">•</span>
-            <span className="inline-flex items-center gap-1 font-mono text-[11px]">
-              <kbd className="px-1.5 py-0.5 rounded bg-black/60 text-emerald-300 border border-emerald-500/30 font-bold shadow-sm">Ctrl + P</kbd>
-              <span className="text-slate-300">In A4</span>
-            </span>
-            <span className="text-white/20">•</span>
-            <span className="inline-flex items-center gap-1 font-mono text-[11px]">
-              <kbd className="px-1.5 py-0.5 rounded bg-black/60 text-indigo-300 border border-indigo-500/30 font-bold shadow-sm">Ctrl + Shift + A</kbd>
-              <span className="text-slate-300">Chọn tất cả</span>
-            </span>
-            <span className="text-white/20">•</span>
-            <span className="inline-flex items-center gap-1 font-mono text-[11px]">
-              <kbd className="px-1.5 py-0.5 rounded bg-black/60 text-slate-300 border border-white/20 font-bold shadow-sm">Esc</kbd>
-              <span className="text-slate-300">Bỏ chọn / Đóng</span>
-            </span>
-            <span className="text-white/20">•</span>
-            <span className="inline-flex items-center gap-1 font-mono text-[11px]">
-              <kbd className="px-1.5 py-0.5 rounded bg-black/60 text-amber-300 border border-amber-500/30 font-bold shadow-sm">Alt + F</kbd>
-              <span className="text-slate-300">Focus Mode</span>
-            </span>
-            <span className="text-white/20">•</span>
-            <span className="inline-flex items-center gap-1 font-mono text-[11px]">
-              <kbd className="px-1.5 py-0.5 rounded bg-black/60 text-emerald-300 border border-emerald-500/30 font-bold shadow-sm">Alt + V</kbd>
-              <span className="text-slate-300">Xem Compact / Chi Tiết</span>
-            </span>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              vibrateTap();
-              soundFx.playClick();
-              setShowShortcutsModal(true);
-            }}
-            className="px-2.5 py-1 rounded bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-400/40 text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer transition shadow-sm"
-          >
-            <Keyboard className="w-3.5 h-3.5 text-purple-300" />
-            <span>Tất cả phím tắt [Ctrl + K]</span>
-          </button>
-        </div>
-      )}
 
       {/* Unsaved IndexedDB Draft Resume Alert Banner */}
       {unsavedIndexedDbDraft && !showAddQuestionModal && (
@@ -1666,7 +1813,8 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
 
       {/* Fluent 2 Pivot Navigation Tabs (Hidden in Focus Mode) */}
       {!isFocusMode && (
-        <div className="bg-[#241148]/60 p-1 rounded-[4px] border border-theme-accent/20 flex overflow-x-auto gap-1 backdrop-blur-md">
+        <div className="bg-[#241148]/60 p-1 rounded-[4px] border border-theme-accent/20 flex overflow-x-auto sm:overflow-visible gap-1 backdrop-blur-md items-center relative z-20">
+          {/* Tab 1: Tổng Quan */}
           <button
             type="button"
             onClick={() => {
@@ -1684,6 +1832,7 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             <span>Tổng Quan</span>
           </button>
 
+          {/* Tab 2: Kho Câu Hỏi */}
           <button
             type="button"
             onClick={() => {
@@ -1706,6 +1855,7 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             </span>
           </button>
 
+          {/* Tab 3: Kiểm Duyệt (with Pending Count Badge) */}
           <button
             type="button"
             onClick={() => {
@@ -1719,10 +1869,20 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                 : 'text-[#F5EFF9]/75 hover:text-white hover:bg-white/10'
             }`}
           >
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <ShieldCheck className={`w-4 h-4 ${activeTab === 'MODERATION' ? 'text-[#190839]' : 'text-emerald-400'}`} />
             <span>Kiểm Duyệt</span>
+            {pendingModerationCount > 0 && (
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                activeTab === 'MODERATION'
+                  ? 'bg-[#190839] text-amber-300'
+                  : 'bg-amber-400 text-slate-950 shadow-sm'
+              }`}>
+                {pendingModerationCount}
+              </span>
+            )}
           </button>
 
+          {/* Tab 4: AI Studio */}
           <button
             type="button"
             onClick={() => {
@@ -1736,87 +1896,135 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                 : 'text-[#F5EFF9]/75 hover:text-white hover:bg-white/10'
             }`}
           >
-            <Sparkles className="w-4 h-4 text-amber-400" />
-            <span>Soạn Thảo Bằng AI</span>
+            <Sparkles className={`w-4 h-4 ${activeTab === 'AI_STUDIO' ? 'text-[#190839]' : 'text-amber-400'}`} />
+            <span>AI Studio</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              vibrateTap();
-              soundFx.playClick();
-              setActiveTab('EXCEL_HUB');
-            }}
-            className={`px-3.5 py-2 rounded-[4px] text-xs font-semibold whitespace-nowrap transition flex items-center gap-2 cursor-pointer ${
-              activeTab === 'EXCEL_HUB'
-                ? 'bg-theme-accent text-[#190839] shadow-md shadow-theme-accent/20 font-bold'
-                : 'text-[#F5EFF9]/75 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-            <span>Mẫu Excel Phần Mềm Thi</span>
-          </button>
+          {/* Tab 5: Công Cụ Dropdown (Excel Hub, Scenarios, Legal Docs, Matrix) */}
+          <div className="relative shrink-0" ref={toolsDropdownRef}>
+            <button
+              type="button"
+              onClick={() => {
+                vibrateTap();
+                setIsToolsDropdownOpen(prev => !prev);
+              }}
+              className={`px-3.5 py-2 rounded-[4px] text-xs font-semibold whitespace-nowrap transition flex items-center gap-2 cursor-pointer ${
+                ['EXCEL_HUB', 'SCENARIOS', 'LEGAL_DOCS', 'MATRIX'].includes(activeTab)
+                  ? 'bg-theme-accent text-[#190839] shadow-md shadow-theme-accent/20 font-bold'
+                  : 'text-[#F5EFF9]/75 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              {activeTab === 'EXCEL_HUB' && <FileSpreadsheet className="w-4 h-4 text-emerald-900" />}
+              {activeTab === 'SCENARIOS' && <Theater className="w-4 h-4 text-purple-900" />}
+              {activeTab === 'LEGAL_DOCS' && <Scale className="w-4 h-4 text-amber-900" />}
+              {activeTab === 'MATRIX' && <BarChart3 className="w-4 h-4 text-[#190839]" />}
+              {!['EXCEL_HUB', 'SCENARIOS', 'LEGAL_DOCS', 'MATRIX'].includes(activeTab) && (
+                <FolderPlus className="w-4 h-4 text-purple-300" />
+              )}
 
-          <button
-            type="button"
-            onClick={() => {
-              vibrateTap();
-              soundFx.playClick();
-              setActiveTab('SCENARIOS');
-            }}
-            className={`px-3.5 py-2 rounded-[4px] text-xs font-semibold whitespace-nowrap transition flex items-center gap-2 cursor-pointer ${
-              activeTab === 'SCENARIOS'
-                ? 'bg-theme-accent text-[#190839] shadow-md shadow-theme-accent/20 font-bold'
-                : 'text-[#F5EFF9]/75 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <Theater className="w-4 h-4 text-purple-400" />
-            <span>Kịch Tương Tác</span>
-            <span className={`px-1.5 py-0.2 rounded-[2px] text-[10px] font-mono ${
-              activeTab === 'SCENARIOS' ? 'bg-[#190839]/20 text-[#190839] font-bold' : 'bg-[#190839]/60 text-[#B6A6D8]'
-            }`}>
-              {stats.scenariosCount}
-            </span>
-          </button>
+              <span>
+                {activeTab === 'EXCEL_HUB' && 'Mẫu Excel'}
+                {activeTab === 'SCENARIOS' && 'Kịch Tương Tác'}
+                {activeTab === 'LEGAL_DOCS' && 'Thư Viện Pháp Lý'}
+                {activeTab === 'MATRIX' && 'Ma Trận BTI'}
+                {!['EXCEL_HUB', 'SCENARIOS', 'LEGAL_DOCS', 'MATRIX'].includes(activeTab) && 'Công Cụ Mở Rộng'}
+              </span>
 
-          <button
-            type="button"
-            onClick={() => {
-              vibrateTap();
-              soundFx.playClick();
-              setActiveTab('LEGAL_DOCS');
-            }}
-            className={`px-3.5 py-2 rounded-[4px] text-xs font-semibold whitespace-nowrap transition flex items-center gap-2 cursor-pointer ${
-              activeTab === 'LEGAL_DOCS'
-                ? 'bg-theme-accent text-[#190839] shadow-md shadow-theme-accent/20 font-bold'
-                : 'text-[#F5EFF9]/75 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <Scale className="w-4 h-4 text-amber-400" />
-            <span>Thư Viện Pháp Lý</span>
-            <span className={`px-1.5 py-0.2 rounded-[2px] text-[10px] font-mono ${
-              activeTab === 'LEGAL_DOCS' ? 'bg-[#190839]/20 text-[#190839] font-bold' : 'bg-[#190839]/60 text-[#B6A6D8]'
-            }`}>
-              {stats.documentsCount}
-            </span>
-          </button>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isToolsDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              vibrateTap();
-              soundFx.playClick();
-              setActiveTab('MATRIX');
-            }}
-            className={`px-3.5 py-2 rounded-[4px] text-xs font-semibold whitespace-nowrap transition flex items-center gap-2 cursor-pointer ${
-              activeTab === 'MATRIX'
-                ? 'bg-theme-accent text-[#190839] shadow-md shadow-theme-accent/20 font-bold'
-                : 'text-[#F5EFF9]/75 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <BarChart3 className="w-4 h-4 text-theme-accent" />
-            <span>Ma Trận &amp; Biểu Đồ Độ Phủ BTI</span>
-          </button>
+            {isToolsDropdownOpen && (
+              <div className="absolute right-0 sm:left-0 mt-2 w-64 py-1.5 bg-[#170933]/98 backdrop-blur-2xl border border-theme-accent/30 rounded-[6px] shadow-2xl shadow-black/80 z-[110] animate-fadeIn text-xs divide-y divide-white/10 font-sans">
+                <div className="py-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateTap();
+                      soundFx.playClick();
+                      setActiveTab('EXCEL_HUB');
+                      setIsToolsDropdownOpen(false);
+                    }}
+                    className={`w-full px-3 py-2 text-left flex items-center justify-between transition cursor-pointer ${
+                      activeTab === 'EXCEL_HUB'
+                        ? 'bg-theme-accent/20 text-theme-accent font-bold'
+                        : 'text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                      <span>Mẫu Excel Phần Mềm Thi</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateTap();
+                      soundFx.playClick();
+                      setActiveTab('SCENARIOS');
+                      setIsToolsDropdownOpen(false);
+                    }}
+                    className={`w-full px-3 py-2 text-left flex items-center justify-between transition cursor-pointer ${
+                      activeTab === 'SCENARIOS'
+                        ? 'bg-theme-accent/20 text-theme-accent font-bold'
+                        : 'text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Theater className="w-4 h-4 text-purple-400" />
+                      <span>Kịch Tương Tác</span>
+                    </div>
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-purple-500/20 text-purple-300 border border-purple-400/30">
+                      {stats.scenariosCount}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateTap();
+                      soundFx.playClick();
+                      setActiveTab('LEGAL_DOCS');
+                      setIsToolsDropdownOpen(false);
+                    }}
+                    className={`w-full px-3 py-2 text-left flex items-center justify-between transition cursor-pointer ${
+                      activeTab === 'LEGAL_DOCS'
+                        ? 'bg-theme-accent/20 text-theme-accent font-bold'
+                        : 'text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Scale className="w-4 h-4 text-amber-400" />
+                      <span>Thư Viện Pháp Lý</span>
+                    </div>
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                      {stats.documentsCount}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateTap();
+                      soundFx.playClick();
+                      setActiveTab('MATRIX');
+                      setIsToolsDropdownOpen(false);
+                    }}
+                    className={`w-full px-3 py-2 text-left flex items-center justify-between transition cursor-pointer ${
+                      activeTab === 'MATRIX'
+                        ? 'bg-theme-accent/20 text-theme-accent font-bold'
+                        : 'text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <BarChart3 className="w-4 h-4 text-theme-accent" />
+                      <span>Ma Trận &amp; Độ Phủ BTI</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1865,8 +2073,8 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
       {/* TAB 1: QUESTIONS REPOSITORY */}
       {activeTab === 'QUESTIONS' && (
         <div className="space-y-4">
-          {/* Dashboard Overview Header Section (Visual Recharts Composition - Hidden in Focus Mode) */}
-          {!isFocusMode && (
+          {/* Dashboard Overview Header Section (Visual Recharts Composition - Collapsible on demand) */}
+          {!isFocusMode && showOverviewHeaderInQuestions && (
             <DashboardOverviewHeader
               questions={questions}
               currentFilterLevel={filterLevel}
@@ -1880,53 +2088,9 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             />
           )}
 
-          {/* Active Round Filter Banner */}
-          {filterRoundGroup !== 'ALL' && (
-            <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 px-3.5 rounded-[5px] bg-theme-accent/10 border border-theme-accent/30 text-xs animate-in fade-in duration-200">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[#B6A6D8]">Đang lọc theo phần thi:</span>
-                <span className="font-bold text-theme-accent font-mono flex items-center gap-1.5">
-                  {filterRoundGroup === 'KHOI_DONG' && <><Zap className="w-3.5 h-3.5 text-sky-400" /> 1. Khởi Động</>}
-                  {filterRoundGroup === 'VCNV' && <><Layers className="w-3.5 h-3.5 text-amber-400" /> 2. Vượt Chướng Ngại Vật (VCNV)</>}
-                  {filterRoundGroup === 'TANG_TOC' && <><Rocket className="w-3.5 h-3.5 text-purple-400" /> 3. Tăng Tốc</>}
-                  {filterRoundGroup === 'VE_DICH' && <><Flag className="w-3.5 h-3.5 text-rose-400" /> 4. Về Đích</>}
-                  {filterRoundGroup === 'VONG_LOAI' && <>Vòng Loại Bộ GD&ĐT (28 câu)</>}
-                  {filterRoundGroup === 'PHU' && <>5. Câu Hỏi Phụ (Tie-breaker)</>}
-                </span>
-                <span className="text-[#B6A6D8] font-mono">({filteredQuestions.length} câu)</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {getRoundReindexInfo(filterRoundGroup) && (
-                  <button
-                    type="button"
-                    onClick={() => handleReindexRound(filterRoundGroup)}
-                    className={`px-2.5 py-1 border rounded-[4px] text-[11px] font-mono font-semibold flex items-center gap-1.5 transition cursor-pointer ${getRoundReindexInfo(filterRoundGroup)?.color}`}
-                    title={`Đánh lại mã toàn bộ câu hỏi phần thi này (${getRoundReindexInfo(filterRoundGroup)?.example})`}
-                  >
-                    <Layers className="w-3.5 h-3.5" />
-                    <span>Đánh lại mã ({getRoundReindexInfo(filterRoundGroup)?.prefix}_01...)</span>
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    vibrateTap();
-                    soundFx.playClick();
-                    setFilterRoundGroup('ALL');
-                  }}
-                  className="px-2.5 py-1 rounded-[4px] bg-white/10 hover:bg-white/20 text-white flex items-center gap-1.5 cursor-pointer transition text-[11px] font-mono"
-                >
-                  <X className="w-3 h-3" />
-                  <span>Xem tất cả câu hỏi</span>
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Enhanced Search & Filter Bar */}
           <QuestionBankFilterBar
+            isFocusMode={isFocusMode}
             questions={questions}
             filteredCount={filteredQuestions.length}
             searchQuery={searchQuery}
@@ -1968,8 +2132,8 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             onResetAllFilters={handleResetAllFilters}
           />
 
-          {/* DEDICATED BULK ACTION TOOLBAR (Accessible whenever questions are available) */}
-          {filteredQuestions.length > 0 && (
+          {/* DEDICATED BULK ACTION TOOLBAR (Accessible whenever selection mode is active or questions are selected) */}
+          {(isSelectionMode || selectedIds.size > 0) && filteredQuestions.length > 0 && (
             <BulkActionToolbar
               totalCount={questions.length}
               filteredCount={filteredQuestions.length}
@@ -2126,7 +2290,7 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
               </span>
             </div>
 
-            {/* Right side: Primary Creation & AI actions */}
+            {/* Right side: Reindex and quick filter reset actions */}
             <div className="flex items-center gap-1.5 flex-wrap ml-auto">
               {filterRoundGroup !== 'ALL' && getRoundReindexInfo(filterRoundGroup) && (
                 <button
@@ -2140,104 +2304,36 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                 </button>
               )}
 
+              {/* Quick Analytics Toggle */}
               <button
                 type="button"
                 onClick={() => {
                   vibrateTap();
                   soundFx.playClick();
-                  setShowDuplicateCheckerModal(true);
+                  setShowOverviewHeaderInQuestions(prev => !prev);
                 }}
-                className="px-2.5 py-1 bg-rose-600/30 hover:bg-rose-600/45 border border-rose-400/50 text-rose-300 hover:text-white rounded-[3px] text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer shadow-sm active:scale-95"
-                title="Quét phát hiện câu hỏi trùng lặp & trùng lặp miền tri thức bằng AI Gemini"
+                className={`px-2 py-1 rounded-[3px] text-[11px] font-mono flex items-center gap-1 transition cursor-pointer border ${
+                  showOverviewHeaderInQuestions
+                    ? 'bg-theme-accent text-[#190839] border-theme-accent font-bold shadow-sm'
+                    : 'bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border-white/10'
+                }`}
+                title="Bật/Tắt biểu đồ phân tích cơ cấu ngân hàng đề"
               >
-                <ShieldAlert className="w-3.5 h-3.5 text-rose-300 animate-pulse" />
-                <span className="hidden sm:inline">Detect Duplicates AI</span>
+                <BarChart3 className="w-3 h-3 text-theme-accent" />
+                <span className="hidden sm:inline">{showOverviewHeaderInQuestions ? 'Ẩn biểu đồ' : 'Biểu đồ'}</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  vibrateTap();
-                  soundFx.playClick();
-                  setShowDifficultyBatchModal(true);
-                }}
-                className="px-2.5 py-1 bg-amber-600/30 hover:bg-amber-600/45 border border-amber-400/50 text-amber-300 hover:text-white rounded-[3px] text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer shadow-sm active:scale-95"
-                title="Gợi ý & chuẩn hóa độ khó tự động cho câu hỏi bằng phân tích độ phức tạp ngữ nghĩa đối chiếu ngân hàng đề"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span className="hidden sm:inline">🎯 Advisor Độ Khó</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  vibrateTap();
-                  soundFx.playClick();
-                  setShowBulkImportModal(true);
-                }}
-                className="px-2.5 py-1 bg-emerald-600/30 hover:bg-emerald-600/45 border border-emerald-400/50 text-emerald-300 hover:text-white rounded-[3px] text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer shadow-sm active:scale-95"
-                title="Nhập câu hỏi hàng loạt từ tệp CSV, JSON, Excel hoặc Google Drive"
-              >
-                <Download className="w-3.5 h-3.5 rotate-180 text-emerald-400" />
-                <span className="hidden sm:inline">Nhập CSV / JSON</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  vibrateTap();
-                  soundFx.playClick();
-                  setShowExportModal(true);
-                }}
-                className="px-2.5 py-1 bg-sky-600/30 hover:bg-sky-600/45 border border-sky-400/50 text-sky-300 hover:text-white rounded-[3px] text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer shadow-sm active:scale-95"
-                title="Xuất đề thi dạng PDF hoặc JSON (Ctrl + E)"
-              >
-                <Download className="w-3.5 h-3.5 text-sky-300" />
-                <span className="hidden sm:inline">Xuất PDF/JSON</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  vibrateTap();
-                  soundFx.playClick();
-                  setShowPrintPreviewModal(true);
-                }}
-                className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/40 text-amber-300 hover:text-white rounded-[3px] text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer shadow-sm active:scale-95"
-                title="Mở giao diện In A4 / Xem trước bản in đề thi chuẩn"
-              >
-                <Printer className="w-3.5 h-3.5 text-amber-400" />
-                <span className="hidden sm:inline">In A4 (Preview)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  vibrateTap();
-                  soundFx.playClick();
-                  setSelectedQuestion(null);
-                  setShowAddQuestionModal(true);
-                }}
-                className="px-2.5 py-1 bg-gradient-to-r from-purple-600/30 to-pink-500/30 hover:from-purple-600/50 hover:to-pink-500/50 border border-theme-accent/50 text-theme-accent hover:text-white rounded-[3px] text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer shadow-sm active:scale-95"
-                title="Mở soạn câu hỏi bằng Gemini AI"
-              >
-                <Sparkles className="w-3 h-3 text-theme-accent animate-pulse" />
-                <span>⚡ Soạn AI</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  vibrateTap();
-                  soundFx.playClick();
-                  setSelectedQuestion(null);
-                  setShowAddQuestionModal(true);
-                }}
-                className="fluent-btn-primary px-3 py-1 text-[11px] flex items-center gap-1 cursor-pointer font-bold shadow-md hover:scale-[1.02] active:scale-[0.98] transition rounded-[3px]"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Thêm Câu Hỏi</span>
-              </button>
+              {(filteredQuestions.length !== questions.length || searchQuery || filterRoundGroup !== 'ALL' || filterLevel !== 'ALL' || filterStatus !== 'ALL') && (
+                <button
+                  type="button"
+                  onClick={handleResetAllFilters}
+                  className="px-2 py-1 rounded-[3px] bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 text-[11px] font-mono flex items-center gap-1 transition cursor-pointer"
+                  title="Xóa tất cả bộ lọc hiện tại để xem toàn bộ ngân hàng câu hỏi"
+                >
+                  <RotateCcw className="w-3 h-3 text-amber-400" />
+                  <span className="hidden sm:inline">Đặt lại bộ lọc</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -3494,14 +3590,6 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
         onToast={(title, msg, type) => addToast(title, msg, type)}
       />
 
-      {/* User Role Modal */}
-      {showUserModal && (
-        <UserRoleManagerModal 
-          onClose={() => setShowUserModal(false)}
-          onUserChanged={() => setCurrentUser(questionBankManager.getCurrentUser())}
-        />
-      )}
-
       {/* Manual Question Creator / Editor Modal */}
       {showAddQuestionModal && (
         <QuestionEditorModal
@@ -3777,6 +3865,109 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
           }}
         />
       )}
+
+      {/* Mobile Floating Action Button (FAB) */}
+      <div className="sm:hidden fixed bottom-16 right-4 z-40">
+        <button
+          type="button"
+          onClick={() => {
+            vibrateTap();
+            soundFx.playClick();
+            setSelectedQuestion(null);
+            setShowAddQuestionModal(true);
+          }}
+          className="w-12 h-12 rounded-full bg-theme-accent text-[#190839] shadow-xl shadow-theme-accent/40 flex items-center justify-center font-bold active:scale-95 transition-transform border border-white/20 cursor-pointer"
+          aria-label="Thêm câu hỏi mới"
+        >
+          <Plus className="w-6 h-6 text-[#190839]" />
+        </button>
+      </div>
+
+      {/* Mobile Fixed Bottom Navigation Bar */}
+      <nav
+        aria-label="Thanh điều hướng di động"
+        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0c031d]/95 backdrop-blur-xl border-t border-theme-accent/20 px-2 py-1.5 flex items-center justify-around shadow-2xl"
+      >
+        <button
+          type="button"
+          onClick={() => {
+            vibrateTap();
+            soundFx.playClick();
+            setActiveTab('QUESTIONS');
+          }}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded font-sans transition cursor-pointer ${
+            activeTab === 'QUESTIONS' ? 'text-theme-accent font-bold' : 'text-[#B6A6D8] hover:text-white'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span className="text-[10px] leading-tight">Câu Hỏi</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            vibrateTap();
+            soundFx.playClick();
+            setActiveTab('OVERVIEW');
+          }}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded font-sans transition cursor-pointer ${
+            activeTab === 'OVERVIEW' ? 'text-theme-accent font-bold' : 'text-[#B6A6D8] hover:text-white'
+          }`}
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          <span className="text-[10px] leading-tight">Tổng Quan</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            vibrateTap();
+            soundFx.playClick();
+            setActiveTab('MODERATION');
+          }}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded font-sans relative transition cursor-pointer ${
+            activeTab === 'MODERATION' ? 'text-theme-accent font-bold' : 'text-[#B6A6D8] hover:text-white'
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4" />
+          <span className="text-[10px] leading-tight">Kiểm Duyệt</span>
+          {pendingModerationCount > 0 && (
+            <span className="absolute top-0 right-2 w-2 h-2 rounded-full bg-amber-400" />
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            vibrateTap();
+            soundFx.playClick();
+            setActiveTab('AI_STUDIO');
+          }}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded font-sans transition cursor-pointer ${
+            activeTab === 'AI_STUDIO' ? 'text-theme-accent font-bold' : 'text-[#B6A6D8] hover:text-white'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span className="text-[10px] leading-tight">AI Studio</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            vibrateTap();
+            soundFx.playClick();
+            setIsToolsDropdownOpen(prev => !prev);
+          }}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded font-sans transition cursor-pointer ${
+            ['EXCEL_HUB', 'SCENARIOS', 'LEGAL_DOCS', 'MATRIX'].includes(activeTab)
+              ? 'text-theme-accent font-bold'
+              : 'text-[#B6A6D8] hover:text-white'
+          }`}
+        >
+          <FolderPlus className="w-4 h-4" />
+          <span className="text-[10px] leading-tight">Công Cụ</span>
+        </button>
+      </nav>
 
       {/* Question Bank Toast Notifications Container */}
       <QuestionBankToastContainer toasts={toasts} onDismiss={removeToast} />

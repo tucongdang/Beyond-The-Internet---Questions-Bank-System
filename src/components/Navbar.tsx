@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Database, 
   Menu, 
@@ -14,7 +14,10 @@ import {
   ChevronDown,
   Type,
   Sparkles,
-  Target
+  Target,
+  Key,
+  Users,
+  LogOut
 } from 'lucide-react';
 import { GameState, PingInfo } from '../types';
 import { soundFx } from '../services/audioEffects';
@@ -22,6 +25,7 @@ import { vibrateTap, vibrateSelection } from '../utils/hapticUtils';
 import { syncService } from '../services/syncService';
 import { questionBankManager } from '../services/questionBankManager';
 import { BatteryIndicator } from './BatteryIndicator';
+import { geminiKeyService } from '../services/geminiKeyService';
 
 interface NavbarProps {
   currentView?: string;
@@ -32,6 +36,7 @@ interface NavbarProps {
   onOpenProfile?: () => void;
   onLogout?: () => void;
   onOpenFirebaseConfig: () => void;
+  onOpenApiKeyConfig?: () => void;
   isFirebaseConnected: boolean;
   soundEnabled: boolean;
   onToggleSound: () => void;
@@ -48,9 +53,11 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenFirebaseConfig,
+  onOpenApiKeyConfig,
   isFirebaseConnected,
   soundEnabled,
   onToggleSound,
+  onAdminLogout,
   onOpenInstallModal,
   onOpenUserRoles,
   onOpenSettings,
@@ -60,12 +67,29 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleFocusMode
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
   const [qbUser, setQbUser] = useState(() => questionBankManager.getCurrentUser());
+  const [geminiKeyStatus, setGeminiKeyStatus] = useState(() => geminiKeyService.getStatus());
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
+        setIsSettingsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     return questionBankManager.subscribe(() => {
       setQbUser(questionBankManager.getCurrentUser());
     });
+  }, []);
+
+  useEffect(() => {
+    return geminiKeyService.subscribe(setGeminiKeyStatus);
   }, []);
 
   // Fullscreen State & Change Listeners
@@ -205,7 +229,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       id="app-navbar"
       className="sticky top-0 z-[100] w-full select-none transition-all border-b border-theme-accent/20 bg-[#0c031d]/90 backdrop-blur-xl text-[#F5EFF9] shadow-md shadow-[#0d0420]/50"
     >
-      <div className="max-w-[1560px] mx-auto px-3 sm:px-5 h-16 flex items-center justify-between gap-3 overflow-hidden">
+      <div className="max-w-[1560px] mx-auto px-3 sm:px-5 h-16 flex items-center justify-between gap-3">
         {/* Left: Branding & Regulatory Standards */}
         <div className="flex items-center gap-3 sm:gap-4 shrink-0">
           <div
@@ -234,18 +258,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          <div className="hidden 2xl:flex items-center gap-2 pl-3 border-l border-theme-accent/20 shrink-0">
-            <div className="px-2.5 py-1 bg-[#241148] border border-theme-accent/30 rounded-[4px] flex items-center gap-2 shadow-sm whitespace-nowrap shrink-0">
-              <div className="w-2 h-2 bg-theme-accent rounded-full animate-pulse shadow-[0_0_8px_#f7cac9] shrink-0" />
-              <span className="text-[10px] font-mono font-semibold text-theme-accent uppercase tracking-wider whitespace-nowrap">
-                TT 02/2025/TT-BGDĐT
-              </span>
-            </div>
-            <div className="px-2 py-1 bg-[#241148]/80 border border-theme-accent/20 rounded-[4px] flex items-center gap-1.5 text-[10px] font-mono text-[#B6A6D8] whitespace-nowrap shrink-0">
-              <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0" />
-              <span className="whitespace-nowrap">NĐ 13/2023/NĐ-CP</span>
-            </div>
-          </div>
         </div>
 
         {/* Right: User Role Switcher & System Controls */}
@@ -287,200 +299,218 @@ export const Navbar: React.FC<NavbarProps> = ({
               data-tooltip="Mở Gemini AI Studio: Chatbot Đa vai trò, Tạo & Chỉnh sửa ảnh, Animate Video Veo"
               data-tooltip-title="Gemini AI Studio"
               data-tooltip-placement="bottom"
-              className="has-tooltip flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-900/60 via-indigo-900/60 to-purple-950/80 hover:from-purple-800/80 hover:to-indigo-800/80 border border-theme-accent/40 rounded-[4px] text-xs font-bold text-theme-accent shadow-sm transition cursor-pointer shrink-0"
+              className="has-tooltip flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-900/70 via-indigo-900/70 to-purple-950/90 hover:from-purple-800 hover:to-indigo-800 border border-theme-accent/50 rounded-[4px] text-xs font-bold text-theme-accent shadow-md shadow-purple-950/40 transition cursor-pointer shrink-0 group"
             >
-              <Sparkles className="w-3.5 h-3.5 text-theme-accent animate-pulse" />
+              <Sparkles className="w-3.5 h-3.5 text-theme-accent group-hover:scale-110 transition-transform animate-pulse" />
               <span className="hidden xl:inline">Gemini Studio</span>
             </button>
           )}
 
-          {/* Focus Mode Toggle Button */}
-          <button
-            id="btn-navbar-focus-mode"
-            type="button"
-            onClick={() => {
-              vibrateTap();
-              soundFx.playClick();
-              if (onToggleFocusMode) onToggleFocusMode();
-            }}
-            data-tooltip={
-              isFocusMode
-                ? 'Tắt Chế Độ Tập Trung (Focus Mode): Hiện lại thanh điều hướng & biểu đồ'
-                : 'Bật Chế Độ Tập Trung (Focus Mode): Ẩn các thành phần phụ, tối đa không gian làm việc'
-            }
-            data-tooltip-title="Chế Độ Tập Trung (Focus Mode)"
-            data-tooltip-placement="bottom"
-            className={`has-tooltip flex items-center gap-2 px-3 py-1.5 rounded-[4px] text-xs font-bold transition cursor-pointer shrink-0 border ${
-              isFocusMode
-                ? 'bg-amber-400 text-[#190839] border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.6)] font-extrabold ring-2 ring-amber-300/50'
-                : 'bg-[#241148]/80 hover:bg-[#3E1D74]/80 text-amber-300 border-amber-500/30 hover:border-amber-400/50'
-            }`}
-          >
-            <Target className={`w-3.5 h-3.5 ${isFocusMode ? 'text-[#190839]' : 'text-amber-400'}`} />
-            <span className="hidden md:inline font-mono">
-              {isFocusMode ? 'Focus Mode: ON' : 'Focus Mode'}
-            </span>
-            <kbd className={`hidden xl:inline-block text-[9px] font-mono px-1 py-0.2 rounded font-bold ${
-              isFocusMode ? 'bg-[#190839]/20 text-[#190839]' : 'bg-black/40 text-amber-300 border border-amber-500/30'
-            }`}>
-              Alt+F
-            </kbd>
-          </button>
-
-          {/* Database Sync Status */}
-          <div className="fluent-action-group bg-[#241148]/70 backdrop-blur-2xl border border-theme-accent/20 shadow-[inset_0_1px_1px_rgba(247,202,201,0.15)] rounded-[4px]">
+          {/* API Key Config Button */}
+          {onOpenApiKeyConfig && (
             <button
+              id="btn-navbar-api-key"
               onClick={() => {
                 vibrateTap();
-                onOpenFirebaseConfig();
+                soundFx.playClick();
+                onOpenApiKeyConfig();
               }}
-              data-tooltip={isFirebaseConnected ? 'Firebase: Đang đồng bộ đám mây trực tiếp' : 'Firebase: Chế độ cục bộ (Offline / Local Storage)'}
-              data-tooltip-title="Trạng Thái Cơ Sở Dữ Liệu"
+              data-tooltip={`Gemini AI API Key: ${geminiKeyStatus === 'valid' ? 'Đã cấu hình ✓' : 'Chưa cấu hình – Nhấn để cài đặt'} • Nhấn để mở cấu hình`}
+              data-tooltip-title="Cấu hình API Key"
               data-tooltip-placement="bottom"
-              className={`has-tooltip fluent-action-btn ${
-                isFirebaseConnected
-                  ? 'text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/50 border-emerald-500/30'
-                  : 'text-amber-300 bg-amber-950/40 hover:bg-amber-900/50 border-amber-500/30'
+              className={`has-tooltip relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-[4px] border text-xs font-mono transition cursor-pointer shrink-0 ${
+                geminiKeyStatus === 'valid'
+                  ? 'text-emerald-300 bg-[#241148]/80 hover:bg-[#3E1D74]/80 border-emerald-500/40'
+                  : 'text-amber-300 bg-[#241148]/80 hover:bg-[#3E1D74]/80 border-amber-500/40 animate-pulse'
               }`}
             >
-              <Database className="w-3.5 h-3.5" />
+              <Key className="w-3.5 h-3.5" />
               <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  isFirebaseConnected ? 'bg-emerald-400 animate-pulse shadow-[0_0_6px_#34d399]' : 'bg-amber-400 animate-pulse'
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                  geminiKeyStatus === 'valid'
+                    ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]'
+                    : 'bg-amber-400'
                 }`}
               />
             </button>
+          )}
 
-            {/* Ping / Latency Indicator */}
-            <button
-              id="btn-ping-latency-indicator"
-              onClick={handleManualPing}
-              disabled={isMeasuringPing}
-              data-tooltip={
-                pingInfo.latencyMs !== null
-                  ? `Độ trễ Firebase: ${pingInfo.latencyMs}ms (${pingBadge.description}). Bấm để kiểm tra lại.`
-                  : 'Mất kết nối thời gian thực. Bấm để thử đồng bộ lại.'
-              }
-              data-tooltip-title="Độ Trễ Mạng (Ping RTT)"
-              data-tooltip-placement="bottom"
-              className={`hidden sm:flex has-tooltip fluent-action-btn ${pingBadge.container}`}
-              aria-label={`Độ trễ Firebase: ${pingBadge.label}`}
-            >
-              <div className="flex items-center gap-1.5">
-                <span className={`relative inline-flex rounded-full h-2 w-2 ${pingBadge.dot}`} />
-                <Activity className={`w-3.5 h-3.5 ${isMeasuringPing ? 'animate-spin text-white' : pingBadge.icon}`} />
-              </div>
-              <div className="flex flex-col items-start leading-none font-mono">
-                <span className="text-[8px] uppercase tracking-wider font-bold opacity-75">
-                  Ping
-                </span>
-                <span className="text-xs font-bold tracking-tight">
-                  {isMeasuringPing ? '...' : pingInfo.latencyMs !== null ? `${pingInfo.latencyMs}ms` : 'Off'}
-                </span>
-              </div>
-            </button>
-
-            {/* Battery Indicator */}
-            <div className="hidden sm:block">
-              <BatteryIndicator />
-            </div>
-          </div>
-
-          {/* Quick Utility Tools: Sound, Fullscreen, Install App */}
-          <div className="fluent-action-group bg-[#241148]/70 backdrop-blur-2xl border border-theme-accent/20 shadow-[inset_0_1px_1px_rgba(247,202,201,0.15)] rounded-[4px]">
-            {/* Sound Toggle */}
-            <button
-              id="btn-toggle-sound"
-              onClick={() => {
-                vibrateSelection();
-                onToggleSound();
-              }}
-              data-tooltip={soundEnabled ? 'Tắt hiệu ứng âm thanh' : 'Bật hiệu ứng âm thanh thao tác'}
-              data-tooltip-title="Âm Thanh Hệ Thống"
-              data-tooltip-placement="bottom"
-              className="has-tooltip fluent-action-btn text-[#F5EFF9]/70 hover:text-white bg-white/5 hover:bg-white/10 border-white/10"
-            >
-              {soundEnabled ? (
-                <Volume2 className="w-3.5 h-3.5 text-theme-accent" />
-              ) : (
-                <VolumeX className="w-3.5 h-3.5 text-white/40" />
-              )}
-            </button>
-
-            {/* Fullscreen Toggle */}
-            <button
-              id="btn-toggle-fullscreen"
-              onClick={handleToggleFullscreen}
-              data-tooltip={isFullscreen ? 'Thoát toàn màn hình' : 'Mở rộng toàn màn hình để quản lý ngân hàng câu hỏi dễ dàng'}
-              data-tooltip-title="Toàn Màn Hình"
-              data-tooltip-placement="bottom"
-              className={`hidden sm:flex has-tooltip fluent-action-btn ${
-                isFullscreen
-                  ? 'bg-theme-accent text-[#190839] border-theme-accent/50 shadow-sm font-bold'
-                  : 'text-[#F5EFF9]/70 hover:text-white bg-white/5 hover:bg-white/10 border-white/10'
+          {/* Database Sync Status (Integrated with Ping & Connection Info) */}
+          <button
+            id="btn-navbar-db-sync"
+            onClick={() => {
+              vibrateTap();
+              onOpenFirebaseConfig();
+            }}
+            data-tooltip={`Cơ sở dữ liệu: ${isFirebaseConnected ? 'Firebase Đám Mây (Online)' : 'Chế độ ngoại tuyến (IndexedDB/Local)'} • Độ trễ: ${pingInfo.latencyMs !== null ? `${pingInfo.latencyMs}ms (${pingBadge.description})` : 'Mất kết nối'} • Nhấn để cấu hình`}
+            data-tooltip-title="Trạng Thái Cơ Sở Dữ Liệu"
+            data-tooltip-placement="bottom"
+            className={`has-tooltip flex items-center gap-2 px-2.5 py-1.5 rounded-[4px] border text-xs font-mono transition cursor-pointer shrink-0 ${
+              isFirebaseConnected
+                ? 'text-emerald-300 bg-[#241148]/80 hover:bg-[#3E1D74]/80 border-emerald-500/40'
+                : 'text-amber-300 bg-[#241148]/80 hover:bg-[#3E1D74]/80 border-amber-500/40'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5" />
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                isFirebaseConnected ? 'bg-emerald-400 animate-pulse shadow-[0_0_6px_#34d399]' : 'bg-amber-400 animate-pulse'
               }`}
-              aria-label={isFullscreen ? 'Thoát toàn màn hình' : 'Bật toàn màn hình'}
+            />
+            <span className="hidden sm:inline text-[11px] font-bold">
+              {pingInfo.latencyMs !== null ? `${pingInfo.latencyMs}ms` : (isFirebaseConnected ? 'Sync' : 'Offline')}
+            </span>
+          </button>
+
+          {/* Sound Toggle Button */}
+          <button
+            id="btn-toggle-sound"
+            onClick={() => {
+              vibrateSelection();
+              onToggleSound();
+            }}
+            data-tooltip={soundEnabled ? 'Tắt hiệu ứng âm thanh' : 'Bật hiệu ứng âm thanh thao tác'}
+            data-tooltip-title="Âm Thanh Hệ Thống"
+            data-tooltip-placement="bottom"
+            className="has-tooltip flex items-center justify-center p-2 rounded-[4px] bg-[#241148]/80 hover:bg-[#3E1D74]/80 border border-theme-accent/25 hover:border-theme-accent/40 text-[#F5EFF9]/80 hover:text-white transition cursor-pointer shrink-0"
+          >
+            {soundEnabled ? (
+              <Volume2 className="w-3.5 h-3.5 text-theme-accent" />
+            ) : (
+              <VolumeX className="w-3.5 h-3.5 text-white/40" />
+            )}
+          </button>
+
+          {/* Unified Settings Dropdown (Fullscreen, Font, Workspace, PWA) */}
+          <div className="relative shrink-0" ref={settingsRef}>
+            <button
+              id="btn-navbar-settings-dropdown"
+              type="button"
+              onClick={() => {
+                vibrateTap();
+                setIsSettingsOpen(!isSettingsOpen);
+              }}
+              data-tooltip="Tiện ích & Cài đặt hệ thống (Toàn màn hình, Phông chữ, Tùy chỉnh...)"
+              data-tooltip-title="Cài Đặt & Tiện Ích"
+              data-tooltip-placement="bottom"
+              className={`has-tooltip flex items-center gap-1.5 px-2.5 py-1.5 rounded-[4px] border text-xs font-mono font-medium transition cursor-pointer ${
+                isSettingsOpen
+                  ? 'bg-theme-accent text-[#190839] border-theme-accent font-bold'
+                  : 'bg-[#241148]/80 hover:bg-[#3E1D74]/80 text-[#F5EFF9]/90 hover:text-white border-theme-accent/25 hover:border-theme-accent/40'
+              }`}
             >
-              {isFullscreen ? (
-                <Minimize className="w-3.5 h-3.5 text-[#190839]" />
-              ) : (
-                <Maximize className="w-3.5 h-3.5 text-[#F5EFF9]/70 hover:text-white" />
-              )}
+              <Settings className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline text-[11px]">Cài đặt</span>
+              <ChevronDown className={`w-3 h-3 transition-transform ${isSettingsOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {/* Font Settings */}
-            {onOpenFontModal && (
-              <button
-                id="btn-navbar-font"
-                onClick={() => {
-                  vibrateTap();
-                  soundFx.playClick();
-                  onOpenFontModal();
-                }}
-                data-tooltip="Tải font riêng (.ttf/.otf/.woff) & Quản lý phông chữ toàn app"
-                data-tooltip-title="Phông Chữ Hệ Thống"
-                data-tooltip-placement="bottom"
-                className="hidden sm:flex has-tooltip fluent-action-btn text-[#F5EFF9]/70 hover:text-white bg-white/5 hover:bg-white/10 border-white/10"
-              >
-                <Type className="w-3.5 h-3.5 text-theme-accent" />
-              </button>
-            )}
+            {isSettingsOpen && (
+              <div className="absolute right-0 mt-2 w-56 py-1.5 bg-[#170933]/98 backdrop-blur-2xl border border-theme-accent/30 rounded-[6px] shadow-2xl shadow-black/80 z-[110] animate-fadeIn text-xs divide-y divide-white/10 font-sans">
+                <div className="py-1">
+                  {/* Fullscreen Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleToggleFullscreen();
+                      setIsSettingsOpen(false);
+                    }}
+                    className="w-full px-3 py-2 text-left flex items-center justify-between text-[#F5EFF9]/90 hover:bg-white/10 hover:text-white transition cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      {isFullscreen ? (
+                        <Minimize className="w-4 h-4 text-theme-accent" />
+                      ) : (
+                        <Maximize className="w-4 h-4 text-theme-accent/80" />
+                      )}
+                      <span>{isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình'}</span>
+                    </div>
+                    <kbd className="text-[10px] font-mono px-1 py-0.2 rounded bg-black/40 text-theme-accent border border-theme-accent/30">
+                      {isFullscreen ? 'ON' : 'F11'}
+                    </kbd>
+                  </button>
 
-            {/* Workspace Settings */}
-            {onOpenSettings && (
-              <button
-                id="btn-navbar-settings"
-                onClick={() => {
-                  vibrateTap();
-                  soundFx.playClick();
-                  onOpenSettings();
-                }}
-                data-tooltip="Cài đặt Workspace (Màu sắc, Cá nhân hoá...)"
-                data-tooltip-title="Cài Đặt"
-                data-tooltip-placement="bottom"
-                className="hidden sm:flex has-tooltip fluent-action-btn text-[#F5EFF9]/70 hover:text-white bg-white/5 hover:bg-white/10 border-white/10"
-              >
-                <Settings className="w-3.5 h-3.5" />
-              </button>
-            )}
+                  {/* Font Customization */}
+                  {onOpenFontModal && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateTap();
+                        soundFx.playClick();
+                        onOpenFontModal();
+                        setIsSettingsOpen(false);
+                      }}
+                      className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-[#F5EFF9]/90 hover:bg-white/10 hover:text-white transition cursor-pointer"
+                    >
+                      <Type className="w-4 h-4 text-theme-accent" />
+                      <span>Phông chữ hệ thống</span>
+                    </button>
+                  )}
 
-            {/* PWA Install Button */}
-            {onOpenInstallModal && (
-              <button
-                id="btn-navbar-install-pwa"
-                onClick={() => {
-                  vibrateTap();
-                  soundFx.playClick();
-                  onOpenInstallModal();
-                }}
-                data-tooltip="Cài đặt ứng dụng về Màn hình chính (PWA) để làm việc tiện lợi hơn"
-                data-tooltip-title="Cài Đặt Ứng Dụng"
-                data-tooltip-placement="bottom"
-                className="hidden sm:flex has-tooltip fluent-action-btn text-theme-accent bg-[#241148]/60 hover:bg-[#3E1D74]/70 border-theme-accent/30"
-              >
-                <Download className="w-3.5 h-3.5 text-theme-accent" />
-                <span className="hidden 2xl:inline text-[11px]">Cài App</span>
-              </button>
+                  {/* Workspace Settings */}
+                  {onOpenSettings && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateTap();
+                        soundFx.playClick();
+                        onOpenSettings();
+                        setIsSettingsOpen(false);
+                      }}
+                      className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-[#F5EFF9]/90 hover:bg-white/10 hover:text-white transition cursor-pointer"
+                    >
+                      <Settings className="w-4 h-4 text-theme-accent" />
+                      <span>Tùy chỉnh giao diện</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Battery & PWA Install Section */}
+                <div className="py-1">
+                  <div className="px-3 py-1.5">
+                    <BatteryIndicator showDetails className="w-full text-[10px]" />
+                  </div>
+
+                  {onOpenInstallModal && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateTap();
+                        soundFx.playClick();
+                        onOpenInstallModal();
+                        setIsSettingsOpen(false);
+                      }}
+                      className="w-full px-3 py-2 text-left flex items-center justify-between text-theme-accent hover:bg-white/10 transition cursor-pointer font-medium"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Download className="w-4 h-4 text-theme-accent" />
+                        <span>Cài đặt ứng dụng (PWA)</span>
+                      </div>
+                      <span className="text-[9px] bg-theme-accent/20 px-1.5 py-0.2 rounded font-mono border border-theme-accent/30">
+                        App
+                      </span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Account & Session Management Section */}
+                <div className="py-1">
+                  {onAdminLogout && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateTap();
+                        soundFx.playClick();
+                        onAdminLogout();
+                        setIsSettingsOpen(false);
+                      }}
+                      className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-rose-300 hover:bg-rose-950/40 hover:text-rose-200 transition cursor-pointer font-medium"
+                    >
+                      <LogOut className="w-4 h-4 text-rose-400" />
+                      <span>Đăng xuất tài khoản</span>
+                    </button>
+                  )}
+                </div>
+              </div>
             )}
           </div>
 
@@ -697,6 +727,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span>Cài Đặt Ứng Dụng (PWA)</span>
                 </span>
                 <span className="text-[10px] text-sky-200 bg-sky-900/50 px-1.5 py-0.5 rounded-[2px]">Install</span>
+              </button>
+            )}
+
+            {onAdminLogout && (
+              <button
+                onClick={() => {
+                  vibrateTap();
+                  soundFx.playClick();
+                  onAdminLogout();
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full py-2 px-3 rounded-[4px] bg-rose-950/50 hover:bg-rose-900/60 border border-rose-500/50 text-xs font-mono font-bold text-rose-300 flex items-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Đăng Xuất Khỏi Hệ Thống</span>
               </button>
             )}
           </div>

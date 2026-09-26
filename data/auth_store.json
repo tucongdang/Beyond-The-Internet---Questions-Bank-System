@@ -1,0 +1,54 @@
+{
+  "adminUsers": [
+    {
+      "id": "usr_admin",
+      "username": "admin",
+      "fullName": "TS. Ho�ng Minh Son",
+      "email": "admin.bti2026@edu.vn",
+      "password": "BTI2026Admin",
+      "role": "SUPER_ADMIN",
+      "technicalRole": "SUPER_ADMIN",
+      "status": "APPROVED",
+      "emailVerified": true,
+      "createdAt": 1790444357144,
+      "name": "TS. Ho�ng Minh Son"
+    },
+    {
+      "id": "usr_editor",
+      "username": "trang.nt",
+      "fullName": "ThS. Nguyễn Thu Trang",
+      "email": "trang.nt@bti2026.org",
+      "password": "BTI2026Admin",
+      "role": "HEAD_EDITOR",
+      "technicalRole": "HEAD_EDITOR",
+      "status": "APPROVED",
+      "emailVerified": true,
+      "createdAt": 1790444357144
+    },
+    {
+      "id": "usr_examiner",
+      "username": "bao.tq",
+      "fullName": "PGS. TS. Trần Quốc Bảo",
+      "email": "bao.tq@univ.edu.vn",
+      "password": "BTI2026Admin",
+      "role": "EXAMINER",
+      "technicalRole": "EXAMINER",
+      "status": "APPROVED",
+      "emailVerified": true,
+      "createdAt": 1790444357144
+    },
+    {
+      "id": "usr_contributor",
+      "username": "dangtu2006",
+      "fullName": "ThS. Đặng Minh Tuấn",
+      "email": "dangtu2006@gmail.com",
+      "password": "BTI2026Admin",
+      "role": "CONTRIBUTOR",
+      "technicalRole": "CONTRIBUTOR",
+      "status": "APPROVED",
+      "emailVerified": true,
+      "createdAt": 1790444357144
+    }
+  ],
+  "audienceUsers": []
+}

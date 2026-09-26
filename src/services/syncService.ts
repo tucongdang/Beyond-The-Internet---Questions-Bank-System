@@ -459,6 +459,15 @@ class RealtimeSyncService {
         firestoreDatabaseId: (config as any).firestoreDatabaseId || (firebaseConfig as any).firestoreDatabaseId
       } : firebaseConfig;
 
+      // Persist custom config to localStorage so it survives page reloads
+      if (config && config.databaseURL && typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(STORAGE_KEY_FIREBASE_CONFIG, JSON.stringify(config));
+        } catch (e) {
+          console.warn('Could not persist Firebase config to localStorage', e);
+        }
+      }
+
       this.currentConfig = activeConfig as any;
       this.firebaseApp = app;
       this.db = db;

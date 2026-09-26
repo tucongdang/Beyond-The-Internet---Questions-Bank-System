@@ -14,3 +14,13 @@ try {
 
 export const db = firestoreDb;
 export const auth = getAuth(app);
+
+export function removeUndefined<T extends Record<string, any>>(obj: T): T {
+  const result: any = {};
+  for (const key of Object.keys(obj)) {
+    if (obj[key] !== undefined) {
+      result[key] = obj[key];
+    }
+  }
+  return result;
+}

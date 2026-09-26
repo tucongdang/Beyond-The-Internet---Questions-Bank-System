@@ -1,14 +1,10 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, useEffect } from 'react';
 import { syncService } from './services/syncService';
 import { soundFx } from './services/audioEffects';
 import { vibrateTap } from './utils/hapticUtils';
 import { Navbar } from './components/Navbar';
 import { FirebaseConfigModal } from './components/FirebaseConfigModal';
+import { ApiKeyConfigModal } from './components/ApiKeyConfigModal';
 import { OfflineBanner } from './components/OfflineBanner';
 import { InstallAppModal } from './components/InstallAppModal';
 import { FluentTooltip } from './components/FluentTooltip';
@@ -19,15 +15,58 @@ import { UserRoleManagerModal } from './components/questionBank/UserRoleManagerM
 import { WorkspaceSettingsModal } from './components/WorkspaceSettingsModal';
 import { FontSettingsModal } from './components/FontSettingsModal';
 import { GeminiAiStudioModal, GeminiStudioTabKey } from './components/gemini/GeminiAiStudioModal';
+import { AppFooter } from './components/AppFooter';
+import { PasswordGate } from './components/PasswordGate';
+import { AdminUser, AppUser, TECHNICAL_ROLES } from './types';
+import { questionBankManager } from './services/questionBankManager';
 
 export default function App() {
   const { isBatterySaver } = useBatterySaver();
 
   // Modals & User Role State
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('BTI2026_ADMIN_AUTH') === 'true' ||
+             localStorage.getItem('BTI2026_ADMIN_AUTH') === 'true';
+    }
+    return false;
+  });
+
+  const handleAdminAuthenticated = (user?: AdminUser) => {
+    setIsAdminAuthenticated(true);
+    if (user) {
+      const appUser: AppUser = {
+        id: user.id,
+        name: user.fullName || user.username,
+        email: user.email,
+        role: user.role || 'SUPER_ADMIN',
+        title: user.technicalRole ? TECHNICAL_ROLES[user.technicalRole]?.label : undefined,
+        organization: 'Ban Đề Thi BTI 2026',
+        lastActive: Date.now()
+      };
+      questionBankManager.setCurrentUser(appUser);
+    }
+  };
+
+  const handleAdminLogout = () => {
+    soundFx.playClick();
+    vibrateTap();
+    setIsAdminAuthenticated(false);
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('BTI2026_ADMIN_AUTH');
+      sessionStorage.removeItem('BTI2026_ADMIN_TOKEN');
+      sessionStorage.removeItem('BTI2026_TECH_USER');
+      localStorage.removeItem('BTI2026_ADMIN_AUTH');
+      localStorage.removeItem('BTI2026_ADMIN_TOKEN');
+      localStorage.removeItem('BTI2026_TECH_USER');
+    }
+  };
+
   const [isUserRolesOpen, setIsUserRolesOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isFontModalOpen, setIsFontModalOpen] = useState(false);
   const [isFirebaseConfigOpen, setIsFirebaseConfigOpen] = useState<boolean>(false);
+  const [isApiKeyConfigOpen, setIsApiKeyConfigOpen] = useState<boolean>(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [isGeminiStudioOpen, setIsGeminiStudioOpen] = useState<boolean>(false);
   const [geminiStudioTab, setGeminiStudioTab] = useState<GeminiStudioTabKey>('CHAT');
@@ -104,6 +143,10 @@ export default function App() {
           setIsGeminiStudioOpen(false);
           closed = true;
         }
+        if (isApiKeyConfigOpen) {
+          setIsApiKeyConfigOpen(false);
+          closed = true;
+        }
         if (isUserRolesOpen) {
           setIsUserRolesOpen(false);
           closed = true;
@@ -133,7 +176,28 @@ export default function App() {
 
     window.addEventListener('keydown', handleGlobalEsc);
     return () => window.removeEventListener('keydown', handleGlobalEsc);
-  }, [isGeminiStudioOpen, isUserRolesOpen, isFirebaseConfigOpen, isInstallModalOpen, isSettingsOpen, isFontModalOpen]);
+  }, [isGeminiStudioOpen, isApiKeyConfigOpen, isUserRolesOpen, isFirebaseConfigOpen, isInstallModalOpen, isSettingsOpen, isFontModalOpen]);
+
+  // If not authenticated, display PasswordGate as protective wall
+  if (!isAdminAuthenticated) {
+    return (
+      <div className="min-h-[100dvh] h-[100dvh] overflow-hidden bg-[#190839] text-[#F5EFF9] font-sans flex flex-col antialiased selection:bg-theme-accent selection:text-[#190839] relative z-0">
+        <div className="fixed inset-0 z-[-3] bg-gradient-to-b from-[#0D0420] via-[#190839] to-[#0D0420]">
+          <div className="absolute -top-[20%] left-1/4 w-[60vw] h-[40vw] bg-[#8B5CF6]/15 rounded-full blur-[160px] pointer-events-none" />
+          <div className="absolute top-1/2 -right-[10%] w-[50vw] h-[50vw] bg-[#E39A96]/10 rounded-full blur-[160px] pointer-events-none" />
+        </div>
+        <div className="fixed inset-0 z-[-1] opacity-25 pointer-events-none bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:24px_24px]" />
+
+        <PasswordGate
+          isAuthenticated={isAdminAuthenticated}
+          onAuthenticated={handleAdminAuthenticated}
+          viewName="Ngân Hàng Câu Hỏi & Khảo Thí BTI 2026"
+        >
+          {null}
+        </PasswordGate>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] h-[100dvh] overflow-hidden bg-[#190839] text-[#F5EFF9] font-sans flex flex-col antialiased selection:bg-theme-accent selection:text-[#190839] relative z-0">
@@ -151,20 +215,24 @@ export default function App() {
         </>
       )}
 
-      {/* Dedicated Question Bank Navigation Bar */}
-      <Navbar
-        isFocusMode={isFocusMode}
-        onToggleFocusMode={handleToggleFocusMode}
-        onOpenFirebaseConfig={() => setIsFirebaseConfigOpen(true)}
-        isFirebaseConnected={isFirebaseConnected}
-        soundEnabled={soundEnabled}
-        onToggleSound={handleToggleSound}
-        onOpenInstallModal={() => setIsInstallModalOpen(true)}
-        onOpenUserRoles={() => setIsUserRolesOpen(true)}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenFontModal={() => setIsFontModalOpen(true)}
-        onOpenGeminiStudio={handleOpenGeminiStudio}
-      />
+      {/* Dedicated Question Bank Navigation Bar (Hidden in Focus Mode) */}
+      {!isFocusMode && (
+        <Navbar
+          isFocusMode={isFocusMode}
+          onToggleFocusMode={handleToggleFocusMode}
+          onOpenFirebaseConfig={() => setIsFirebaseConfigOpen(true)}
+          onOpenApiKeyConfig={() => setIsApiKeyConfigOpen(true)}
+          isFirebaseConnected={isFirebaseConnected}
+          soundEnabled={soundEnabled}
+          onToggleSound={handleToggleSound}
+          onAdminLogout={handleAdminLogout}
+          onOpenInstallModal={() => setIsInstallModalOpen(true)}
+          onOpenUserRoles={() => setIsUserRolesOpen(true)}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenFontModal={() => setIsFontModalOpen(true)}
+          onOpenGeminiStudio={handleOpenGeminiStudio}
+        />
+      )}
 
       {/* Main Focus: Question Bank Dashboard */}
       <main className="flex-1 flex flex-col relative overflow-x-hidden overflow-y-auto">
@@ -177,6 +245,13 @@ export default function App() {
             onToggleFocusMode={handleToggleFocusMode}
           />
         </div>
+
+        {/* Regulatory & Technical Architecture Footer */}
+        {!isFocusMode && (
+          <AppFooter
+            onOpenFirebaseConfig={() => setIsFirebaseConfigOpen(true)}
+          />
+        )}
       </main>
 
       {/* Gemini AI Studio Modal (Chatbot, Image Generation/Edit, Veo Video) */}
@@ -186,7 +261,16 @@ export default function App() {
         defaultTab={geminiStudioTab}
       />
 
-      {/* Firebase Database Config Modal */}
+      {/* Unified API Key & Firebase Config Modal */}
+      <ApiKeyConfigModal
+        isOpen={isApiKeyConfigOpen}
+        onClose={() => {
+          setIsApiKeyConfigOpen(false);
+          setIsFirebaseConnected(syncService.getIsFirebaseConnected());
+        }}
+      />
+
+      {/* Firebase Database Config Modal (legacy, still accessible from footer) */}
       <FirebaseConfigModal
         isOpen={isFirebaseConfigOpen}
         onClose={() => {
@@ -216,8 +300,19 @@ export default function App() {
 
       {/* User Role & Permission Manager Modal */}
       {isUserRolesOpen && (
-        <UserRoleManagerModal onClose={() => setIsUserRolesOpen(false)} />
+        <UserRoleManagerModal 
+          onClose={() => setIsUserRolesOpen(false)} 
+          onLogout={() => {
+            setIsUserRolesOpen(false);
+            handleAdminLogout();
+          }}
+          onUserChanged={() => {
+            // Trigger app-level re-render if needed
+            setIsFirebaseConnected(syncService.getIsFirebaseConnected());
+          }}
+        />
       )}
+
 
       {/* Offline Alert Banner with Auto-Reconnect */}
       <OfflineBanner

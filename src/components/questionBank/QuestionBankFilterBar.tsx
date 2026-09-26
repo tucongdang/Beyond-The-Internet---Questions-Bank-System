@@ -55,7 +55,6 @@ import {
   POPULAR_SEARCH_PRESETS,
   parseSearchQuery 
 } from '../../services/fullTextSearchService';
-import { DifficultyQuickToggleBar } from './DifficultyBadgeAndMeter';
 import { FolderPlus, Folder } from 'lucide-react';
 import { BtiCompetencyMatrixFilterBar, MatrixStatusFilterType } from './BtiCompetencyMatrixFilterBar';
 
@@ -106,6 +105,7 @@ interface QuestionBankFilterBarProps {
   filterStage: string; // Competition Stage
   onStageChange: (stage: string) => void;
 
+  isFocusMode?: boolean;
   onResetAllFilters: () => void;
 }
 
@@ -143,20 +143,35 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
   onNavigateToFullMatrix,
   filterStage,
   onStageChange,
+  isFocusMode = false,
   onResetAllFilters
 }) => {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
-  const [isMatrixFilterOpen, setIsMatrixFilterOpen] = useState(true);
+  const [isMatrixFilterOpen, setIsMatrixFilterOpen] = useState(() => (filterDomain !== 'ALL' || filterMatrixStatus !== 'ALL' || filterSubCompetency !== 'ALL'));
+  const [isPillsOpen, setIsPillsOpen] = useState(() => (filterTopic !== 'ALL' || (selectedTags && selectedTags.length > 0) || (filterTag && filterTag !== 'ALL')));
+  const [activePillsTab, setActivePillsTab] = useState<'CATEGORIES' | 'TAGS'>(() => {
+    if (filterTopic !== 'ALL') return 'CATEGORIES';
+    if ((selectedTags && selectedTags.length > 0) || (filterTag && filterTag !== 'ALL')) return 'TAGS';
+    return 'CATEGORIES';
+  });
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showSyntaxGuide, setShowSyntaxGuide] = useState(false);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+
+  // Auto-collapse filters in Focus Mode
+  useEffect(() => {
+    if (isFocusMode) {
+      setIsMatrixFilterOpen(false);
+      setIsAdvancedOpen(false);
+      setIsPillsOpen(false);
+    }
+  }, [isFocusMode]);
 
   // Compact / Shortened view states for Category and Tag bars
   const [hideEmptyCategories, setHideEmptyCategories] = useState(true);
   const [hideEmptyTags, setHideEmptyTags] = useState(true);
-  const [isCategoriesCollapsed, setIsCategoriesCollapsed] = useState(false);
-  const [isTagsCollapsed, setIsTagsCollapsed] = useState(false);
 
   // Active tags array combining multi-select or single filterTag
   const activeTagsList = useMemo(() => {
@@ -295,13 +310,22 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
     filterMatrixStatus !== 'ALL' ||
     filterStage !== 'ALL';
 
-  // Count active advanced filters (beyond primary search & round)
+  const activePillsCount = (filterTopic !== 'ALL' ? 1 : 0) + activeTagsList.length;
+
+  // Count active advanced filters (beyond primary search, round, pills)
   const activeAdvancedCount = 
-    (filterTopic !== 'ALL' ? 1 : 0) +
-    (filterTag !== 'ALL' ? 1 : 0) +
     (filterDomain !== 'ALL' ? 1 : 0) +
+    (filterSubCompetency !== 'ALL' ? 1 : 0) +
     (filterStage !== 'ALL' ? 1 : 0) +
     (sortBy !== 'NEWEST' && sortBy !== 'RELEVANCE' ? 1 : 0);
+
+  const totalActiveFilters =
+    activeAdvancedCount +
+    activePillsCount +
+    (filterRoundGroup !== 'ALL' ? 1 : 0) +
+    (filterLevel !== 'ALL' ? 1 : 0) +
+    (filterStatus !== 'ALL' ? 1 : 0) +
+    (filterMatrixStatus !== 'ALL' ? 1 : 0);
 
   const handleSelectPreset = (presetQuery: string) => {
     vibrateTap();
@@ -374,6 +398,25 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
           })}
         </div>
 
+        {/* Mobile Filter Drawer Button (Visible on mobile screens) */}
+        <button
+          type="button"
+          onClick={() => {
+            vibrateTap();
+            soundFx.playClick();
+            setIsMobileDrawerOpen(true);
+          }}
+          className={`sm:hidden px-2.5 py-1 rounded-[4px] text-[11px] font-mono font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 border ${
+            totalActiveFilters > 0
+              ? 'bg-theme-accent text-[#190839] border-theme-accent shadow-sm'
+              : 'bg-[#241148] text-theme-accent border-theme-accent/30 hover:bg-[#3E1D74]'
+          }`}
+          title="Mở Bảng Bộ Lọc Di Động (Bottom Sheet)"
+        >
+          <Filter className="w-3.5 h-3.5" />
+          <span>Lọc ({totalActiveFilters})</span>
+        </button>
+
         {/* Toggle BTI Competency Matrix Filter Bar */}
         <button
           type="button"
@@ -382,7 +425,7 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
             soundFx.playClick();
             setIsMatrixFilterOpen(prev => !prev);
           }}
-          className={`px-2.5 py-1 rounded-[4px] text-[11px] font-mono font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 border ${
+          className={`hidden sm:flex px-2.5 py-1 rounded-[4px] text-[11px] font-mono font-bold items-center gap-1.5 transition cursor-pointer shrink-0 border ${
             isMatrixFilterOpen || filterDomain !== 'ALL' || filterMatrixStatus !== 'ALL' || filterSubCompetency !== 'ALL'
               ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm font-bold'
               : 'bg-[#241148] text-amber-300 border-amber-400/30 hover:text-white hover:bg-white/10'
@@ -397,6 +440,31 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
           {isMatrixFilterOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
         </button>
 
+        {/* Toggle Custom Categories & Smart Tags Panel */}
+        <button
+          type="button"
+          onClick={() => {
+            vibrateTap();
+            soundFx.playClick();
+            setIsPillsOpen(!isPillsOpen);
+          }}
+          className={`hidden sm:flex px-2.5 py-1 rounded-[4px] text-[11px] font-mono font-bold items-center gap-1.5 transition cursor-pointer shrink-0 border ${
+            isPillsOpen || activePillsCount > 0
+              ? 'bg-purple-600/30 text-purple-200 border-purple-400 shadow-sm'
+              : 'bg-[#241148] text-purple-300 border-purple-500/30 hover:text-white hover:bg-white/10'
+          }`}
+          title="Bật/Tắt Khung Danh Mục & Nhãn Phân Loại (Tags)"
+        >
+          <Tag className="w-3.5 h-3.5" />
+          <span>Chủ đề &amp; Nhãn</span>
+          {activePillsCount > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full bg-purple-500 text-white text-[9px] font-black">
+              {activePillsCount}
+            </span>
+          )}
+          {isPillsOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        </button>
+
         {/* Toggle Advanced Filters Button */}
         <button
           type="button"
@@ -405,12 +473,12 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
             soundFx.playClick();
             setIsAdvancedOpen(!isAdvancedOpen);
           }}
-          className={`px-2.5 py-1 rounded-[4px] text-[11px] font-mono font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 border ${
+          className={`hidden sm:flex px-2.5 py-1 rounded-[4px] text-[11px] font-mono font-bold items-center gap-1.5 transition cursor-pointer shrink-0 border ${
             isAdvancedOpen || activeAdvancedCount > 0
               ? 'bg-theme-accent/20 text-theme-accent border-theme-accent/40 shadow-sm'
               : 'bg-[#241148] text-slate-300 border-white/10 hover:text-white hover:bg-white/10'
           }`}
-          title={isAdvancedOpen ? 'Thu gọn bộ lọc nâng cao' : 'Mở rộng thêm bộ lọc chủ đề, nhãn, miền năng lực, sắp xếp'}
+          title={isAdvancedOpen ? 'Thu gọn bộ lọc nâng cao' : 'Mở rộng thêm bộ lọc miền năng lực, sắp xếp'}
         >
           <SlidersHorizontal className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">{isAdvancedOpen ? 'Thu gọn lọc' : 'Lọc nâng cao'}</span>
@@ -672,381 +740,255 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
         />
       )}
 
-      {/* 2.5. Dedicated Quick-Toggle Difficulty Filter Bar */}
-      <DifficultyQuickToggleBar
-        filterLevel={filterLevel}
-        onLevelChange={onLevelChange}
-        questions={questions}
-      />
-
-      {/* 2.5.5. Primary Custom Category Filter Bar with Quick Pills */}
-      {categoryListWithCounts.length > 0 && (
-        <div className="bg-[#14062E] border border-purple-500/30 rounded-[4px] p-2.5 space-y-2 animate-in fade-in duration-150">
-          <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 text-purple-300 font-bold font-mono uppercase text-[11px]">
-                <Folder className="w-3.5 h-3.5 text-purple-400" />
+      {/* 2.5. Unified Categories & Smart Tags Tabbed Panel (Collapsible) */}
+      {isPillsOpen && (
+        <div className="bg-[#14062E] border border-purple-500/30 rounded-[4px] p-2.5 space-y-2 animate-fadeIn">
+          {/* Header with Switcher Tabs & Controls */}
+          <div className="flex items-center justify-between gap-2 flex-wrap text-xs pb-1.5 border-b border-white/10">
+            <div className="flex items-center gap-1 bg-[#190839] p-0.5 rounded-[4px] border border-white/10 font-mono text-[11px]">
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateTap();
+                  soundFx.playClick();
+                  setActivePillsTab('CATEGORIES');
+                }}
+                className={`px-2.5 py-1 rounded-[3px] font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  activePillsTab === 'CATEGORIES'
+                    ? 'bg-purple-600 text-white shadow-sm'
+                    : 'text-[#B6A6D8] hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Folder className="w-3.5 h-3.5 text-purple-300" />
                 <span>Danh Mục BTI ({displayedCategories.length}/{categoryListWithCounts.length})</span>
-              </div>
+                {filterTopic !== 'ALL' && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />}
+              </button>
 
-              {filterTopic !== 'ALL' && (
-                <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/40 text-[10.5px] font-bold font-mono flex items-center gap-1">
-                  Đang lọc: {filterTopic}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      vibrateTap();
-                      soundFx.playClick();
-                      onTopicChange('ALL');
-                    }}
-                    className="hover:text-rose-300 cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* Toggle Hide Zero-Count Categories */}
               <button
                 type="button"
                 onClick={() => {
                   vibrateTap();
                   soundFx.playClick();
-                  setHideEmptyCategories(prev => !prev);
+                  setActivePillsTab('TAGS');
                 }}
-                className={`text-[10.5px] px-2 py-0.5 rounded font-mono transition cursor-pointer flex items-center gap-1 border ${
-                  hideEmptyCategories
-                    ? 'bg-purple-600/30 text-purple-200 border-purple-400/40 hover:bg-purple-600/50'
-                    : 'bg-slate-900/60 text-slate-400 border-slate-700/60 hover:text-slate-200'
+                className={`px-2.5 py-1 rounded-[3px] font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  activePillsTab === 'TAGS'
+                    ? 'bg-theme-accent text-[#190839] shadow-sm font-black'
+                    : 'text-[#B6A6D8] hover:text-white hover:bg-white/5'
                 }`}
-                title="Lọc ẩn bớt các danh mục chưa có câu hỏi (count = 0) để rút gọn danh sách"
               >
-                <span>{hideEmptyCategories ? '✓ Đã rút gọn (>0)' : 'Chưa rút gọn (Tất cả)'}</span>
+                <Tag className="w-3.5 h-3.5 text-theme-accent" />
+                <span>Thẻ Nhãn Smart Tags ({displayedTags.length}/{availableTags.length})</span>
+                {activeTagsList.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
               </button>
-
-              {/* Collapse/Expand Toggle */}
-              <button
-                type="button"
-                onClick={() => {
-                  vibrateTap();
-                  soundFx.playClick();
-                  setIsCategoriesCollapsed(prev => !prev);
-                }}
-                className="text-[10.5px] text-purple-300 hover:text-white bg-purple-500/20 hover:bg-purple-500/35 px-2 py-0.5 rounded transition cursor-pointer flex items-center gap-1 border border-purple-500/40 font-mono"
-                title={isCategoriesCollapsed ? 'Mở rộng khung danh mục' : 'Rút gọn khung danh mục'}
-              >
-                {isCategoriesCollapsed ? (
-                  <>
-                    <ChevronDown className="w-3 h-3 text-purple-300" />
-                    <span>Mở rộng</span>
-                  </>
-                ) : (
-                  <>
-                    <ChevronUp className="w-3 h-3 text-purple-300" />
-                    <span>Thu gọn</span>
-                  </>
-                )}
-              </button>
-
-              {/* Manage Categories Button */}
-              {onManageCategoriesClick && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    vibrateTap();
-                    soundFx.playClick();
-                    onManageCategoriesClick();
-                  }}
-                  className="text-[10.5px] text-purple-200 hover:text-white bg-purple-600/25 hover:bg-purple-600/45 px-2.5 py-0.5 rounded transition cursor-pointer flex items-center gap-1.5 border border-purple-400/40 font-medium shadow-sm active:scale-95"
-                  title="Mở trình quản lý danh mục câu hỏi (Custom Categories Manager)"
-                >
-                  <FolderPlus className="w-3.5 h-3.5 text-purple-300" />
-                  <span>Quản lý Danh mục</span>
-                </button>
-              )}
             </div>
-          </div>
 
-          {/* Color-coded Category Pills List */}
-          <div className={`flex items-center gap-1.5 flex-wrap overflow-y-auto custom-scrollbar pt-0.5 transition-all duration-200 ${
-            isCategoriesCollapsed ? 'max-h-[38px] overflow-hidden' : 'max-h-[110px]'
-          }`}>
-            <button
-              type="button"
-              onClick={() => {
-                vibrateTap();
-                soundFx.playClick();
-                onTopicChange('ALL');
-              }}
-              className={`px-2.5 py-1 rounded-[4px] text-xs transition cursor-pointer flex items-center gap-1.5 border select-none ${
-                filterTopic === 'ALL'
-                  ? 'bg-purple-600 text-white font-bold border-purple-400 shadow-sm'
-                  : 'bg-slate-900/60 text-slate-300 border-slate-700/60 hover:bg-slate-800'
-              }`}
-            >
-              <span>Tất cả danh mục</span>
-              <span className="text-[10px] font-mono px-1 bg-black/30 rounded-full text-slate-300">
-                {questions.length}
-              </span>
-            </button>
-
-            {displayedCategories.map(cat => {
-              const isSelected = filterTopic === cat.name;
-              const scheme = getCategoryColorScheme(cat.name, cat.color);
-
-              return (
+            {/* Controls depending on active tab */}
+            {activePillsTab === 'CATEGORIES' ? (
+              <div className="flex items-center gap-2">
                 <button
-                  key={cat.name}
                   type="button"
                   onClick={() => {
                     vibrateTap();
                     soundFx.playClick();
-                    onTopicChange(isSelected ? 'ALL' : cat.name);
+                    setHideEmptyCategories(prev => !prev);
                   }}
-                  className={`px-2.5 py-1 rounded-[4px] text-xs transition cursor-pointer flex items-center gap-1.5 border select-none ${
-                    isSelected
-                      ? `${scheme.badgeStyle} ring-2 ring-purple-400 font-bold shadow-md`
-                      : `${scheme.badgeStyle} hover:scale-[1.02] opacity-80 hover:opacity-100`
+                  className={`text-[10.5px] px-2 py-0.5 rounded font-mono transition cursor-pointer flex items-center gap-1 border ${
+                    hideEmptyCategories
+                      ? 'bg-purple-600/30 text-purple-200 border-purple-400/40 hover:bg-purple-600/50'
+                      : 'bg-slate-900/60 text-slate-400 border-slate-700/60 hover:text-slate-200'
                   }`}
-                  title={cat.description || cat.name}
+                  title="Ẩn danh mục chưa có câu hỏi"
                 >
-                  <span
-                    className="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-sm"
-                    style={{ backgroundColor: scheme.hex }}
-                  />
-                  <span className="font-medium">{cat.name}</span>
-                  <span className={`text-[10px] font-mono px-1 rounded-full ${isSelected ? 'bg-black/40 text-white' : 'bg-black/20 text-slate-300'}`}>
-                    {cat.count}
-                  </span>
+                  <span>{hideEmptyCategories ? '✓ Đã rút gọn (>0)' : 'Tất cả'}</span>
                 </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
-      {/* 2.6. Smart Tagging Multi-Select Bar with Color-coded Tags */}
-      {availableTags.length > 0 && (
-        <div className="bg-[#14062E] border border-theme-accent/25 rounded-[4px] p-2.5 space-y-2 animate-in fade-in duration-150">
-          <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 text-purple-300 font-bold font-mono uppercase text-[11px]">
-                <Tag className="w-3.5 h-3.5 text-purple-400" />
-                <span>Thẻ Phân Loại Smart Tags ({displayedTags.length}/{availableTags.length})</span>
-              </div>
-
-              {activeTagsList.length > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/40 text-[10.5px] font-bold font-mono">
-                  Đang chọn {activeTagsList.length} nhãn
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* Toggle Hide Zero-Count Tags */}
-              <button
-                type="button"
-                onClick={() => {
-                  vibrateTap();
-                  soundFx.playClick();
-                  setHideEmptyTags(prev => !prev);
-                }}
-                className={`text-[10.5px] px-2 py-0.5 rounded font-mono transition cursor-pointer flex items-center gap-1 border ${
-                  hideEmptyTags
-                    ? 'bg-purple-600/30 text-purple-200 border-purple-400/40 hover:bg-purple-600/50'
-                    : 'bg-slate-900/60 text-slate-400 border-slate-700/60 hover:text-slate-200'
-                }`}
-                title="Lọc ẩn bớt các nhãn chưa có câu hỏi (count = 0) để rút gọn danh sách"
-              >
-                <span>{hideEmptyTags ? '✓ Đã rút gọn (>0)' : 'Chưa rút gọn (Tất cả)'}</span>
-              </button>
-
-              {/* Collapse/Expand Toggle */}
-              <button
-                type="button"
-                onClick={() => {
-                  vibrateTap();
-                  soundFx.playClick();
-                  setIsTagsCollapsed(prev => !prev);
-                }}
-                className="text-[10.5px] text-purple-300 hover:text-white bg-purple-500/20 hover:bg-purple-500/35 px-2 py-0.5 rounded transition cursor-pointer flex items-center gap-1 border border-purple-500/40 font-mono"
-                title={isTagsCollapsed ? 'Mở rộng khung nhãn' : 'Rút gọn khung nhãn'}
-              >
-                {isTagsCollapsed ? (
-                  <>
-                    <ChevronDown className="w-3 h-3 text-purple-300" />
-                    <span>Mở rộng</span>
-                  </>
-                ) : (
-                  <>
-                    <ChevronUp className="w-3 h-3 text-purple-300" />
-                    <span>Thu gọn</span>
-                  </>
+                {onManageCategoriesClick && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateTap();
+                      soundFx.playClick();
+                      onManageCategoriesClick();
+                    }}
+                    className="text-[10.5px] text-purple-200 hover:text-white bg-purple-600/25 hover:bg-purple-600/45 px-2 py-0.5 rounded transition cursor-pointer flex items-center gap-1 border border-purple-400/40 font-medium shadow-sm"
+                  >
+                    <FolderPlus className="w-3 h-3 text-purple-300" />
+                    <span>Quản lý</span>
+                  </button>
                 )}
-              </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                {activeTagsList.length > 1 && onTagMatchModeChange && (
+                  <div className="flex items-center bg-[#190839] p-0.5 rounded border border-white/10 text-[10.5px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateTap();
+                        soundFx.playClick();
+                        onTagMatchModeChange('OR');
+                      }}
+                      className={`px-2 py-0.5 rounded cursor-pointer font-mono transition ${
+                        tagMatchMode === 'OR' ? 'bg-purple-600 text-white font-bold shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      OR
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateTap();
+                        soundFx.playClick();
+                        onTagMatchModeChange('AND');
+                      }}
+                      className={`px-2 py-0.5 rounded cursor-pointer font-mono transition ${
+                        tagMatchMode === 'AND' ? 'bg-purple-600 text-white font-bold shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      AND
+                    </button>
+                  </div>
+                )}
 
-              {/* Match Mode Toggle: OR vs AND */}
-              {activeTagsList.length > 1 && onTagMatchModeChange && (
-                <div className="flex items-center bg-[#190839] p-0.5 rounded border border-white/10 text-[10.5px]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      vibrateTap();
-                      soundFx.playClick();
-                      onTagMatchModeChange('OR');
-                    }}
-                    className={`px-2 py-0.5 rounded cursor-pointer font-mono transition ${
-                      tagMatchMode === 'OR'
-                        ? 'bg-purple-600 text-white font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                    title="Khớp câu hỏi có ít nhất 1 trong các nhãn đã chọn (Hoặc)"
-                  >
-                    Hoặc (OR)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      vibrateTap();
-                      soundFx.playClick();
-                      onTagMatchModeChange('AND');
-                    }}
-                    className={`px-2 py-0.5 rounded cursor-pointer font-mono transition ${
-                      tagMatchMode === 'AND'
-                        ? 'bg-purple-600 text-white font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                    title="Khớp câu hỏi phải có đồng thời TẤT CẢ các nhãn đã chọn (Và)"
-                  >
-                    Và (AND)
-                  </button>
-                </div>
-              )}
-
-              {/* Clear selected tags */}
-              {activeTagsList.length > 0 && (
                 <button
                   type="button"
                   onClick={() => {
                     vibrateTap();
                     soundFx.playClick();
-                    if (onTagsChange) onTagsChange([]);
-                    if (onTagChange) onTagChange('ALL');
+                    setHideEmptyTags(prev => !prev);
                   }}
-                  className="text-[10.5px] text-rose-300 hover:text-rose-200 bg-rose-500/20 hover:bg-rose-500/30 px-2 py-0.5 rounded transition cursor-pointer flex items-center gap-1 border border-rose-500/30"
+                  className={`text-[10.5px] px-2 py-0.5 rounded font-mono transition cursor-pointer flex items-center gap-1 border ${
+                    hideEmptyTags
+                      ? 'bg-purple-600/30 text-purple-200 border-purple-400/40 hover:bg-purple-600/50'
+                      : 'bg-slate-900/60 text-slate-400 border-slate-700/60 hover:text-slate-200'
+                  }`}
+                  title="Ẩn nhãn chưa có câu hỏi"
                 >
-                  <X className="w-3 h-3" />
-                  <span>Bỏ chọn nhãn</span>
+                  <span>{hideEmptyTags ? '✓ Đã rút gọn (>0)' : 'Tất cả'}</span>
                 </button>
-              )}
 
-              {/* Manage Tags Button */}
-              {onManageTagsClick && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    vibrateTap();
-                    soundFx.playClick();
-                    onManageTagsClick();
-                  }}
-                  className="text-[10.5px] text-purple-300 hover:text-white bg-purple-500/20 hover:bg-purple-500/35 px-2.5 py-0.5 rounded transition cursor-pointer flex items-center gap-1 border border-purple-500/40"
-                  title="Mở trình quản lý và tùy chỉnh màu sắc thẻ / nhãn"
-                >
-                  <Tag className="w-3 h-3 text-purple-400" />
-                  <span className="hidden sm:inline">Quản lý nhãn</span>
-                </button>
-              )}
-            </div>
+                {onManageTagsClick && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateTap();
+                      soundFx.playClick();
+                      onManageTagsClick();
+                    }}
+                    className="text-[10.5px] text-purple-200 hover:text-white bg-purple-600/25 hover:bg-purple-600/45 px-2 py-0.5 rounded transition cursor-pointer flex items-center gap-1 border border-purple-400/40 font-medium shadow-sm"
+                  >
+                    <Tag className="w-3 h-3 text-purple-300" />
+                    <span>Quản lý</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Color-coded Tag Pills list */}
-          <div className={`flex items-center gap-1.5 flex-wrap overflow-y-auto custom-scrollbar pt-0.5 transition-all duration-200 ${
-            isTagsCollapsed ? 'max-h-[38px] overflow-hidden' : 'max-h-[110px]'
-          }`}>
-            {displayedTags.map(tag => {
-              const isSelected = activeTagsList.includes(tag);
-              const scheme = getTagColorScheme(tag);
-              const count = tagCounts[tag] || 0;
+          {/* Tab Content: Categories vs Tags Pills */}
+          {activePillsTab === 'CATEGORIES' ? (
+            <div className="flex items-center gap-1.5 flex-wrap overflow-y-auto custom-scrollbar max-h-[100px] pt-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateTap();
+                  soundFx.playClick();
+                  onTopicChange('ALL');
+                }}
+                className={`px-2.5 py-1 rounded-[4px] text-xs transition cursor-pointer flex items-center gap-1.5 border select-none ${
+                  filterTopic === 'ALL'
+                    ? 'bg-purple-600 text-white font-bold border-purple-400 shadow-sm'
+                    : 'bg-slate-900/60 text-slate-300 border-slate-700/60 hover:bg-slate-800'
+                }`}
+              >
+                <span>Tất cả danh mục</span>
+                <span className="text-[10px] font-mono px-1 bg-black/30 rounded-full text-slate-300">
+                  {questions.length}
+                </span>
+              </button>
 
-              return (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => {
-                    vibrateTap();
-                    soundFx.playClick();
-                    if (onTagsChange) {
-                      if (isSelected) {
-                        onTagsChange(activeTagsList.filter(t => t !== tag));
-                      } else {
-                        onTagsChange([...activeTagsList, tag]);
+              {displayedCategories.map(cat => {
+                const isSelected = filterTopic === cat.name;
+                const scheme = getCategoryColorScheme(cat.name, cat.color);
+
+                return (
+                  <button
+                    key={cat.name}
+                    type="button"
+                    onClick={() => {
+                      vibrateTap();
+                      soundFx.playClick();
+                      onTopicChange(isSelected ? 'ALL' : cat.name);
+                    }}
+                    className={`px-2.5 py-1 rounded-[4px] text-xs transition cursor-pointer flex items-center gap-1.5 border select-none ${
+                      isSelected
+                        ? `${scheme.badgeStyle} ring-2 ring-purple-400 font-bold shadow-md`
+                        : `${scheme.badgeStyle} hover:scale-[1.02] opacity-80 hover:opacity-100`
+                    }`}
+                    title={cat.description || cat.name}
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-sm"
+                      style={{ backgroundColor: scheme.hex }}
+                    />
+                    <span className="font-medium">{cat.name}</span>
+                    <span className={`text-[10px] font-mono px-1 rounded-full ${isSelected ? 'bg-black/40 text-white' : 'bg-black/20 text-slate-300'}`}>
+                      {cat.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 flex-wrap overflow-y-auto custom-scrollbar max-h-[100px] pt-0.5">
+              {displayedTags.map(tag => {
+                const isSelected = activeTagsList.includes(tag);
+                const scheme = getTagColorScheme(tag);
+                const count = tagCounts[tag] || 0;
+
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => {
+                      vibrateTap();
+                      soundFx.playClick();
+                      if (onTagsChange) {
+                        if (isSelected) {
+                          onTagsChange(activeTagsList.filter(t => t !== tag));
+                        } else {
+                          onTagsChange([...activeTagsList, tag]);
+                        }
+                      } else if (onTagChange) {
+                        onTagChange(isSelected ? 'ALL' : tag);
                       }
-                    } else if (onTagChange) {
-                      onTagChange(isSelected ? 'ALL' : tag);
-                    }
-                  }}
-                  className={`px-2.5 py-1 rounded-[4px] text-xs transition cursor-pointer flex items-center gap-1.5 border select-none ${
-                    isSelected
-                      ? scheme.activeClass
-                      : `${scheme.badgeStyle} hover:scale-[1.02]`
-                  }`}
-                >
-                  <span
-                    className="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-sm"
-                    style={{ backgroundColor: scheme.hex }}
-                  />
-                  <span className="font-medium">{tag}</span>
-                  <span className={`text-[10px] font-mono px-1 rounded-full ${isSelected ? 'bg-black/30 text-white' : 'bg-black/20 text-slate-300'}`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+                    }}
+                    className={`px-2.5 py-1 rounded-[4px] text-xs transition cursor-pointer flex items-center gap-1.5 border select-none ${
+                      isSelected
+                        ? scheme.activeClass
+                        : `${scheme.badgeStyle} hover:scale-[1.02]`
+                    }`}
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-sm"
+                      style={{ backgroundColor: scheme.hex }}
+                    />
+                    <span className="font-medium">#{tag}</span>
+                    <span className={`text-[10px] font-mono px-1 rounded-full ${isSelected ? 'bg-black/30 text-white' : 'bg-black/20 text-slate-300'}`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
       {/* 3. Collapsible Advanced Filters Grid */}
       {isAdvancedOpen && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2 border-t border-white/10 animate-fadeIn">
-          {/* Topic / Category Filter */}
-          <div>
-            <select
-              value={filterTopic}
-              onChange={e => onTopicChange(e.target.value)}
-              className="w-full fluent-input px-2 py-1.5 text-xs bg-[#14062E] border-theme-accent/25 text-purple-300 font-medium rounded-[4px]"
-              title="Lọc theo chủ đề / danh mục nội dung"
-            >
-              <option value="ALL" className="bg-[#190839] text-slate-300">🏷️ Chủ đề: Tất cả chủ đề</option>
-              {availableTopics.map(topic => (
-                <option key={topic} value={topic} className="bg-[#190839] text-purple-200">
-                  {topic}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Custom Tags Filter */}
-          {onTagChange && (
-            <div>
-              <select
-                value={filterTag}
-                onChange={e => onTagChange(e.target.value)}
-                className="w-full fluent-input px-2 py-1.5 text-xs bg-[#14062E] border-theme-accent/25 text-sky-300 font-medium rounded-[4px]"
-                title="Lọc theo nhãn phân loại tùy chỉnh (Tags)"
-              >
-                <option value="ALL" className="bg-[#190839] text-slate-300">📌 Nhãn (Tags): Tất cả</option>
-                {availableTags.map(tag => (
-                  <option key={tag} value={tag} className="bg-[#190839] text-sky-200">
-                    {tag}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
           {/* Digital Competency Domain Filter */}
           <div>
             <select
@@ -1064,6 +1006,42 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
             </select>
           </div>
 
+          {/* Sub-competency Filter */}
+          {filterSubCompetency !== undefined && onSubCompetencyChange && (
+            <div>
+              <select
+                value={filterSubCompetency}
+                onChange={e => onSubCompetencyChange(e.target.value)}
+                className="w-full fluent-input px-2 py-1.5 text-xs bg-[#14062E] border-theme-accent/25 text-purple-300 font-medium rounded-[4px]"
+                title="Lọc theo Tiêu chí năng lực số thành phần"
+              >
+                <option value="ALL" className="bg-[#190839] text-slate-300">🎯 Tiêu chí: Tất cả</option>
+                {filterDomain !== 'ALL' && DIGITAL_COMPETENCY_DOMAINS[filterDomain as DigitalCompetencyDomainKey]?.subCompetencies?.map(sub => (
+                  <option key={sub.code} value={sub.code} className="bg-[#190839] text-purple-200">
+                    {sub.code}: {sub.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Competition Stage Filter */}
+          <div>
+            <select
+              value={filterStage}
+              onChange={e => onStageChange(e.target.value)}
+              className="w-full fluent-input px-2 py-1.5 text-xs bg-[#14062E] border-theme-accent/25 text-emerald-300 font-medium rounded-[4px]"
+              title="Lọc theo giai đoạn thi đấu"
+            >
+              <option value="ALL" className="bg-[#190839] text-slate-300">🏆 Giai đoạn: Tất cả</option>
+              {Object.values(COMPETITION_STAGES).map(st => (
+                <option key={st.stage} value={st.stage} className="bg-[#190839] text-emerald-200">
+                  {st.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Sort Filter */}
           {onSortChange && (
             <div>
@@ -1075,7 +1053,7 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
               >
                 {searchQuery.trim() && (
                   <option value="RELEVANCE" className="bg-[#190839] text-amber-300 font-bold">
-                    🎯 Độ phù hợp tìm kiếm (Relevance)
+                    🎯 Độ phù hợp tìm kiếm
                   </option>
                 )}
                 <option value="NEWEST" className="bg-[#190839] text-fuchsia-300">⏳ Mới nhất</option>
@@ -1285,6 +1263,216 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
               <RotateCcw className="w-3 h-3" />
               <span>Xóa lọc</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Filter Drawer (Bottom Sheet) */}
+      {isMobileDrawerOpen && (
+        <div className="sm:hidden fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex flex-col justify-end animate-fadeIn">
+          <div
+            className="fixed inset-0"
+            onClick={() => setIsMobileDrawerOpen(false)}
+          />
+          <div className="relative z-10 bg-[#160830] border-t border-theme-accent/40 rounded-t-2xl p-4 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200">
+            {/* Drawer Handle & Header */}
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-10 h-1 rounded-full bg-white/20" />
+              <div className="w-full flex items-center justify-between pt-1 pb-2 border-b border-white/10">
+                <div className="flex items-center gap-2 font-bold text-white text-sm">
+                  <Filter className="w-4 h-4 text-theme-accent" />
+                  <span>Bộ Lọc Câu Hỏi BTI</span>
+                  {totalActiveFilters > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-theme-accent text-[#190839] text-[10px] font-mono font-bold">
+                      {totalActiveFilters} đang bật
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsMobileDrawerOpen(false)}
+                  className="p-1 rounded bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Filter Content */}
+            <div className="space-y-3.5 text-xs">
+              {/* 1. Vòng thi */}
+              <div>
+                <label className="text-[11px] font-bold text-[#B6A6D8] block mb-1.5 font-mono">
+                  1. VÒNG THI ĐẤU
+                </label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => { vibrateTap(); onRoundGroupChange('ALL'); }}
+                    className={`py-1.5 px-2 rounded text-xs font-semibold border ${
+                      filterRoundGroup === 'ALL'
+                        ? 'bg-theme-accent text-[#190839] border-theme-accent font-bold'
+                        : 'bg-[#241148] text-slate-300 border-white/10'
+                    }`}
+                  >
+                    Tất cả vòng ({questions.length})
+                  </button>
+                  {Object.values(BTI_ROUND_GROUPS).map(grp => (
+                    <button
+                      key={grp.key}
+                      type="button"
+                      onClick={() => { vibrateTap(); onRoundGroupChange(grp.key); }}
+                      className={`py-1.5 px-2 rounded text-xs font-semibold border truncate ${
+                        filterRoundGroup === grp.key
+                          ? 'bg-theme-accent text-[#190839] border-theme-accent font-bold'
+                          : 'bg-[#241148] text-slate-300 border-white/10'
+                      }`}
+                    >
+                      {grp.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2. Mức độ nhận thức / Độ khó */}
+              <div>
+                <label className="text-[11px] font-bold text-[#B6A6D8] block mb-1.5 font-mono">
+                  2. MỨC ĐỘ NHẬN THỨC (ĐỘ KHÓ)
+                </label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => { vibrateTap(); onLevelChange('ALL'); }}
+                    className={`py-1.5 px-2 rounded text-xs font-semibold border ${
+                      filterLevel === 'ALL'
+                        ? 'bg-theme-accent text-[#190839] border-theme-accent font-bold'
+                        : 'bg-[#241148] text-slate-300 border-white/10'
+                    }`}
+                  >
+                    Tất cả độ khó
+                  </button>
+                  {Object.entries(COGNITIVE_LEVELS).map(([key, val]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => { vibrateTap(); onLevelChange(key); }}
+                      className={`py-1.5 px-2 rounded text-xs font-semibold border truncate ${
+                        filterLevel === key
+                          ? 'bg-theme-accent text-[#190839] border-theme-accent font-bold'
+                          : 'bg-[#241148] text-slate-300 border-white/10'
+                      }`}
+                    >
+                      {val.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. Trạng thái kiểm duyệt */}
+              <div>
+                <label className="text-[11px] font-bold text-[#B6A6D8] block mb-1.5 font-mono">
+                  3. TRẠNG THÁI KIỂM DUYỆT
+                </label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { key: 'ALL', label: 'Tất cả trạng thái' },
+                    { key: 'APPROVED', label: 'Đã duyệt (Official)' },
+                    { key: 'PENDING_REVIEW', label: 'Chờ duyệt' },
+                    { key: 'DRAFT', label: 'Bản nháp' }
+                  ].map(st => (
+                    <button
+                      key={st.key}
+                      type="button"
+                      onClick={() => { vibrateTap(); onStatusChange(st.key); }}
+                      className={`py-1.5 px-2 rounded text-xs font-semibold border truncate ${
+                        filterStatus === st.key
+                          ? 'bg-theme-accent text-[#190839] border-theme-accent font-bold'
+                          : 'bg-[#241148] text-slate-300 border-white/10'
+                      }`}
+                    >
+                      {st.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 4. Miền năng lực số */}
+              <div>
+                <label className="text-[11px] font-bold text-[#B6A6D8] block mb-1.5 font-mono">
+                  4. MIỀN NĂNG LỰC SỐ (TT 02/2025)
+                </label>
+                <select
+                  value={filterDomain}
+                  onChange={e => onDomainChange(e.target.value)}
+                  className="w-full py-2 px-3 rounded-[4px] bg-[#241148] border border-white/15 text-white font-mono text-xs"
+                >
+                  <option value="ALL">Tất cả miền năng lực (6 Miền)</option>
+                  {Object.entries(DIGITAL_COMPETENCY_DOMAINS).map(([dKey, dVal]) => (
+                    <option key={dKey} value={dKey}>
+                      Miền {dVal.code}: {dVal.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 5. Chủ đề & Thẻ phân loại */}
+              <div>
+                <label className="text-[11px] font-bold text-[#B6A6D8] block mb-1.5 font-mono">
+                  5. CHỦ ĐỀ &amp; THẺ PHÂN LOẠI
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    value={filterTopic}
+                    onChange={e => onTopicChange(e.target.value)}
+                    className="w-full py-2 px-2.5 rounded-[4px] bg-[#241148] border border-white/15 text-white text-xs truncate"
+                  >
+                    <option value="ALL">Tất cả chủ đề</option>
+                    {customCategories.map(cat => (
+                      <option key={cat.id} value={cat.name}>{cat.name}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={filterTag}
+                    onChange={e => onTagChange && onTagChange(e.target.value)}
+                    className="w-full py-2 px-2.5 rounded-[4px] bg-[#241148] border border-white/15 text-white text-xs truncate"
+                  >
+                    <option value="ALL">Tất cả nhãn (Tags)</option>
+                    {questionBankManager.getCustomTags().map((t: any) => {
+                      const val = typeof t === 'string' ? t : (t.name || t.id);
+                      return <option key={val} value={val}>#{val}</option>;
+                    })}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="pt-3 border-t border-white/10 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateTap();
+                  onResetAllFilters();
+                }}
+                className="flex-1 py-2.5 px-3 rounded-[4px] bg-white/10 hover:bg-white/15 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Đặt Lại</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateTap();
+                  soundFx.playClick();
+                  setIsMobileDrawerOpen(false);
+                }}
+                className="flex-2 py-2.5 px-4 rounded-[4px] bg-theme-accent text-[#190839] font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition cursor-pointer"
+              >
+                <span>Xem {filteredCount} kết quả</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

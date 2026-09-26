@@ -170,7 +170,59 @@ class QuestionBankManager {
       // 2. Load Scenarios
       const savedScenarios = localStorage.getItem(STORAGE_KEYS.SCENARIOS);
       if (savedScenarios) {
-        this.scenarios = JSON.parse(savedScenarios);
+        try {
+          const loaded: InteractiveScenario[] = JSON.parse(savedScenarios);
+          this.scenarios = loaded.map(sc => {
+            const preseeded = PRESEEDED_SCENARIOS.find(p => p.id === sc.id);
+            if (preseeded) {
+              return { 
+                ...sc, 
+                branches: preseeded.branches, 
+                options: preseeded.options, 
+                correctOption: preseeded.correctOption,
+                subOptimalScript: preseeded.subOptimalScript || sc.subOptimalScript
+              };
+            }
+            if (!sc.branches && sc.options) {
+              const branches: Record<string, any> = {};
+              (['A', 'B', 'C', 'D'] as const).forEach(key => {
+                if (sc.options && sc.options[key]) {
+                  const isOpt = sc.correctOption === key;
+                  branches[key] = {
+                    key,
+                    text: sc.options[key],
+                    isOptimal: isOpt,
+                    statusType: isOpt ? 'SUCCESS' : 'WARNING',
+                    reactionScript: `[DIỄN BIẾN PHÍA SAU - PHƯƠNG ÁN ${key}]:\nThí sinh lựa chọn phương án ${key}. Diễn viên sân khấu tiếp tục tình huống dựa trên quyết định này...`,
+                    consequence: isOpt ? 'Giải quyết tình huống an toàn, hạn chế tối đa rủi ro số.' : 'Tiềm ẩn rủi ro về an toàn thông tin hoặc xử lý chưa triệt để.',
+                    feedback: isOpt ? 'Phương án xử lý phù hợp với quy định pháp luật và chuẩn năng lực số.' : 'Cần lưu ý thêm về quy trình an toàn và trách nhiệm số.'
+                  };
+                }
+              });
+              return { 
+                ...sc, 
+                branches,
+                subOptimalScript: sc.subOptimalScript || `[KỊCH BẢN ỨNG BIẾN KHI CHỌN PHƯƠNG ÁN SAI / CHƯA TỐI ƯU]:\nMC bước ra: "Thí sinh đã lựa chọn một phương án tiềm ẩn rủi ro số. Xin mời Ban Giám khảo phân tích và định hướng giải pháp an toàn!"`
+              };
+            }
+            if (!sc.subOptimalScript) {
+              sc.subOptimalScript = `[KỊCH BẢN ỨNG BIẾN KHI CHỌN PHƯƠNG ÁN SAI / CHƯA TỐI ƯU]:\nMC bước ra: "Thí sinh đã lựa chọn một phương án tiềm ẩn rủi ro số. Xin mời Ban Giám khảo phân tích và định hướng giải pháp an toàn!"`;
+            }
+            return sc;
+          });
+
+          // Ensure preseeded scenarios exist if missing
+          PRESEEDED_SCENARIOS.forEach(ps => {
+            if (!this.scenarios.some(s => s.id === ps.id)) {
+              this.scenarios.push(ps);
+            }
+          });
+          this.saveScenarios();
+        } catch (e) {
+          console.error("Failed to parse saved scenarios, resetting to preseeded:", e);
+          this.scenarios = [...PRESEEDED_SCENARIOS];
+          this.saveScenarios();
+        }
       } else {
         this.scenarios = [...PRESEEDED_SCENARIOS];
         this.saveScenarios();
@@ -1414,6 +1466,44 @@ class QuestionBankManager {
     this.users.push(user);
     this.saveUsers();
     this.notify();
+  }
+
+  public updateUserRole(userId: string, newRole: UserRole): boolean {
+    const u = this.users.find(x => x.id === userId);
+    if (!u) return false;
+    u.role = newRole;
+    if (this.currentUser.id === userId) {
+      this.currentUser = { ...this.currentUser, role: newRole };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(this.currentUser));
+      }
+    }
+    this.saveUsers();
+    this.notify();
+    return true;
+  }
+
+  public deleteUser(userId: string): boolean {
+    if (this.currentUser.id === userId) return false; // Không xóa chính mình
+    this.users = this.users.filter(x => x.id !== userId);
+    this.saveUsers();
+    this.notify();
+    return true;
+  }
+
+  public updateUserProfile(userId: string, updates: Partial<AppUser>): boolean {
+    const u = this.users.find(x => x.id === userId);
+    if (!u) return false;
+    Object.assign(u, updates);
+    if (this.currentUser.id === userId) {
+      this.currentUser = { ...this.currentUser, ...updates };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(this.currentUser));
+      }
+    }
+    this.saveUsers();
+    this.notify();
+    return true;
   }
 
   public canApprove(): boolean {
