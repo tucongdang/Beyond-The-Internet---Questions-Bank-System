@@ -37,6 +37,7 @@ import {
   Trash2,
   WifiOff,
   HardDrive,
+  Database,
   Check,
   RotateCcw
 } from 'lucide-react';
@@ -66,7 +67,8 @@ import { vibrateTap, vibrateSuccess, vibrateError, vibrateWarning } from '../../
 import { useLockBodyScroll } from '../../hooks/useLockBodyScroll';
 import { useQuestionBankToasts } from './QuestionBankToast';
 import { questionDraftService, QuestionDraft } from '../../services/questionDraftService';
-import { generateAutoTagsWithAI, mergeTagsList } from '../../services/aiAutoTaggingService';
+import { generateAutoTagsWithAI, mergeTagsList, AutoTagResult, extractLocalRuleClassification } from '../../services/aiAutoTaggingService';
+import { difficultySuggestionService, DifficultySuggestionResult } from '../../services/difficultySuggestionService';
 import { GooglePickerTriggerButton } from '../common/GooglePickerTriggerButton';
 import { googlePickerService } from '../../services/googlePickerService';
 
@@ -174,61 +176,174 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
   // Similarity state
   const [similarQuestions, setSimilarQuestions] = useState<{question: QuestionItem, score: number}[]>([]);
 
+  // Real-time Background Difficulty Suggestion State
+  const [diffSuggestion, setDiffSuggestion] = useState<DifficultySuggestionResult | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (questionText && questionText.trim().length >= 8) {
+        const optionsMap: Record<string, string> = {};
+        if (optionA) optionsMap.A = optionA;
+        if (optionB) optionsMap.B = optionB;
+        if (optionC) optionsMap.C = optionC;
+        if (optionD) optionsMap.D = optionD;
+
+        const res = difficultySuggestionService.suggestDifficulty({
+          id: questionId,
+          question_text: questionText,
+          explanation: explanation,
+          options: optionsMap,
+          cognitive_level: cognitiveLevel
+        });
+        setDiffSuggestion(res);
+      } else {
+        setDiffSuggestion(null);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [questionText, explanation, optionA, optionB, optionC, optionD, cognitiveLevel, questionId]);
+
   // Tags collapse state
   const [isTagsExpanded, setIsTagsExpanded] = useState<boolean>(false);
 
-  // AI Auto-Tagging State
+  // AI Auto-Tagging & Smart Subject/Knowledge Area Classification State
   const [isGeneratingAutoTags, setIsGeneratingAutoTags] = useState<boolean>(false);
-  const [aiSuggestedTags, setAiSuggestedTags] = useState<string[]>([]);
-  const [aiTagReasoning, setAiTagReasoning] = useState<string>('');
+  const [aiClassificationResult, setAiClassificationResult] = useState<AutoTagResult | null>(null);
 
-  const handleAutoTagWithAI = async () => {
+  // Real-time local background suggestion for Subject & Knowledge Area
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (questionText && questionText.trim().length >= 12 && !aiClassificationResult) {
+        const localSuggested = extractLocalRuleClassification({
+          questionText,
+          options: { A: optionA, B: optionB, C: optionC, D: optionD },
+          explanation,
+          legalReference,
+          domain,
+          cognitiveLevel,
+          existingTags: tagsInput.split(',').map(t => t.trim()).filter(Boolean)
+        });
+        if (localSuggested && (localSuggested.suggestedTags.length > 0 || localSuggested.suggestedSubject)) {
+          setAiClassificationResult(localSuggested);
+        }
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [questionText, explanation, optionA, optionB, optionC, optionD, legalReference, domain, cognitiveLevel, tagsInput, aiClassificationResult]);
+
+  const handleAiSmartTagAndClassify = async (silent: boolean = false) => {
     if (!questionText.trim()) {
-      soundFx.playWarning();
-      vibrateWarning();
-      alert('Vui lòng nhập nội dung câu hỏi trước để AI phân tích và tự động đề xuất thẻ (Auto-Tag).');
+      if (!silent) {
+        soundFx.playWarning();
+        vibrateWarning();
+        alert('Vui lòng nhập nội dung câu hỏi trước để AI phân tích và tự động đề xuất Chủ đề & Miền tri thức.');
+      }
       return;
     }
     setIsGeneratingAutoTags(true);
-    vibrateTap();
+    if (!silent) vibrateTap();
+
     try {
       const result = await generateAutoTagsWithAI({
         questionText,
         options: { A: optionA, B: optionB, C: optionC, D: optionD },
         explanation,
         legalReference,
+        category: customCategoryInput,
         domain,
         cognitiveLevel,
         existingTags: tagsInput.split(',').map(t => t.trim()).filter(Boolean)
       });
 
-      if (result.suggestedTags && result.suggestedTags.length > 0) {
-        setAiSuggestedTags(result.suggestedTags);
-        setAiTagReasoning(result.reasoning || '');
-        const merged = mergeTagsList(tagsInput, result.suggestedTags);
-        setTagsInput(merged);
+      setAiClassificationResult(result);
 
-        if (result.suggestedDomain && DIGITAL_COMPETENCY_DOMAINS[result.suggestedDomain]) {
-          setDomain(result.suggestedDomain);
-        }
-        if (result.suggestedCognitiveLevel && COGNITIVE_LEVELS[result.suggestedCognitiveLevel]) {
-          setCognitiveLevel(result.suggestedCognitiveLevel);
-        }
-
+      if (!silent) {
         soundFx.playCorrect();
         vibrateSuccess();
       }
     } catch (err: any) {
-      console.error('Auto-tag error:', err);
-      soundFx.playError();
-      vibrateError();
+      console.error('AI Auto-Tag & Classify error:', err);
+      if (!silent) {
+        soundFx.playError();
+        vibrateError();
+      }
     } finally {
       setIsGeneratingAutoTags(false);
     }
   };
 
+  // Quick Apply Handlers
+  const handleApplyAllAiClassification = () => {
+    if (!aiClassificationResult) return;
+    vibrateSuccess();
+    soundFx.playCorrect();
+
+    if (aiClassificationResult.suggestedSubject) {
+      setCustomCategoryInput(aiClassificationResult.suggestedSubject);
+    }
+    if (aiClassificationResult.suggestedDomain && DIGITAL_COMPETENCY_DOMAINS[aiClassificationResult.suggestedDomain]) {
+      setDomain(aiClassificationResult.suggestedDomain);
+      if (aiClassificationResult.suggestedSubCompetency) {
+        setSubCompetency(aiClassificationResult.suggestedSubCompetency);
+      }
+    }
+    if (aiClassificationResult.suggestedLegalReference) {
+      setLegalReference(aiClassificationResult.suggestedLegalReference);
+    }
+    if (aiClassificationResult.suggestedCognitiveLevel && COGNITIVE_LEVELS[aiClassificationResult.suggestedCognitiveLevel]) {
+      setCognitiveLevel(aiClassificationResult.suggestedCognitiveLevel);
+    }
+    if (aiClassificationResult.suggestedTags && aiClassificationResult.suggestedTags.length > 0) {
+      const merged = mergeTagsList(tagsInput, aiClassificationResult.suggestedTags);
+      setTagsInput(merged);
+    }
+  };
+
+  const handleApplySubject = (subj: string) => {
+    vibrateTap();
+    soundFx.playClick();
+    setCustomCategoryInput(subj);
+  };
+
+  const handleApplyKnowledgeArea = (domKey: DigitalCompetencyDomainKey, subComp?: string) => {
+    vibrateTap();
+    soundFx.playClick();
+    if (DIGITAL_COMPETENCY_DOMAINS[domKey]) {
+      setDomain(domKey);
+      if (subComp) {
+        setSubCompetency(subComp);
+      }
+    }
+  };
+
+  const handleApplyLegalRef = (ref: string) => {
+    vibrateTap();
+    soundFx.playClick();
+    setLegalReference(ref);
+  };
+
+  const handleApplyCognitiveLvl = (lvl: CognitiveLevel) => {
+    vibrateTap();
+    soundFx.playClick();
+    if (COGNITIVE_LEVELS[lvl]) {
+      setCognitiveLevel(lvl);
+    }
+  };
+
+  const handleAddTag = (tag: string) => {
+    vibrateTap();
+    soundFx.playClick();
+    const currentTags = tagsInput.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+    const cleanTag = tag.trim().toLowerCase().replace(/^#/, '');
+    if (!currentTags.includes(cleanTag)) {
+      setTagsInput(currentTags.length > 0 ? `${currentTags.join(', ')}, ${cleanTag}` : cleanTag);
+    }
+  };
+
   // ==========================================
-  // AUTO-SAVE & DRAFT RECOVERY ENGINE (LOCALSTORAGE)
+  // AUTO-SAVE & DRAFT RECOVERY ENGINE (INDEXEDDB)
   // ==========================================
   const draftKey = questionToEdit ? `edit_${questionToEdit.id}` : 'new';
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
@@ -244,35 +359,41 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
   useEffect(() => {
     draftStateRef.current = {
       stage, roundGroup, roundFormat, roundName, roundType, timeLimit, points, kdTurn, vcnvImage,
-      domain, subCompetency, cognitiveLevel, legalReference, tagsInput,
+      domain, subCompetency, cognitiveLevel, customCategoryInput, legalReference, tagsInput,
       questionText, explanation, mediaType, mediaUrl, optionCount,
       optionA, optionB, optionC, optionD, optionE, optionF, correctKey, tfItems,
       vcnvRiskQuestion, vcnvRiskAnswer, vcnvClue1, vcnvAns1, vcnvClue2, vcnvAns2, vcnvClue3, vcnvAns3, vcnvClue4, vcnvAns4, vcnvCenter, vcnvCenterAns
     };
   });
 
-  // Sync draft save immediately to LocalStorage
-  const performSaveDraft = useCallback((isManual = false) => {
+  // Sync draft save directly to IndexedDB (with LocalStorage mirror)
+  const performSaveDraft = useCallback(async (isManual = false) => {
     const currentState = draftStateRef.current;
     if (!currentState) return false;
 
-    const saved = questionDraftService.saveDraft(draftKey, currentState);
-    if (saved) {
-      setLastSavedTime(new Date());
-      setIsAutoSaving(true);
-      setTimeout(() => setIsAutoSaving(false), 800);
-      if (isManual) {
-        soundFx.playCorrect();
-        vibrateSuccess();
-        setDraftToastMessage('✓ Đã lưu nháp an toàn vào LocalStorage!');
-        setTimeout(() => setDraftToastMessage(null), 3000);
+    setIsAutoSaving(true);
+    try {
+      const saved = await questionDraftService.saveDraftToIndexedDB(draftKey, currentState);
+      if (saved) {
+        setLastSavedTime(new Date());
+        if (isManual) {
+          soundFx.playCorrect();
+          vibrateSuccess();
+          setDraftToastMessage('✓ Đã lưu nháp an toàn vào IndexedDB!');
+          setTimeout(() => setDraftToastMessage(null), 3000);
+        }
+        return true;
       }
-      return true;
+      return false;
+    } catch (err) {
+      console.warn('[QuestionEditorModal] Error auto-saving to IndexedDB:', err);
+      return false;
+    } finally {
+      setTimeout(() => setIsAutoSaving(false), 600);
     }
-    return false;
   }, [draftKey]);
 
-  // Check for existing draft on modal open
+  // Check for existing draft on modal open from IndexedDB
   useEffect(() => {
     if (!isOpen) {
       setShowDraftBanner(false);
@@ -280,33 +401,48 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
       return;
     }
 
-    const savedDraft = questionDraftService.getDraft(draftKey);
-    if (savedDraft && questionDraftService.isMeaningful(savedDraft)) {
-      setDetectedDraft(savedDraft);
-      setShowDraftBanner(true);
-      if (savedDraft.savedAt) {
-        setLastSavedTime(new Date(savedDraft.savedAt));
+    let isMounted = true;
+    const fetchDraft = async () => {
+      try {
+        const savedDraft = await questionDraftService.getDraftFromIndexedDB(draftKey);
+        if (!isMounted) return;
+
+        if (savedDraft && questionDraftService.isMeaningful(savedDraft)) {
+          setDetectedDraft(savedDraft);
+          setShowDraftBanner(true);
+          if (savedDraft.savedAt) {
+            setLastSavedTime(new Date(savedDraft.savedAt));
+          }
+        } else {
+          setShowDraftBanner(false);
+          setDetectedDraft(null);
+        }
+      } catch (err) {
+        console.warn('[QuestionEditorModal] Failed to read draft from IndexedDB:', err);
       }
-    } else {
-      setShowDraftBanner(false);
-      setDetectedDraft(null);
-    }
+    };
+
+    fetchDraft();
+
+    return () => {
+      isMounted = false;
+    };
   }, [isOpen, draftKey]);
 
   // Debounced auto-save on any change + periodic timer
   useEffect(() => {
     if (!isOpen) return;
 
-    // Debounced save 1.5s after user pauses typing
+    // Debounced save 1.2s after user pauses typing
     const debounceTimer = setTimeout(() => {
       performSaveDraft(false);
-    }, 1500);
+    }, 1200);
 
     return () => clearTimeout(debounceTimer);
   }, [
     isOpen,
     stage, roundGroup, roundFormat, roundName, roundType, timeLimit, points, kdTurn, vcnvImage,
-    domain, subCompetency, cognitiveLevel, legalReference, tagsInput,
+    domain, subCompetency, cognitiveLevel, customCategoryInput, legalReference, tagsInput,
     questionText, explanation, mediaType, mediaUrl, optionCount,
     optionA, optionB, optionC, optionD, optionE, optionF, correctKey, tfItems,
     vcnvRiskQuestion, vcnvRiskAnswer, vcnvClue1, vcnvAns1, vcnvClue2, vcnvAns2, vcnvClue3, vcnvAns3, vcnvClue4, vcnvAns4, vcnvCenter, vcnvCenterAns,
@@ -347,7 +483,7 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
     const handleOffline = () => {
       setIsOffline(true);
       performSaveDraft(false);
-      setDraftToastMessage('⚠️ Đã mất kết nối mạng. Bản nháp được lưu an toàn 100% trong máy!');
+      setDraftToastMessage('⚠️ Đã mất kết nối mạng. Bản nháp được lưu an toàn 100% trong IndexedDB!');
       setTimeout(() => setDraftToastMessage(null), 4000);
     };
 
@@ -367,8 +503,8 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
   }, [isOpen, performSaveDraft]);
 
   // Handle restoring a saved draft into form state
-  const handleRestoreDraft = (targetDraft?: QuestionDraft | null) => {
-    const d = targetDraft || detectedDraft || questionDraftService.getDraft(draftKey);
+  const handleRestoreDraft = async (targetDraft?: QuestionDraft | null) => {
+    const d = targetDraft || detectedDraft || await questionDraftService.getDraftFromIndexedDB(draftKey);
     if (!d) return;
 
     try {
@@ -384,6 +520,7 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
       if (d.domain !== undefined) setDomain(d.domain);
       if (d.subCompetency !== undefined) setSubCompetency(d.subCompetency);
       if (d.cognitiveLevel !== undefined) setCognitiveLevel(d.cognitiveLevel);
+      if (d.customCategoryInput !== undefined) setCustomCategoryInput(d.customCategoryInput);
       if (d.legalReference !== undefined) setLegalReference(d.legalReference);
       if (d.tagsInput !== undefined) setTagsInput(d.tagsInput);
       if (d.questionText !== undefined) setQuestionText(d.questionText);
@@ -416,7 +553,7 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
       vibrateSuccess();
       setShowDraftBanner(false);
       setShowDraftPreviewModal(false);
-      setDraftToastMessage('✨ Đã khôi phục toàn bộ nội dung bản nháp thành công!');
+      setDraftToastMessage('✨ Đã khôi phục toàn bộ nội dung bản nháp từ IndexedDB thành công!');
       setTimeout(() => setDraftToastMessage(null), 4000);
     } catch (err) {
       console.error('[QuestionEditorModal] Error restoring draft:', err);
@@ -426,14 +563,14 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
   };
 
   // Handle discarding/clearing a draft
-  const handleDiscardDraft = () => {
-    questionDraftService.clearDraft(draftKey);
+  const handleDiscardDraft = async () => {
+    await questionDraftService.clearDraftFromIndexedDB(draftKey);
     setShowDraftBanner(false);
     setDetectedDraft(null);
     setShowDraftPreviewModal(false);
     soundFx.playClick();
     vibrateTap();
-    setDraftToastMessage('🗑️ Đã xóa bản nháp khỏi LocalStorage');
+    setDraftToastMessage('🗑️ Đã xóa bản nháp khỏi IndexedDB');
     setTimeout(() => setDraftToastMessage(null), 3000);
   };
 
@@ -1153,7 +1290,7 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
   };
 
   // Form submission / Save execution
-  const executeSave = (andCreateNew: boolean = false) => {
+  const executeSave = async (andCreateNew: boolean = false) => {
     if (!questionText.trim() && roundGroup !== 'VCNV') {
       soundFx.playError();
       vibrateError();
@@ -1332,8 +1469,8 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
     soundFx.playCorrect();
     vibrateSuccess();
     
-    // Clear draft on successful save
-    questionDraftService.clearDraft(draftKey);
+    // Clear draft on successful save from IndexedDB
+    await questionDraftService.clearDraftFromIndexedDB(draftKey);
     setShowDraftBanner(false);
     setDetectedDraft(null);
     setLastSavedTime(null);
@@ -1486,28 +1623,28 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {/* Auto-Save & Connectivity Live Badge */}
+            {/* Auto-Save & Connectivity Live Badge (IndexedDB) */}
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-white/5 border border-white/10 text-[11px] font-mono">
               {isOffline ? (
-                <span className="flex items-center gap-1 text-amber-300" title="Mất kết nối mạng. Bản nháp được lưu an toàn 100% trong LocalStorage">
+                <span className="flex items-center gap-1 text-amber-300" title="Mất kết nối mạng. Bản nháp được bảo lưu an toàn 100% trong IndexedDB">
                   <WifiOff className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                  <span className="hidden md:inline">Ngoại tuyến (Đã lưu nội bộ)</span>
+                  <span className="hidden md:inline">Ngoại tuyến (Lưu IndexedDB)</span>
                 </span>
               ) : isAutoSaving ? (
                 <span className="flex items-center gap-1 text-sky-300">
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-400" />
-                  <span className="hidden md:inline">Đang tự động lưu...</span>
+                  <span className="hidden md:inline">Đang lưu IndexedDB...</span>
                 </span>
               ) : lastSavedTime ? (
-                <span className="flex items-center gap-1 text-emerald-300" title={`Bản nháp tự động lưu lúc ${lastSavedTime.toLocaleTimeString('vi-VN')}`}>
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
-                  <span className="hidden lg:inline text-slate-400">Tự động lưu:</span>
-                  <span className="font-semibold text-emerald-300">{lastSavedTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                <span className="flex items-center gap-1 text-emerald-300" title={`Bản nháp tự động lưu vào IndexedDB lúc ${lastSavedTime.toLocaleTimeString('vi-VN')}`}>
+                  <Database className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span className="hidden lg:inline text-slate-400">IndexedDB:</span>
+                  <span className="font-semibold text-emerald-300">{questionDraftService.formatFriendlyTime(lastSavedTime.toISOString())}</span>
                 </span>
               ) : (
                 <span className="flex items-center gap-1 text-slate-400">
-                  <HardDrive className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="hidden md:inline">Tự động lưu sẵn sàng</span>
+                  <Database className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="hidden md:inline">IndexedDB sẵn sàng</span>
                 </span>
               )}
 
@@ -1516,7 +1653,7 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
                 type="button"
                 onClick={() => performSaveDraft(true)}
                 className="ml-1 p-1 hover:bg-white/10 text-slate-300 hover:text-white rounded transition cursor-pointer"
-                title="Lưu bản nháp ngay vào LocalStorage"
+                title="Lưu bản nháp ngay vào IndexedDB"
               >
                 <Save className="w-3.5 h-3.5 text-theme-accent" />
               </button>
@@ -1576,33 +1713,34 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
         {/* Scrollable Form Body */}
         <form id="question-editor-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 space-y-5 text-xs custom-scrollbar modal-scroll-isolated overscroll-contain">
           
-          {/* DRAFT RECOVERY NOTIFICATION BANNER (LocalStorage Auto-Save) */}
+          {/* DRAFT RECOVERY NOTIFICATION BANNER (IndexedDB Auto-Save) */}
           {showDraftBanner && detectedDraft && (
             <div className="p-4 bg-gradient-to-r from-amber-950/90 via-[#361c0c] to-amber-950/90 border-2 border-amber-500/70 rounded-[6px] shadow-2xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 min-w-0">
                   <div className="w-9 h-9 rounded-[6px] bg-amber-500 flex items-center justify-center text-slate-950 shadow font-bold shrink-0 mt-0.5">
-                    <History className="w-5 h-5 text-slate-950 animate-bounce" />
+                    <Database className="w-5 h-5 text-slate-950 animate-pulse" />
                   </div>
                   <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-amber-200 text-xs sm:text-sm flex items-center gap-1.5">
-                        ⚡ Phát hiện bản nháp câu hỏi chưa hoàn thành từ phiên trước!
+                        ⚡ Phát hiện bản nháp câu hỏi chưa hoàn thành từ IndexedDB!
                       </span>
-                      <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono text-[10px] font-semibold">
-                        Lưu tự động LocalStorage
+                      <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono text-[10px] font-semibold flex items-center gap-1">
+                        <Database className="w-3 h-3 text-amber-300" />
+                        <span>Tự động lưu IndexedDB</span>
                       </span>
                     </div>
                     <p className="text-[11px] text-amber-100/80 font-sans">
-                      Hệ thống tự động bảo toàn nội dung khi bạn đóng tab hoặc mất kết nối.
+                      Hệ thống tự động bảo toàn nội dung vào IndexedDB của trình duyệt khi bạn tải lại trang (refresh) hoặc điều hướng.
                       {detectedDraft.savedAt && (
                         <span className="ml-1 text-amber-300 font-mono font-medium">
-                          (Được lưu lúc: {new Date(detectedDraft.savedAt).toLocaleString('vi-VN')})
+                          (Được lưu lúc: {new Date(detectedDraft.savedAt).toLocaleString('vi-VN')} • {questionDraftService.formatFriendlyTime(detectedDraft.savedAt)})
                         </span>
                       )}
                     </p>
                     {detectedDraft.questionText && (
-                      <div className="mt-2 p-2 rounded bg-black/40 border border-amber-500/30 text-amber-200/90 italic text-[11px] line-clamp-2">
+                      <div className="mt-2 p-2 rounded bg-black/40 border border-amber-500/30 text-amber-200/90 italic text-[11px] line-clamp-2 font-sans">
                         "{detectedDraft.questionText}"
                       </div>
                     )}
@@ -1627,7 +1765,7 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
                   className="px-3.5 py-1.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-bold text-xs rounded-[4px] shadow-md transition flex items-center gap-1.5 cursor-pointer active:scale-95"
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-slate-950 font-bold" />
-                  <span>✨ Khôi Phục Bản Nháp Này</span>
+                  <span>✨ Khôi Phục Bản Nháp Này (Resume Draft)</span>
                 </button>
 
                 <button
@@ -1643,6 +1781,7 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
                   type="button"
                   onClick={handleDiscardDraft}
                   className="px-3 py-1.5 bg-red-950/40 hover:bg-red-900/60 border border-red-500/40 text-red-300 hover:text-red-200 text-xs font-semibold rounded-[4px] transition flex items-center gap-1.5 cursor-pointer ml-auto"
+                  title="Xóa vĩnh viễn bản nháp này khỏi IndexedDB"
                 >
                   <Trash2 className="w-3.5 h-3.5 text-red-400" />
                   <span>Xóa Bản Nháp</span>
@@ -2220,25 +2359,182 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
 
           {/* SECTION 2: Căn Cứ Khung Năng Lực Số & Pháp Lý */}
           <div className="p-3.5 bg-white/5 rounded-[4px] border border-white/10 space-y-3">
-            <div className="flex items-center justify-between text-xs font-mono font-bold text-purple-300 border-b border-white/10 pb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono font-bold text-purple-300 border-b border-white/10 pb-2">
               <span className="flex items-center gap-1.5">
                 <Scale className="w-4 h-4 text-purple-400" />
-                <span>2. ĐỐI SOÁT THÔNG TƯ 02/2025/TT-BGDĐT & VĂN BẢN PHÁP LÝ</span>
+                <span>2. CHỦ ĐỀ, MIỀN TRI THỨC SỐ (TT 02/2025) & GẮN THẺ TỰ ĐỘNG</span>
               </span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleAutoClassify}
-                  disabled={isClassifying}
-                  className="flex items-center gap-1.5 px-2 py-1 bg-purple-500/20 hover:bg-purple-500/40 text-purple-200 rounded-[3px] border border-purple-500/30 transition disabled:opacity-50 cursor-pointer"
-                  title="AI tự động đọc câu hỏi và đề xuất Miền, Mức độ & Tags phù hợp"
+                  onClick={() => handleAiSmartTagAndClassify(false)}
+                  disabled={isGeneratingAutoTags}
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-purple-600 via-indigo-600 to-amber-600 hover:brightness-110 text-white rounded-[4px] border border-purple-400/40 shadow-sm transition disabled:opacity-50 cursor-pointer text-[11px] font-bold"
+                  title="AI tự động phân tích câu hỏi để gợi ý Chủ đề (Subject), Miền tri thức (Knowledge Area) và Thẻ phân loại"
                 >
-                  {isClassifying ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                  <span>Tự động phân loại</span>
+                  {isGeneratingAutoTags ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-300" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300 animate-pulse" />
+                  )}
+                  <span>✨ AI Gợi ý Chủ đề & Miền Tri Thức</span>
                 </button>
-                <span className="text-[10px] text-white/40">Ma trận 6x4</span>
               </div>
             </div>
+
+            {/* AI SMART TAGGING & CLASSIFICATION ASSISTANT CARD */}
+            {aiClassificationResult && (
+              <div className="p-3.5 rounded-[6px] bg-gradient-to-br from-[#240B48] via-[#1D093B] to-[#14052B] border border-purple-500/40 shadow-lg space-y-2.5 animate-fadeIn">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-purple-500/20 pb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-[4px] bg-amber-400/20 text-amber-300 flex items-center justify-center border border-amber-400/30">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-white text-xs font-mono">
+                        TRỢ LÝ GỢI Ý CHỦ ĐỀ & MIỀN TRI THỨC AI
+                      </span>
+                      <span className="text-[10px] text-purple-300/80 block font-sans">
+                        {aiClassificationResult.isFallback ? 'Phân tích quy tắc chuyên gia' : 'Gemini 3.8 Flash Khảo Thí'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {aiClassificationResult.confidenceScore && (
+                      <span className="px-2 py-0.5 rounded text-[10.5px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                        {aiClassificationResult.confidenceScore}% Phù hợp
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleApplyAllAiClassification}
+                      className="px-2.5 py-1 bg-gradient-to-r from-amber-400 to-orange-400 hover:brightness-110 text-slate-950 font-black text-[11px] font-mono rounded-[3px] shadow transition cursor-pointer flex items-center gap-1 active:scale-95"
+                      title="Áp dụng đồng thời Chủ đề, Miền tri thức, Năng lực thành phần, Căn cứ pháp lý và Thẻ tags vào câu hỏi"
+                    >
+                      <Check className="w-3 h-3 stroke-[3]" />
+                      <span>Áp Dụng Tất Cả</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Recommendation Badges */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
+                  {/* Subject Badge */}
+                  {aiClassificationResult.suggestedSubject && (
+                    <div className="p-2 rounded bg-black/40 border border-purple-500/30 flex items-center justify-between gap-1.5">
+                      <div className="min-w-0">
+                        <span className="text-[10px] text-purple-300 uppercase block font-sans">🏷️ Chủ đề đề xuất (Subject):</span>
+                        <strong className="text-white text-[11.5px] truncate block font-sans">
+                          {aiClassificationResult.suggestedSubject}
+                        </strong>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleApplySubject(aiClassificationResult.suggestedSubject!)}
+                        className="px-2 py-0.5 rounded bg-purple-500/20 hover:bg-purple-500/40 text-purple-200 text-[10px] font-bold shrink-0 border border-purple-400/30 transition cursor-pointer"
+                      >
+                        Áp dụng
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Knowledge Area (Domain & Sub-competency) */}
+                  {aiClassificationResult.suggestedDomain && (
+                    <div className="p-2 rounded bg-black/40 border border-emerald-500/30 flex items-center justify-between gap-1.5">
+                      <div className="min-w-0">
+                        <span className="text-[10px] text-emerald-300 uppercase block font-sans">🧭 Miền tri thức (Knowledge Area):</span>
+                        <strong className="text-emerald-200 text-[11.5px] truncate block font-sans">
+                          {aiClassificationResult.suggestedDomain}: {aiClassificationResult.suggestedDomainName || aiClassificationResult.suggestedDomain} (Mục {aiClassificationResult.suggestedSubCompetency})
+                        </strong>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyKnowledgeArea(aiClassificationResult.suggestedDomain!, aiClassificationResult.suggestedSubCompetency)}
+                        className="px-2 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-200 text-[10px] font-bold shrink-0 border border-emerald-400/30 transition cursor-pointer"
+                      >
+                        Áp dụng
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Legal Reference */}
+                  {aiClassificationResult.suggestedLegalReference && (
+                    <div className="p-2 rounded bg-black/40 border border-amber-500/30 flex items-center justify-between gap-1.5">
+                      <div className="min-w-0">
+                        <span className="text-[10px] text-amber-300 uppercase block font-sans">⚖️ Căn cứ pháp lý:</span>
+                        <strong className="text-amber-200 text-[11.5px] truncate block font-sans">
+                          {aiClassificationResult.suggestedLegalReference}
+                        </strong>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyLegalRef(aiClassificationResult.suggestedLegalReference!)}
+                        className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/40 text-amber-200 text-[10px] font-bold shrink-0 border border-amber-400/30 transition cursor-pointer"
+                      >
+                        Áp dụng
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Cognitive Level */}
+                  {aiClassificationResult.suggestedCognitiveLevel && (
+                    <div className="p-2 rounded bg-black/40 border border-sky-500/30 flex items-center justify-between gap-1.5">
+                      <div className="min-w-0">
+                        <span className="text-[10px] text-sky-300 uppercase block font-sans">🎯 Mức độ nhận thức:</span>
+                        <strong className="text-sky-200 text-[11.5px] truncate block font-sans">
+                          {COGNITIVE_LEVELS[aiClassificationResult.suggestedCognitiveLevel]?.name || aiClassificationResult.suggestedCognitiveLevel}
+                        </strong>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyCognitiveLvl(aiClassificationResult.suggestedCognitiveLevel!)}
+                        className="px-2 py-0.5 rounded bg-sky-500/20 hover:bg-sky-500/40 text-sky-200 text-[10px] font-bold shrink-0 border border-sky-400/30 transition cursor-pointer"
+                      >
+                        Áp dụng
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Suggested Tags Pill List */}
+                {aiClassificationResult.suggestedTags && aiClassificationResult.suggestedTags.length > 0 && (
+                  <div className="pt-1 border-t border-white/5 space-y-1">
+                    <span className="text-[10.5px] text-slate-300 block font-sans">
+                      🔖 <strong>Thẻ từ khóa gợi ý (Tags):</strong> Nhấn vào thẻ để thêm vào danh sách
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {aiClassificationResult.suggestedTags.map(tag => {
+                        const clean = tag.replace(/^#/, '');
+                        const isAdded = tagsInput.toLowerCase().includes(clean.toLowerCase());
+                        return (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => handleAddTag(clean)}
+                            className={`px-2 py-0.5 rounded text-[10.5px] font-mono flex items-center gap-1 transition cursor-pointer border ${
+                              isAdded
+                                ? 'bg-emerald-500/30 text-emerald-200 border-emerald-400/50'
+                                : 'bg-purple-900/40 hover:bg-purple-800/60 text-purple-200 border-purple-400/40'
+                            }`}
+                          >
+                            <span>#{clean}</span>
+                            {isAdded ? <Check className="w-3 h-3 text-emerald-300" /> : <Plus className="w-3 h-3 text-amber-300" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Reasoning Description */}
+                {aiClassificationResult.reasoning && (
+                  <p className="text-[10.5px] text-[#B6A6D8] font-sans italic pt-1 border-t border-white/5">
+                    💡 <strong>Cơ sở phân loại AI:</strong> {aiClassificationResult.reasoning}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Domain */}
@@ -2293,7 +2589,7 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
             {/* Custom Category Selection Row */}
             <div className="pt-1">
               <label className="block text-white/60 font-mono mb-1 font-semibold flex items-center justify-between">
-                <span>Danh mục câu hỏi (Custom Category):</span>
+                <span>Chủ đề / Danh mục câu hỏi (Subject / Category):</span>
                 <span className="text-[10px] text-purple-300 font-normal">Chủ đề chính phân loại đề thi</span>
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2316,7 +2612,7 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
                   type="text"
                   value={customCategoryInput}
                   onChange={e => setCustomCategoryInput(e.target.value)}
-                  placeholder="Hoặc tự nhập danh mục mới..."
+                  placeholder="Hoặc tự nhập chủ đề mới..."
                   className="w-full bg-black/60 border border-white/15 rounded-[4px] px-3 py-1.5 text-purple-200 font-mono focus:border-purple-400 focus:outline-none"
                 />
               </div>
@@ -2339,7 +2635,7 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
                   <label className="block text-white/60 font-mono">Thẻ phân loại (Tags):</label>
                   <button
                     type="button"
-                    onClick={handleAutoTagWithAI}
+                    onClick={() => handleAiSmartTagAndClassify(false)}
                     disabled={isGeneratingAutoTags}
                     className="flex items-center gap-1.5 px-2.5 py-0.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-[11px] font-mono font-bold rounded-[4px] shadow-sm transition disabled:opacity-50 cursor-pointer border border-purple-400/30"
                     title="Phân tích nội dung câu hỏi bằng Gemini AI để tự động gắn thẻ tìm kiếm tối ưu"
@@ -2361,17 +2657,6 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
                   className="w-full bg-black/60 border border-white/15 rounded-[4px] px-3 py-1.5 text-white/80 font-mono focus:border-purple-400 focus:outline-none"
                 />
 
-                {/* AI Auto-Tag Reasoning Banner */}
-                {aiTagReasoning && (
-                  <div className="mt-2 p-2 rounded bg-purple-950/60 border border-purple-500/30 text-[11px] text-purple-200 flex items-start gap-1.5 animate-fadeIn">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-                    <div className="min-w-0">
-                      <span className="font-semibold text-amber-300 font-mono">Gemini AI Auto-Tag: </span>
-                      <span>{aiTagReasoning}</span>
-                    </div>
-                  </div>
-                )}
-
                 <div className="mt-2">
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-[10px] text-white/40 uppercase font-mono">Gợi ý nhãn có sẵn:</span>
@@ -2391,12 +2676,7 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
                       <button
                         key={tag}
                         type="button"
-                        onClick={() => {
-                          const currentTags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
-                          if (!currentTags.includes(tag)) {
-                            setTagsInput(currentTags.length > 0 ? `${currentTags.join(', ')}, ${tag}` : tag);
-                          }
-                        }}
+                        onClick={() => handleAddTag(tag)}
                         className="px-2 py-0.5 rounded-[4px] text-[10px] font-mono border border-purple-400/30 text-purple-300 bg-purple-500/20 hover:bg-purple-500/40 transition cursor-pointer"
                         title="Nhấn để thêm nhãn này"
                       >
@@ -3325,12 +3605,13 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
                 <div>
                   <h3 className="font-bold text-sm text-white flex items-center gap-2">
                     <span>Chi Tiết Bản Nháp Tự Động</span>
-                    <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-mono">
-                      LocalStorage
+                    <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-mono flex items-center gap-1">
+                      <Database className="w-3 h-3 text-amber-300" />
+                      <span>IndexedDB</span>
                     </span>
                   </h3>
                   <p className="text-[11px] text-amber-200/70 font-mono">
-                    Lưu lúc: {detectedDraft.savedAt ? new Date(detectedDraft.savedAt).toLocaleString('vi-VN') : 'Không rõ'}
+                    Lưu lúc: {detectedDraft.savedAt ? new Date(detectedDraft.savedAt).toLocaleString('vi-VN') : 'Không rõ'} • {questionDraftService.formatFriendlyTime(detectedDraft.savedAt)}
                   </p>
                 </div>
               </div>

@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { QuestionItem, CognitiveLevel, ApprovalStatus, BtiRoundGroupKey } from '../../types';
 import { DIFFICULTY_CONFIGS, DifficultyBadgeAndMeter } from './DifficultyBadgeAndMeter';
+import { DifficultyTrendChart30D } from './DifficultyTrendChart30D';
 import { soundFx } from '../../services/audioEffects';
 import { vibrateTap } from '../../utils/hapticUtils';
 
@@ -56,7 +57,7 @@ interface DashboardOverviewHeaderProps {
   className?: string;
 }
 
-type HeaderViewTab = 'COMBINED' | 'DIFFICULTY' | 'STATUS' | 'STACKED_MATRIX';
+type HeaderViewTab = 'COMBINED' | 'DIFFICULTY' | 'DIFFICULTY_TREND_30D' | 'STATUS' | 'STACKED_MATRIX';
 
 // Custom Recharts Dark Glass Tooltip
 const CustomChartTooltip = ({ active, payload, label }: any) => {
@@ -419,6 +420,24 @@ export const DashboardOverviewHeader: React.FC<DashboardOverviewHeaderProps> = (
             >
               <Target className="w-3 h-3" />
               <span>Độ khó</span>
+            </button>
+            <button
+              type="button"
+              id="tab-overview-trend"
+              onClick={() => {
+                vibrateTap();
+                soundFx.playClick();
+                setActiveTab('DIFFICULTY_TREND_30D');
+              }}
+              className={`px-2.5 py-1 rounded-[3px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                activeTab === 'DIFFICULTY_TREND_30D'
+                  ? 'bg-theme-accent text-[#190839] shadow-sm font-black'
+                  : 'text-amber-300/80 hover:text-amber-200 hover:bg-white/5'
+              }`}
+              title="Biểu đồ đường biến thiên độ khó trung bình 30 ngày qua"
+            >
+              <TrendingUp className="w-3 h-3 text-amber-400" />
+              <span>Xu hướng 30 ngày</span>
             </button>
             <button
               type="button"
@@ -942,6 +961,14 @@ export const DashboardOverviewHeader: React.FC<DashboardOverviewHeaderProps> = (
                 </table>
               </div>
             </div>
+          )}
+
+          {/* TAB 5: DIFFICULTY TREND 30 DAYS LINE CHART */}
+          {activeTab === 'DIFFICULTY_TREND_30D' && (
+            <DifficultyTrendChart30D
+              questions={questions}
+              onFilterLevel={onFilterLevel}
+            />
           )}
         </div>
       )}

@@ -28,7 +28,9 @@ import {
   AlertCircle, 
   Eye, 
   RefreshCw,
-  HardDrive
+  HardDrive,
+  FileCode,
+  Code2
 } from 'lucide-react';
 import { 
   QuestionItem, 
@@ -42,7 +44,9 @@ import {
 import { DIGITAL_COMPETENCY_DOMAINS, COMPETITION_STAGES } from '../../data/digitalCompetencyData';
 import { questionBankManager } from '../../services/questionBankManager';
 import { excelService } from '../../services/excelService';
+import { csvJsonImportService } from '../../services/csvJsonImportService';
 import { googlePickerService } from '../../services/googlePickerService';
+import { difficultySuggestionService } from '../../services/difficultySuggestionService';
 import { soundFx } from '../../services/audioEffects';
 import { vibrateTap, vibrateSuccess } from '../../utils/hapticUtils';
 import { useLockBodyScroll } from '../../hooks/useLockBodyScroll';
@@ -54,7 +58,7 @@ interface BulkQuestionImportModalProps {
   initialDriveFile?: PickedDriveFile | null;
 }
 
-type InputFormatMode = 'FILE_UPLOAD' | 'EXCEL_TSV' | 'SIMPLE_TEXT';
+export type InputFormatMode = 'FILE_UPLOAD' | 'JSON_PASTE' | 'CSV_TSV' | 'SIMPLE_TEXT';
 
 interface ColumnMapping {
   questionText: string;
@@ -129,6 +133,8 @@ export const BulkQuestionImportModal: React.FC<BulkQuestionImportModalProps> = (
   const [filterQuery, setFilterQuery] = useState<string>('');
   const [validationFilter, setValidationFilter] = useState<'ALL' | 'VALID' | 'ISSUES'>('ALL');
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
+  const [isAnalyzingDifficulty, setIsAnalyzingDifficulty] = useState<boolean>(false);
+  const [difficultyAnalysisResultText, setDifficultyAnalysisResultText] = useState<string>('');
 
   // Success Modal
   const [isSuccessModal, setIsSuccessModal] = useState<boolean>(false);
@@ -196,6 +202,48 @@ Mức độ: Vận dụng
 Điểm: 20
 Thời gian: 20s`;
 
+  const sampleCsvText = `Nội dung câu hỏi,Phương án A,Phương án B,Phương án C,Phương án D,Đáp án đúng,Giải thích chi tiết,Miền năng lực,Mức độ nhận thức,Phần thi
+"Theo Thông tư 02/2025/TT-BGDĐT, Miền 1 trong Khung năng lực số người học có tên gọi là gì?","Khai thác dữ liệu và thông tin","Giao tiếp và hợp tác trong môi trường số","Sáng tạo nội dung số","An toàn và bảo mật số","A","Căn cứ Điều 4 Thông tư 02/2025/TT-BGDĐT.","Miền 1","Nhận biết","Vòng loại Bộ GD&ĐT"
+"Thao tác nào sau đây giúp kiểm chứng độ tin cậy của thông tin số trên mạng xã hội?","Chia sẻ ngay khi thấy nhiều like","Đối chiếu thông tin với các nguồn tin chính thống và tác giả gốc","Lưu ảnh chụp màn hình và đăng lại","Chỉ đọc tiêu đề","B","Thuộc tiêu chí 1.2: Đánh giá dữ liệu và thông tin số theo Thông tư 02/2025.","Miền 1","Thông hiểu","Vòng loại Bộ GD&ĐT"
+"Một học sinh nhận được email lạ yêu cầu cung cấp mật khẩu tài khoản học tập trực tuyến. Học sinh cần làm gì?","Nhập ngay mật khẩu","Không bấm link, báo cáo quản trị hệ thống và kiểm tra địa chỉ người gửi","Chuyển tiếp cho các bạn","Đổi mật khẩu theo hướng dẫn trong email","B","Kỹ năng phòng chống tấn công lừa đảo (Phishing) thuộc Miền 4.","Miền 4","Vận dụng","Vòng 3: Tăng tốc"`;
+
+  const sampleJsonText = `[
+  {
+    "question_text": "Theo Thông tư 02/2025/TT-BGDĐT, Miền 1 trong Khung năng lực số người học bao gồm những năng lực thành phần nào?",
+    "options": {
+      "A": "Duyệt, tìm kiếm và lọc dữ liệu; Đánh giá dữ liệu; Quản lý dữ liệu và thông tin",
+      "B": "Tương tác và chia sẻ; Tham gia quyền công dân số; Hợp tác qua công nghệ số",
+      "C": "Phát triển nội dung số; Bản quyền và giấy phép; Lập trình",
+      "D": "Bảo vệ thiết bị; Bảo vệ dữ liệu cá nhân; Bảo vệ sức khỏe"
+    },
+    "correct_key": "A",
+    "explanation": "Căn cứ Điều 4 Thông tư 02/2025/TT-BGDĐT, Miền 1 gồm 3 tiêu chí thành phần: 1.1, 1.2 và 1.3.",
+    "legal_reference": "Thông tư 02/2025/TT-BGDĐT",
+    "digital_competency_domain": "MIEN_1",
+    "cognitive_level": "NHAN_BIET",
+    "round_name": "Vòng loại Bộ GD&ĐT (Trắc nghiệm ABCD)",
+    "stage": "VONG_LOAI",
+    "tags": ["TT02", "Mien1", "NhanBiet"]
+  },
+  {
+    "question_text": "Khi tham gia làm việc nhóm trực tuyến trên nền tảng đám mây, hành vi nào thể hiện năng lực 'Hợp tác qua công nghệ số' (Miền 2) đạt hiệu quả cao?",
+    "options": {
+      "A": "Tải file về máy cá nhân chỉnh sửa rồi gửi đè lên file của nhóm mà không thông báo",
+      "B": "Sử dụng tính năng phân quyền, theo dõi lịch sử chỉnh sửa (Version History) và để lại nhận xét (Comments) rõ ràng cho thành viên",
+      "C": "Xóa toàn bộ nội dung của thành viên khác nếu không ưng ý mà không thảo luận",
+      "D": "Chỉ một người duy nhất được cấp quyền truy cập tài liệu"
+    },
+    "correct_key": "B",
+    "explanation": "Hợp tác số văn minh đòi hỏi tận dụng các công cụ cộng tác thời gian thực và giao tiếp tôn trọng.",
+    "legal_reference": "Thông tư 02/2025/TT-BGDĐT (Tiêu chí 2.4)",
+    "digital_competency_domain": "MIEN_2",
+    "cognitive_level": "THONG_HIEU",
+    "round_name": "Vòng loại Bộ GD&ĐT (Trắc nghiệm ABCD)",
+    "stage": "VONG_LOAI",
+    "tags": ["TT02", "Mien2", "ThongHieu"]
+  }
+]`;
+
   const sampleExcelTsv = `Nội dung câu hỏi\tLựa chọn A\tLựa chọn B\tLựa chọn C\tLựa chọn D\tĐáp án đúng\tGiải thích\tVòng thi\tMiền\tMức độ
 Theo Luật An ninh mạng 2018, cơ quan chuyên trách bảo vệ an ninh mạng gồm lực lượng nào?\tLực lượng CAND và QĐND\tChỉ có Bộ GD&ĐT\tCác doanh nghiệp viễn thông tư nhân\tỦy ban nhân dân cấp xã\tA\tCăn cứ Điều 10 Luật An ninh mạng 2018\tVòng loại\tMiền 4\tThông hiểu
 Giao thức mạng nào sau đây truyền tải dữ liệu có mã hóa bảo mật?\tHTTP\tFTP\tHTTPS\tTelnet\tC\tHTTPS sử dụng SSL/TLS để mã hóa đường truyền\tKhởi động\tMiền 4\tNhận biết
@@ -234,13 +282,43 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
     return map;
   };
 
-  // Parse Text or TSV Content
+  // Parse Text, JSON or CSV Content
   const parseTextContent = (text: string, mode: InputFormatMode): QuestionItem[] => {
     if (!text.trim()) return [];
 
+    // 1. If JSON mode or JSON format detected
+    if (mode === 'JSON_PASTE' || (text.trim().startsWith('[') && text.trim().endsWith(']')) || (text.trim().startsWith('{') && text.trim().endsWith('}'))) {
+      const res = csvJsonImportService.parseJsonContent(text, {
+        defaultStage,
+        defaultDomain,
+        defaultCognitiveLevel,
+        defaultPoints,
+        defaultTimeLimit,
+        autoApprove
+      });
+      if (res.success && res.questions.length > 0) {
+        return res.questions;
+      }
+    }
+
+    // 2. If CSV/TSV mode
+    if (mode === 'CSV_TSV') {
+      const res = csvJsonImportService.parseRawText(text, {
+        defaultStage,
+        defaultDomain,
+        defaultCognitiveLevel,
+        defaultPoints,
+        defaultTimeLimit,
+        autoApprove
+      });
+      if (res.success && res.questions.length > 0) {
+        return res.questions;
+      }
+    }
+
     const items: QuestionItem[] = [];
 
-    if (mode === 'EXCEL_TSV' || text.includes('\t')) {
+    if (mode === 'CSV_TSV' || text.includes('\t')) {
       // TSV / Tab-delimited parser
       const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
       let startIndex = 0;
@@ -553,7 +631,7 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
     return items;
   };
 
-  // Process File Upload (.xlsx, .xls, .csv, .tsv, .txt)
+  // Process File Upload (.xlsx, .xls, .csv, .json, .tsv, .txt)
   const processUploadedFile = async (file: File) => {
     setIsLoadingFile(true);
     setSelectedFile(file);
@@ -561,12 +639,65 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
     try {
       const fileName = file.name.toLowerCase();
 
-      if (fileName.endsWith('.txt')) {
+      if (fileName.endsWith('.json')) {
         const text = await file.text();
         setRawInput(text);
-        setInputMode('SIMPLE_TEXT');
-        const parsed = parseTextContent(text, 'SIMPLE_TEXT');
-        setParsedList(parsed);
+        setInputMode('JSON_PASTE');
+        const result = csvJsonImportService.parseJsonContent(text, {
+          defaultStage,
+          defaultDomain,
+          defaultCognitiveLevel,
+          defaultPoints,
+          defaultTimeLimit,
+          autoApprove
+        });
+        if (result.success && result.questions.length > 0) {
+          setParsedList(result.questions);
+          soundFx.playSuccess();
+          vibrateSuccess();
+        } else {
+          soundFx.playWarning();
+        }
+      } else if (fileName.endsWith('.csv')) {
+        const text = await file.text();
+        setRawInput(text);
+        setInputMode('CSV_TSV');
+        const result = csvJsonImportService.parseCsvContent(text, ',', {
+          defaultStage,
+          defaultDomain,
+          defaultCognitiveLevel,
+          defaultPoints,
+          defaultTimeLimit,
+          autoApprove
+        });
+        if (result.success && result.questions.length > 0) {
+          setParsedList(result.questions);
+          soundFx.playSuccess();
+          vibrateSuccess();
+        } else {
+          soundFx.playWarning();
+        }
+      } else if (fileName.endsWith('.tsv') || fileName.endsWith('.txt')) {
+        const text = await file.text();
+        setRawInput(text);
+        const result = csvJsonImportService.parseRawText(text, {
+          defaultStage,
+          defaultDomain,
+          defaultCognitiveLevel,
+          defaultPoints,
+          defaultTimeLimit,
+          autoApprove
+        });
+        if (result.success && result.questions.length > 0) {
+          setParsedList(result.questions);
+          setInputMode(result.format === 'JSON' ? 'JSON_PASTE' : (result.format === 'CSV' || result.format === 'TSV' ? 'CSV_TSV' : 'SIMPLE_TEXT'));
+          soundFx.playSuccess();
+          vibrateSuccess();
+        } else {
+          setInputMode('SIMPLE_TEXT');
+          const parsed = parseTextContent(text, 'SIMPLE_TEXT');
+          setParsedList(parsed);
+        }
       } else {
         // Read as ArrayBuffer for SheetJS
         const data = await file.arrayBuffer();
@@ -770,9 +901,9 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
     return items;
   };
 
-  // Re-parse when input text changes in Text/TSV modes
+  // Re-parse when input text changes in Text/TSV/JSON/CSV modes
   useEffect(() => {
-    if (inputMode === 'SIMPLE_TEXT' || inputMode === 'EXCEL_TSV') {
+    if (inputMode === 'SIMPLE_TEXT' || inputMode === 'CSV_TSV' || inputMode === 'JSON_PASTE') {
       const parsed = parseTextContent(rawInput, inputMode);
       setParsedList(parsed);
     }
@@ -817,8 +948,11 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
       const text = await navigator.clipboard.readText();
       if (text) {
         setRawInput(text);
-        if (text.includes('\t')) {
-          setInputMode('EXCEL_TSV');
+        const trimmed = text.trim();
+        if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+          setInputMode('JSON_PASTE');
+        } else if (text.includes('\t') || text.includes(',')) {
+          setInputMode('CSV_TSV');
         } else {
           setInputMode('SIMPLE_TEXT');
         }
@@ -834,11 +968,13 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
     soundFx.playClick();
     if (mode === 'SIMPLE_TEXT') {
       setRawInput(sampleSimpleText);
-    } else if (mode === 'EXCEL_TSV') {
-      setRawInput(sampleExcelTsv);
+    } else if (mode === 'JSON_PASTE') {
+      setRawInput(sampleJsonText);
+    } else if (mode === 'CSV_TSV') {
+      setRawInput(sampleCsvText);
     } else {
       // Demo load sample questions directly
-      const parsed = parseTextContent(sampleExcelTsv, 'EXCEL_TSV');
+      const parsed = parseTextContent(sampleJsonText, 'JSON_PASTE');
       setParsedList(parsed);
     }
   };
@@ -890,6 +1026,46 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
     vibrateTap();
     soundFx.playClick();
     setParsedList(prev => prev.map(q => ({ ...q, cognitive_level: level })));
+  };
+
+  // Background Difficulty Level Suggestion for all newly parsed questions
+  const handleAutoAnalyzeDifficulty = () => {
+    if (parsedList.length === 0) return;
+    setIsAnalyzingDifficulty(true);
+    setDifficultyAnalysisResultText('');
+    vibrateTap();
+    soundFx.playClick();
+
+    setTimeout(() => {
+      const bankQuestions = questionBankManager.getQuestions();
+      let changedCount = 0;
+      const countByLevel: Record<CognitiveLevel, number> = {
+        NHAN_BIET: 0,
+        THONG_HIEU: 0,
+        VAN_DUNG: 0,
+        VAN_DUNG_CAO: 0
+      };
+
+      const updated = parsedList.map(item => {
+        const suggestion = difficultySuggestionService.suggestDifficulty(item, bankQuestions);
+        countByLevel[suggestion.suggestedLevel]++;
+        if (item.cognitive_level !== suggestion.suggestedLevel) {
+          changedCount++;
+        }
+        return {
+          ...item,
+          cognitive_level: suggestion.suggestedLevel
+        };
+      });
+
+      setParsedList(updated);
+      setIsAnalyzingDifficulty(false);
+      setDifficultyAnalysisResultText(
+        `Đã phân tích độ phức tạp cho ${updated.length} câu (Cập nhật ${changedCount} câu): Nhận biết (${countByLevel.NHAN_BIET}), Thông hiểu (${countByLevel.THONG_HIEU}), Vận dụng (${countByLevel.VAN_DUNG}), Vận dụng cao (${countByLevel.VAN_DUNG_CAO})`
+      );
+      soundFx.playSuccess();
+      vibrateSuccess();
+    }, 400);
   };
 
   // Quality check diagnostics
@@ -1013,9 +1189,9 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
                 onClick={() => {
                   vibrateTap();
                   soundFx.playClick();
-                  excelService.downloadCsvTemplate();
+                  csvJsonImportService.downloadSampleCsv();
                 }}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-[4px] bg-white/5 hover:bg-white/10 text-white/80 text-xs font-mono border border-white/10 transition cursor-pointer"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-[4px] bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-mono border border-emerald-400/30 transition cursor-pointer shadow-sm"
                 title="Tải tệp mẫu CSV (.csv chuẩn UTF-8 BOM mở bằng Excel)"
               >
                 <Download className="w-3.5 h-3.5 text-emerald-400" />
@@ -1027,9 +1203,23 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
                 onClick={() => {
                   vibrateTap();
                   soundFx.playClick();
+                  csvJsonImportService.downloadSampleJson();
+                }}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-[4px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-mono border border-amber-400/30 transition cursor-pointer shadow-sm"
+                title="Tải tệp mẫu JSON Schema (.json)"
+              >
+                <Download className="w-3.5 h-3.5 text-amber-400" />
+                <span>Mẫu JSON (.json)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateTap();
+                  soundFx.playClick();
                   excelService.downloadStandardExcelTemplate();
                 }}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-[4px] bg-white/5 hover:bg-white/10 text-white/80 text-xs font-mono border border-white/10 transition cursor-pointer"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-[4px] bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 text-xs font-mono border border-sky-400/30 transition cursor-pointer shadow-sm"
                 title="Tải tệp mẫu Excel bảng chuẩn (.xlsx)"
               >
                 <Download className="w-3.5 h-3.5 text-sky-400" />
@@ -1086,7 +1276,7 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
                 }`}
               >
                 <Upload className="w-3.5 h-3.5" />
-                <span>1. Tải Tệp Excel / CSV (.xlsx, .csv)</span>
+                <span>1. Tải Tệp Lên (.xlsx, .csv, .json)</span>
               </button>
 
               <button
@@ -1094,16 +1284,35 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
                 onClick={() => {
                   vibrateTap();
                   soundFx.playClick();
-                  setInputMode('EXCEL_TSV');
+                  setInputMode('JSON_PASTE');
+                  if (!rawInput) setRawInput(sampleJsonText);
                 }}
                 className={`px-3.5 py-1.5 rounded-[3px] text-xs font-mono font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                  inputMode === 'EXCEL_TSV'
+                  inputMode === 'JSON_PASTE'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'text-white/70 hover:text-white'
+                }`}
+              >
+                <FileCode className="w-3.5 h-3.5" />
+                <span>2. Dán Mã JSON</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateTap();
+                  soundFx.playClick();
+                  setInputMode('CSV_TSV');
+                  if (!rawInput) setRawInput(sampleCsvText);
+                }}
+                className={`px-3.5 py-1.5 rounded-[3px] text-xs font-mono font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  inputMode === 'CSV_TSV'
                     ? 'bg-sky-600 text-white shadow-sm'
                     : 'text-white/70 hover:text-white'
                 }`}
               >
                 <Clipboard className="w-3.5 h-3.5" />
-                <span>2. Dán Từ Bảng Tính (TSV / Sheets)</span>
+                <span>3. Dán Bảng Tính (CSV / TSV)</span>
               </button>
 
               <button
@@ -1112,6 +1321,7 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
                   vibrateTap();
                   soundFx.playClick();
                   setInputMode('SIMPLE_TEXT');
+                  if (!rawInput) setRawInput(sampleSimpleText);
                 }}
                 className={`px-3.5 py-1.5 rounded-[3px] text-xs font-mono font-bold transition flex items-center gap-1.5 cursor-pointer ${
                   inputMode === 'SIMPLE_TEXT'
@@ -1120,7 +1330,7 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
-                <span>3. Văn Bản Đánh Số (.txt / Word)</span>
+                <span>4. Văn Bản Đánh Số (Câu 1, 2...)</span>
               </button>
             </div>
 
@@ -1176,7 +1386,7 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept=".xlsx, .xls, .csv, .tsv, .txt"
+                      accept=".xlsx, .xls, .csv, .json, .tsv, .txt"
                       onChange={handleFileInputChange}
                       className="hidden"
                     />
@@ -1201,7 +1411,7 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
                     ) : (
                       <div className="space-y-1.5">
                         <p className="text-xs font-bold text-white font-mono">
-                          Kéo thả tệp <span className="text-emerald-300">.xlsx, .xls, .csv</span> vào đây
+                          Kéo thả tệp <span className="text-emerald-300">.xlsx, .csv, .json, .tsv</span> vào đây
                         </p>
                         <p className="text-[11px] text-[#B6A6D8]">
                           hoặc bấm để chọn tệp từ máy tính của bạn
@@ -1326,22 +1536,44 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
                 </div>
               )}
 
-              {/* MODE 2 & 3: TEXTAREA FOR TSV / SIMPLE TEXT */}
-              {(inputMode === 'EXCEL_TSV' || inputMode === 'SIMPLE_TEXT') && (
+              {/* MODE 2, 3 & 4: TEXTAREA FOR JSON / CSV / TSV / SIMPLE TEXT */}
+              {(inputMode === 'JSON_PASTE' || inputMode === 'CSV_TSV' || inputMode === 'SIMPLE_TEXT') && (
                 <div className="space-y-2 flex-1 flex flex-col">
                   <div className="flex items-center justify-between text-xs font-mono text-[#B6A6D8]">
                     <span className="font-bold flex items-center gap-1.5 text-[#F5EFF9]">
-                      <FileText className="w-3.5 h-3.5 text-theme-accent" />
-                      <span>{inputMode === 'EXCEL_TSV' ? 'Bảng dán từ Excel / Sheets:' : 'Văn bản câu hỏi đầu vào:'}</span>
+                      {inputMode === 'JSON_PASTE' ? (
+                        <FileCode className="w-3.5 h-3.5 text-amber-400" />
+                      ) : inputMode === 'CSV_TSV' ? (
+                        <Clipboard className="w-3.5 h-3.5 text-sky-400" />
+                      ) : (
+                        <FileText className="w-3.5 h-3.5 text-purple-400" />
+                      )}
+                      <span>
+                        {inputMode === 'JSON_PASTE' 
+                          ? 'Dán mã JSON mảng câu hỏi (JSON Array):' 
+                          : inputMode === 'CSV_TSV' 
+                            ? 'Dán văn bản CSV / TSV hoặc bôi đen từ Excel / Sheets:' 
+                            : 'Văn bản câu hỏi đầu vào:'}
+                      </span>
                     </span>
-                    <button
-                      type="button"
-                      onClick={handlePasteClipboard}
-                      className="px-2 py-0.5 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 text-[10px] font-mono border border-sky-400/30 flex items-center gap-1 cursor-pointer"
-                    >
-                      <Clipboard className="w-3 h-3" />
-                      <span>Dán Clipboard</span>
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleLoadSample(inputMode)}
+                        className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[10px] font-mono border border-amber-400/30 flex items-center gap-1 cursor-pointer"
+                      >
+                        <Sparkles className="w-2.5 h-2.5" />
+                        <span>Mẫu {inputMode === 'JSON_PASTE' ? 'JSON' : inputMode === 'CSV_TSV' ? 'CSV' : 'Text'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handlePasteClipboard}
+                        className="px-2 py-0.5 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 text-[10px] font-mono border border-sky-400/30 flex items-center gap-1 cursor-pointer"
+                      >
+                        <Clipboard className="w-3 h-3" />
+                        <span>Dán Clipboard</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="relative flex-1 min-h-[220px]">
@@ -1349,9 +1581,11 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
                       value={rawInput}
                       onChange={(e) => setRawInput(e.target.value)}
                       placeholder={
-                        inputMode === 'EXCEL_TSV'
-                          ? "Bôi đen các cột trong bảng Excel/Google Sheets rồi dán vào đây:\nCột 1: Câu hỏi | Cột 2-5: Phương án A, B, C, D | Cột 6: Đáp án | Cột 7: Giải thích"
-                          : "Dán câu hỏi đánh số theo mẫu:\n\nCâu 1: Theo Thông tư 02/2025/TT-BGDĐT...\nA. Phương án 1\nB. Phương án 2\nC. Phương án 3\nD. Phương án 4\nĐáp án: A\nGiải thích: ..."
+                        inputMode === 'JSON_PASTE'
+                          ? '[\n  {\n    "question_text": "Theo Thông tư 02/2025/TT-BGDĐT...",\n    "options": { "A": "...", "B": "..." },\n    "correct_key": "A",\n    "explanation": "..."\n  }\n]'
+                          : inputMode === 'CSV_TSV'
+                            ? 'Nội dung câu hỏi,Phương án A,Phương án B,Phương án C,Phương án D,Đáp án đúng,Giải thích\n"Câu hỏi 1","A","B","C","D","A","Lời giải"'
+                            : "Dán câu hỏi đánh số theo mẫu:\n\nCâu 1: Theo Thông tư 02/2025/TT-BGDĐT...\nA. Phương án 1\nB. Phương án 2\nC. Phương án 3\nD. Phương án 4\nĐáp án: A\nGiải thích: ..."
                       }
                       className="w-full h-full min-h-[240px] max-h-[360px] bg-black/50 border border-theme-accent/25 rounded-[4px] p-3 text-xs text-[#F5EFF9] font-mono leading-relaxed placeholder-white/25 focus:border-theme-accent focus:outline-none custom-scrollbar"
                     />
@@ -1540,6 +1774,34 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
                     className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-[10px] text-rose-300 border border-white/10 shrink-0"
                   >
                     Vận dụng cao
+                  </button>
+                  <span className="text-white/20">|</span>
+                  <button
+                    type="button"
+                    onClick={handleAutoAnalyzeDifficulty}
+                    disabled={isAnalyzingDifficulty}
+                    className="px-2.5 py-1 rounded bg-gradient-to-r from-amber-600/40 to-orange-600/40 hover:from-amber-600/60 hover:to-orange-600/60 text-amber-200 hover:text-white border border-amber-400/40 text-[10px] font-bold flex items-center gap-1 shrink-0 transition cursor-pointer active:scale-95 shadow-sm"
+                    title="Phân tích độ phức tạp ngữ nghĩa đối chiếu ngân hàng câu hỏi đã thẩm định để tự động gợi ý mức độ nhận thức tối ưu"
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-300 animate-pulse" />
+                    <span>{isAnalyzingDifficulty ? 'Đang phân tích...' : '🎯 AI Gợi ý độ khó'}</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Difficulty Analysis Result Banner */}
+              {difficultyAnalysisResultText && (
+                <div className="px-3 py-1.5 rounded-[4px] bg-amber-500/15 border border-amber-500/30 text-amber-200 text-[11px] font-mono flex items-center justify-between gap-2 animate-fadeIn">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>{difficultyAnalysisResultText}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDifficultyAnalysisResultText('')}
+                    className="text-white/40 hover:text-white"
+                  >
+                    <X className="w-3 h-3" />
                   </button>
                 </div>
               )}

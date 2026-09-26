@@ -551,6 +551,246 @@ Hãy đưa ra đánh giá khách quan, đề xuất quyết định duyệt (APP
     }
   });
 
+  // AI Duplicate & Overlapping Knowledge Detection Route
+  app.post("/api/ai/detect-duplicates", async (req, res) => {
+    try {
+      const { candidatePairs } = req.body;
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: "Chưa cấu hình GEMINI_API_KEY trên server." });
+      }
+
+      if (!candidatePairs || !Array.isArray(candidatePairs) || candidatePairs.length === 0) {
+        return res.json({ success: true, evaluations: [] });
+      }
+
+      const ai = new GoogleGenAI({ 
+        apiKey,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      // Prepare pair summaries for prompt
+      const pairsText = candidatePairs.slice(0, 20).map((cp: any, idx: number) => {
+        return `
+[CẶP #${idx + 1} - ID Cặp: "${cp.pairId}"]
+- CÂU A (ID: ${cp.questionA?.id}):
+  + Nội dung: ${cp.questionA?.question_text || ''}
+  + Lựa chọn: ${JSON.stringify(cp.questionA?.options || {})}
+  + Miền / Năng lực: ${cp.questionA?.domain || ''} - ${cp.questionA?.subCompetency || ''}
+  + Mức nhận thức: ${cp.questionA?.cognitive_level || ''}
+  + Căn cứ pháp lý: ${cp.questionA?.legal_reference || ''}
+  + Thẻ tags: ${(cp.questionA?.tags || []).join(', ')}
+
+- CÂU B (ID: ${cp.questionB?.id}):
+  + Nội dung: ${cp.questionB?.question_text || ''}
+  + Lựa chọn: ${JSON.stringify(cp.questionB?.options || {})}
+  + Miền / Năng lực: ${cp.questionB?.domain || ''} - ${cp.questionB?.subCompetency || ''}
+  + Mức nhận thức: ${cp.questionB?.cognitive_level || ''}
+  + Căn cứ pháp lý: ${cp.questionB?.legal_reference || ''}
+  + Thẻ tags: ${(cp.questionB?.tags || []).join(', ')}
+`;
+      }).join('\n----------------------------------------\n');
+
+      const prompt = `Bạn là Chuyên gia Khảo thí và Kiểm định Ngân hàng Đề thi Quốc gia cho cuộc thi BTI 2026.
+Nhiệm vụ của bạn là rà soát, đánh giá chuyên sâu từng cặp câu hỏi dưới đây để phát hiện:
+1. TRÙNG LẶP NỘI DUNG (Content Duplicate / Paraphrase): Câu hỏi diễn đạt khác từ ngữ nhưng hỏi cùng 1 tình huống, sự kiện, câu hỏi trắc nghiệm giống nhau hoặc chỉ đảo thứ tự đáp án.
+2. TRÙNG LẶP MIỀN TRI THỨC & NĂNG LỰC (Overlapping Knowledge Domains / Competency Redundancy): Cả 2 câu đều kiểm tra cùng 1 điều luật (VD: Điều 9 NĐ 13/2023, TT 02/2025), cùng 1 khái niệm lý thuyết cốt lõi, cùng 1 tình huống số mà không tạo ra sự phân hóa mới trong ngân hàng đề.
+3. KHÁC BIỆT HỢP LỆ (Distinct): Khác nhau rõ ràng về mục tiêu đánh giá hoặc kiến thức kiểm tra.
+
+Danh sách các cặp câu hỏi cần đánh giá:
+${pairsText}
+
+Hãy phân tích cẩn trọng và trả về danh sách đánh giá theo định dạng JSON chuẩn.`;
+
+      const response = await generateWithFallback(ai, {
+        contents: prompt,
+        config: {
+          systemInstruction: "Bạn là AI Thẩm định Trùng lặp Khảo thí BTI 2026. Hãy trả về JSON hợp lệ theo Schema.",
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              evaluations: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    pairId: { type: Type.STRING },
+                    similarityScore: { type: Type.INTEGER, description: "Điểm tương đồng ngữ nghĩa tổng thể (0 - 100)" },
+                    domainOverlapScore: { type: Type.INTEGER, description: "Mức độ trùng lặp miền tri thức và năng lực (0 - 100)" },
+                    duplicateType: { 
+                      type: Type.STRING, 
+                      description: "EXACT | SEMANTIC_PARAPHRASE | DOMAIN_OVERLAP | DISTINCT" 
+                    },
+                    isRedundant: { 
+                      type: Type.BOOLEAN, 
+                      description: "true nếu ngân hàng đề thi bị dư thừa và nên gộp hoặc xóa bớt 1 câu" 
+                    },
+                    overlappingConcepts: {
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING },
+                      description: "Danh sách các khái niệm, điều luật, kỹ năng bị trùng lặp"
+                    },
+                    analysis: { 
+                      type: Type.STRING, 
+                      description: "Phân tích ngữ nghĩa chi tiết: vì sao trùng lặp hoặc điểm khác biệt then chốt" 
+                    },
+                    recommendation: { 
+                      type: Type.STRING, 
+                      description: "MERGE | DELETE_B | DIFFERENTIATE | KEEP_BOTH" 
+                    },
+                    differentiateSuggestion: { 
+                      type: Type.STRING, 
+                      description: "Gợi ý cách sửa Câu B nếu muốn giữ cả 2 câu mà không bị trùng lặp" 
+                    }
+                  },
+                  required: ["pairId", "similarityScore", "domainOverlapScore", "duplicateType", "isRedundant", "overlappingConcepts", "analysis", "recommendation"]
+                }
+              }
+            },
+            required: ["evaluations"]
+          }
+        }
+      });
+
+      if (!response.text) {
+        throw new Error("Không nhận được nội dung phân tích từ Gemini API.");
+      }
+
+      const result = JSON.parse(response.text.trim());
+      res.json({ success: true, evaluations: result.evaluations || [] });
+    } catch (error: any) {
+      console.error("Gemini Detect Duplicates Error:", error);
+      res.status(500).json({ error: error.message || "Lỗi khi chạy AI phát hiện trùng lặp." });
+    }
+  });
+
+  // AI Balanced Mock Quiz / Test Generator Route
+  app.post("/api/ai/generate-mock-quiz", async (req, res) => {
+    try {
+      const {
+        presetType = 'BALANCED_MOCK_TEST',
+        targetCount = 28,
+        timeMinutes = 45,
+        stage = 'VONG_LOAI',
+        desiredDistribution = { NHAN_BIET: 40, THONG_HIEU: 30, VAN_DUNG: 20, VAN_DUNG_CAO: 10 },
+        selectedDomains = ['MIEN_1', 'MIEN_2', 'MIEN_3', 'MIEN_4', 'MIEN_5', 'MIEN_6'],
+        candidateQuestions = []
+      } = req.body;
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: "Chưa cấu hình GEMINI_API_KEY trên server." });
+      }
+
+      if (!candidateQuestions || !Array.isArray(candidateQuestions) || candidateQuestions.length === 0) {
+        return res.status(400).json({ error: "Ngân hàng câu hỏi chưa có đủ dữ liệu để tạo đề thi thử." });
+      }
+
+      const ai = new GoogleGenAI({ 
+        apiKey,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      // Prepare candidate summary list for AI to pick from (limit to 120 items to fit prompt nicely)
+      const sampledCandidates = candidateQuestions.slice(0, 120).map((q: any, idx: number) => ({
+        idx: idx + 1,
+        id: q.id,
+        text: (q.question_text || '').slice(0, 160),
+        level: q.cognitive_level || 'THONG_HIEU',
+        domain: q.digital_competency_domain || q.domain || 'MIEN_4',
+        subComp: q.digital_sub_competency || q.subCompetency || '',
+        legal: q.legal_reference || '',
+        category: q.category || ''
+      }));
+
+      const prompt = `Bạn là Trưởng ban Đề thi Quốc gia & Chuyên gia Khảo thí Cuộc thi "Beyond The Internet 2026" (BTI 2026).
+Nhiệm vụ: Tạo một BỘ ĐỀ THI THỬ (MOCK QUIZ) HOÀN CHỈNH, CHUẨN XÁC VÀ CÂN BẰNG TỐI ƯU từ danh sách câu hỏi có sẵn trong ngân hàng đề.
+
+THÔNG SỐ ĐỀ THI YÊU CẦU:
+- Loại đề (Preset): "${presetType}"
+- Số lượng câu hỏi cần chọn: ${targetCount} câu
+- Thời gian làm bài: ${timeMinutes} phút
+- Giai đoạn thi: ${stage}
+- Tỷ lệ độ khó mục tiêu:
+  + Nhận biết: ${desiredDistribution.NHAN_BIET || 40}% (khoảng ${Math.round((targetCount * (desiredDistribution.NHAN_BIET || 40)) / 100)} câu)
+  + Thông hiểu: ${desiredDistribution.THONG_HIEU || 30}% (khoảng ${Math.round((targetCount * (desiredDistribution.THONG_HIEU || 30)) / 100)} câu)
+  + Vận dụng: ${desiredDistribution.VAN_DUNG || 20}% (khoảng ${Math.round((targetCount * (desiredDistribution.VAN_DUNG || 20)) / 100)} câu)
+  + Vận dụng cao: ${desiredDistribution.VAN_DUNG_CAO || 10}% (khoảng ${Math.max(1, Math.round((targetCount * (desiredDistribution.VAN_DUNG_CAO || 10)) / 100))} câu)
+- Các miền năng lực số cần bao phủ (TT 02/2025/TT-BGDĐT): ${selectedDomains.join(', ')}
+
+DANH SÁCH CÂU HỎI TRONG NGÂN HÀNG ĐỀ:
+${JSON.stringify(sampledCandidates, null, 1)}
+
+YÊU CẦU CHỌN LỌC & SẮP XẾP CỦA AI:
+1. Chọn đúng chính xác ${Math.min(targetCount, candidateQuestions.length)} câu hỏi (danh sách ID trong selectedQuestionIds) không bị trùng lặp, đảm bảo:
+   - Cân đối ma trận 4 mức độ nhận thức.
+   - Trải đều các miền năng lực số được yêu cầu.
+   - Ưu tiên câu hỏi có tình huống thực tế hay, căn cứ pháp lý rõ ràng.
+2. Sắp xếp thứ tự làm bài thông minh (bắt đầu từ các câu Nhận biết khởi động -> Thông hiểu -> tăng dần đến Vận dụng / Vận dụng cao ở cuối).
+3. Đưa ra phân tích sư phạm (pedagogicalRationale), hướng dẫn chiến thuật làm bài và bảng phân bổ ma trận.`;
+
+      const response = await generateWithFallback(ai, {
+        contents: prompt,
+        config: {
+          systemInstruction: "Bạn là Chuyên gia Khảo thí BTI 2026. Hãy trả về JSON hợp lệ theo Schema.",
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              quizTitle: { type: Type.STRING, description: "Tiêu đề đề thi thử trang trọng, thu hút" },
+              quizSubtitle: { type: Type.STRING, description: "Phụ đề mô tả chuẩn mực đề thi" },
+              instructions: { type: Type.STRING, description: "Hướng dẫn làm bài và lưu ý cho thí sinh" },
+              pedagogicalRationale: { type: Type.STRING, description: "Giải thích cơ cấu phân bổ độ khó và miền tri thức của đề thi" },
+              difficultyIndex: { type: Type.NUMBER, description: "Điểm độ khó tổng thể từ 1.0 đến 10.0" },
+              difficultyLabel: { type: Type.STRING, description: "Nhãn độ khó (VD: Cân Bằng Chuẩn Khảo Thí, Phân Hóa Cao, v.v.)" },
+              timePacingTip: { type: Type.STRING, description: "Chiến thuật phân bổ thời gian từng phần" },
+              selectedQuestionIds: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+                description: "Danh sách ID các câu hỏi được chọn theo đúng thứ tự làm bài tối ưu"
+              },
+              distributionSummary: {
+                type: Type.OBJECT,
+                properties: {
+                  nhanBietCount: { type: Type.INTEGER },
+                  thongHieuCount: { type: Type.INTEGER },
+                  vanDungCount: { type: Type.INTEGER },
+                  vanDungCaoCount: { type: Type.INTEGER },
+                  averageSolveTimeSec: { type: Type.INTEGER }
+                },
+                required: ["nhanBietCount", "thongHieuCount", "vanDungCount", "vanDungCaoCount"]
+              },
+              domainBreakdown: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    domainKey: { type: Type.STRING },
+                    domainName: { type: Type.STRING },
+                    questionCount: { type: Type.INTEGER }
+                  },
+                  required: ["domainKey", "domainName", "questionCount"]
+                }
+              }
+            },
+            required: ["quizTitle", "pedagogicalRationale", "difficultyIndex", "difficultyLabel", "selectedQuestionIds", "distributionSummary"]
+          }
+        }
+      });
+
+      if (!response.text) {
+        throw new Error("Không nhận được phản hồi từ AI tạo đề thi.");
+      }
+
+      const result = JSON.parse(response.text.trim());
+      res.json({ success: true, mockQuizBlueprint: result });
+    } catch (error: any) {
+      console.error("Gemini Generate Mock Quiz Error:", error);
+      res.status(500).json({ error: error.message || "Lỗi khi tạo đề thi thử bằng AI." });
+    }
+  });
+
   // Advanced AI Route: Question Drafting based on Vietnam Digital Competency Framework (TT 02/2025/TT-BGDĐT)
   app.post("/api/ai/generate-advanced-question", async (req, res) => {
     try {
@@ -890,7 +1130,7 @@ Yêu cầu trả về JSON:
     }
   });
 
-  // Dedicated AI Auto-Tagging & Search Optimization Endpoint
+  // Dedicated AI Auto-Tagging, Subject & Knowledge Area Classification Endpoint
   app.post("/api/ai/auto-suggest-tags", async (req, res) => {
     try {
       const { questionText, options, explanation, legalReference, category, domain, cognitiveLevel, existingTags } = req.body;
@@ -902,64 +1142,98 @@ Yêu cầu trả về JSON:
         httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
       });
 
-      const prompt = `Bạn là Trợ lý AI Khảo thí chuyên sâu về Phân loại & Tự động Đánh Thẻ (Auto-Tagging) cho Ngân hàng Đề thi Cuộc thi "Beyond The Internet 2026" (BTI 2026).
-Nhiệm vụ: Phân tích kỹ lưỡng nội dung câu hỏi, các phương án lựa chọn, lời giải thích và căn cứ pháp lý để tự động đề xuất 3-6 thẻ/tags phân loại có tính tìm kiếm cao nhất.
+      const prompt = `Bạn là Chuyên gia Khảo thí và Cố vấn Học thuật Trưởng của Cuộc thi "Beyond The Internet 2026" (BTI 2026).
+Nhiệm vụ: Phân tích sâu nội dung câu hỏi, phương án lựa chọn, lời giải thích và ngữ cảnh để TỰ ĐỘNG ĐỀ XUẤT:
+1. 'Subject' (Chủ đề / Môn học / Lĩnh vực chuyên môn chính): Tên chủ đề súc tích, chuyên nghiệp (VD: "An toàn dữ liệu cá nhân & Quyền riêng tư", "Phòng chống lừa đảo trực tuyến & Phishing", "Đạo đức trí tuệ nhân tạo & Liêm chính học thuật", "Văn hóa ứng xử & Giao tiếp trên mạng xã hội", "Bản quyền số & Sở hữu trí tuệ", v.v.).
+2. 'Knowledge Area' (Miền tri thức & Năng lực số theo Thông tư 02/2025/TT-BGDĐT):
+   - MIEN_1: Vận hành thiết bị, phần mềm và quản trị kết nối số
+   - MIEN_2: Khai thác thông tin, dữ liệu và đánh giá độ tin cậy số
+   - MIEN_3: Giao tiếp, hợp tác và tương tác trong môi trường số
+   - MIEN_4: An toàn số, bảo vệ thông tin và dữ liệu cá nhân
+   - MIEN_5: Đạo đức số, văn hóa mạng và tuân thủ pháp luật số
+   - MIEN_6: Sáng tạo nội dung số, ứng dụng GenAI và giải quyết vấn đề
+3. 'Sub-Competency' (Mã & tên năng lực thành phần tương ứng): ví dụ "4.2", "5.1", "2.3"...
+4. 'Legal Reference' (Căn cứ văn bản pháp luật tham chiếu): ví dụ "Nghị định 13/2023/NĐ-CP Điều 9", "Thông tư 02/2025/TT-BGDĐT", "Luật An ninh mạng 2018 Điều 8"...
+5. 'Cognitive Level' (Mức độ nhận thức phù hợp): NHAN_BIET | THONG_HIEU | VAN_DUNG | VAN_DUNG_CAO
+6. 'Tags' (3-6 Thẻ từ khóa chuyên sâu): ví dụ ["deepfake", "phishing", "nghi_dinh_13", "xac_thuc_2fa", "mat_khau_manh"]
 
-Quy tắc sinh thẻ (Tags):
-1. Mỗi tag ngắn gọn (1-3 từ), viết thường, có thể sử dụng dấu gạch dưới thay cho khoảng trắng hoặc viết cách thông thường (VD: "deepfake", "phishing", "nghi_dinh_13", "xac_thuc_2fa", "bao_mat_email", "quyen_rieng_tu", "liem_chinh_hoc_thuat").
-2. Đa dạng các khía cạnh:
-   - Kỹ thuật / Mối đe dọa / Công nghệ (VD: deepfake, phishing, ransomware, 2fa, encryption, generative_ai)
-   - Văn bản pháp lý & chuẩn mực (VD: nghi_dinh_13, thong_tu_02, luat_an_ninh_mang)
-   - Tình huống thực tiễn & miền năng lực (VD: email_sinh_vien, quyen_rieng_tu, an_toan_giao_dich, sao_luu_321)
-3. Không lặp lại các tags đã có nếu không cần thiết.
-
-Nội dung câu hỏi:
+THÔNG TIN CÂU HỎI:
 - Đề bài: "${questionText || ''}"
 - Các phương án: ${JSON.stringify(options || {})}
 - Lời giải thích: "${explanation || ''}"
-- Căn cứ pháp lý: "${legalReference || ''}"
-- Danh mục / Chủ đề: "${category || ''}"
-- Miền năng lực: "${domain || ''}"
-- Mức độ nhận thức: "${cognitiveLevel || ''}"
-- Nhãn hiện tại: ${JSON.stringify(existingTags || [])}`;
+- Căn cứ pháp lý hiện tại: "${legalReference || ''}"
+- Danh mục hiện tại: "${category || ''}"
+- Miền hiện tại: "${domain || ''}"
+- Mức độ hiện tại: "${cognitiveLevel || ''}"
+- Tags hiện tại: ${JSON.stringify(existingTags || [])}`;
 
       const response = await generateWithFallback(ai, {
         contents: prompt,
         config: {
-          systemInstruction: "Bạn là chuyên gia khảo thí BTI 2026. Hãy trả về JSON chuẩn theo Schema.",
+          systemInstruction: "Bạn là chuyên gia thẩm định đề thi BTI 2026. Hãy trả về JSON chuẩn theo Schema.",
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              suggestedTags: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-                description: "Danh sách 3 đến 6 tags gợi ý chuẩn hóa"
+              suggestedSubject: {
+                type: Type.STRING,
+                description: "Tên chủ đề / môn học chuyên môn phù hợp nhất"
               },
               suggestedCategory: {
                 type: Type.STRING,
-                description: "Danh mục / Chủ đề phù hợp nhất"
+                description: "Danh mục phân loại ngắn gọn"
               },
               suggestedDomain: {
                 type: Type.STRING,
-                description: "Miền năng lực số dự đoán (MIEN_1 đến MIEN_6)"
+                description: "Miền năng lực số chuẩn (MIEN_1, MIEN_2, MIEN_3, MIEN_4, MIEN_5, MIEN_6)"
+              },
+              suggestedDomainName: {
+                type: Type.STRING,
+                description: "Tên đầy đủ của miền năng lực số"
+              },
+              suggestedSubCompetency: {
+                type: Type.STRING,
+                description: "Mã năng lực thành phần (ví dụ: 4.2)"
+              },
+              suggestedSubCompetencyName: {
+                type: Type.STRING,
+                description: "Tên mô tả của năng lực thành phần"
+              },
+              suggestedLegalReference: {
+                type: Type.STRING,
+                description: "Căn cứ pháp lý tham chiếu chuẩn xác nhất"
               },
               suggestedCognitiveLevel: {
                 type: Type.STRING,
                 description: "Mức độ nhận thức dự đoán (NHAN_BIET | THONG_HIEU | VAN_DUNG | VAN_DUNG_CAO)"
               },
+              suggestedTags: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+                description: "Danh sách 3 đến 6 tags gợi ý chuẩn hóa"
+              },
+              confidenceScore: {
+                type: Type.INTEGER,
+                description: "Độ tin cậy của đề xuất (0 - 100%)"
+              },
+              keyConcepts: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+                description: "Các khái niệm tri thức cốt lõi được phát hiện"
+              },
               reasoning: {
                 type: Type.STRING,
-                description: "Lý do ngắn gọn đề xuất các tags này"
+                description: "Lý do sư phạm ngắn gọn đề xuất các nhãn này"
               }
             },
-            required: ["suggestedTags", "reasoning"]
+            required: ["suggestedSubject", "suggestedDomain", "suggestedSubCompetency", "suggestedTags", "confidenceScore", "reasoning"]
           }
         }
       });
 
       if (!response.text) throw new Error("Mô hình AI không trả về kết quả.");
-      res.json({ success: true, ...JSON.parse(response.text.trim()) });
+      const result = JSON.parse(response.text.trim());
+      res.json({ success: true, ...result });
     } catch (error: any) {
       console.error("AI Auto-Tagging Error:", error);
       res.status(500).json({ error: error.message || "Lỗi khi tự động sinh tags bằng AI." });

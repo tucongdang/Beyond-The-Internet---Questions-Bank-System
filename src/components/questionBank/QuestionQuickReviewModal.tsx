@@ -17,13 +17,15 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import { QuestionItem, ApprovalStatus, QuestionReviewRecord } from '../../types';
+import { QuestionItem, ApprovalStatus, QuestionReviewRecord, CognitiveLevel } from '../../types';
 import { 
   questionReviewService, 
   REVIEW_STATUS_OPTIONS, 
   PRESET_REVIEW_NOTES, 
   getStatusInfo 
 } from '../../services/questionReviewService';
+import { difficultySuggestionService, DifficultySuggestionResult } from '../../services/difficultySuggestionService';
+import { COGNITIVE_LEVELS } from '../../data/digitalCompetencyData';
 import { soundFx } from '../../services/audioEffects';
 import { vibrateTap, vibrateSuccess, vibrateWarning } from '../../utils/hapticUtils';
 
@@ -56,6 +58,12 @@ export const QuestionQuickReviewModal: React.FC<QuestionQuickReviewModalProps> =
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+
+  // Background Difficulty Suggestion comparing content complexity against verified questions
+  const diffSuggestion: DifficultySuggestionResult | null = React.useMemo(() => {
+    if (!question || !question.question_text) return null;
+    return difficultySuggestionService.suggestDifficulty(question);
+  }, [question]);
 
   useEffect(() => {
     if (question) {
@@ -204,6 +212,83 @@ export const QuestionQuickReviewModal: React.FC<QuestionQuickReviewModalProps> =
               )}
             </div>
           </div>
+
+          {/* AI DIFFICULTY ADVISOR & COMPLEXITY COMPARISON */}
+          {diffSuggestion && (
+            <div className="p-3.5 rounded-[4px] bg-gradient-to-r from-[#20093f] via-[#16072D] to-[#20093f] border border-amber-500/40 space-y-2 text-xs font-mono shadow-sm">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-amber-300">
+                      AI Difficulty Advisor (Phân Tích Độ Phức Tạp)
+                    </span>
+                    <span className="text-[10px] text-white/50 block font-sans">
+                      Đối chiếu cú pháp, động từ Bloom &amp; các câu hỏi đã thẩm định trong ngân hàng đề
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/40">
+                    Điểm phức hợp: {diffSuggestion.complexityIndex} / 4.00
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-400/30">
+                    Độ tin cậy: {diffSuggestion.confidenceScore}% ({diffSuggestion.confidenceLevel})
+                  </span>
+                </div>
+              </div>
+
+              {/* Suggestion detail */}
+              <div className="p-2.5 rounded bg-black/40 border border-white/10 space-y-1.5">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white/70">Mức độ đề xuất:</span>
+                    <span className="px-2 py-0.5 rounded font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
+                      {COGNITIVE_LEVELS[diffSuggestion.suggestedLevel]?.name || diffSuggestion.suggestedLevel}
+                    </span>
+                    {diffSuggestion.suggestedLevel !== question.cognitive_level && (
+                      <span className="text-[10px] text-amber-300 bg-amber-500/15 px-1.5 py-0.5 rounded border border-amber-500/30">
+                        (Khác mức hiện tại: {question.cognitive_level ? (COGNITIVE_LEVELS[question.cognitive_level]?.name || question.cognitive_level) : 'Chưa gán'})
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-slate-300 font-sans leading-relaxed">
+                  {diffSuggestion.reasoning}
+                </p>
+
+                {/* Similar Verified Questions in Bank */}
+                {diffSuggestion.similarVerifiedQuestions.length > 0 && (
+                  <div className="pt-1 border-t border-white/10 mt-2 space-y-1">
+                    <span className="text-[10px] font-bold text-sky-300 uppercase tracking-wider block">
+                      Đối chiếu câu hỏi đã thẩm định tương đồng nhất:
+                    </span>
+                    <div className="space-y-1">
+                      {diffSuggestion.similarVerifiedQuestions.map(neighbor => (
+                        <div key={neighbor.id} className="flex items-center justify-between gap-2 text-[10px] text-white/80 bg-white/5 p-1.5 rounded">
+                          <span className="truncate max-w-[340px] font-sans">
+                            • [{neighbor.id}] {neighbor.questionText}
+                          </span>
+                          <div className="flex items-center gap-1 shrink-0 font-mono">
+                            <span className="text-amber-300">
+                              {COGNITIVE_LEVELS[neighbor.verifiedLevel]?.name || neighbor.verifiedLevel}
+                            </span>
+                            <span className="text-emerald-400 font-bold">
+                              ({neighbor.similarityPercentage}% trùng khớp)
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* STATUS SELECTOR */}
           <div className="space-y-2">

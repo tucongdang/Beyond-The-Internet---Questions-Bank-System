@@ -28,12 +28,15 @@ import {
   Image as ImageIcon,
   Layers,
   Zap,
-  Key
+  Key,
+  Download,
+  FileCode
 } from 'lucide-react';
 import { useLockBodyScroll } from '../../hooks/useLockBodyScroll';
 import { QuestionItem } from '../../types';
-import { vibrateTap } from '../../utils/hapticUtils';
+import { vibrateTap, vibrateSuccess } from '../../utils/hapticUtils';
 import { soundFx } from '../../services/audioEffects';
+import { generateJsonExport, downloadJsonFile } from '../../services/questionExportService';
 
 export interface PrintPreviewModalProps {
   isOpen: boolean;
@@ -206,6 +209,19 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
     soundFx.playClick();
     vibrateTap();
     window.print();
+  };
+
+  const handleExportJson = () => {
+    vibrateSuccess();
+    soundFx.playCorrect();
+    const { jsonString, filename } = generateJsonExport(activeQuestions, {
+      scope: useSelectionOnly ? 'SELECTED' : 'ALL',
+      includeAnswers: showAnswers,
+      includeExplanations: showExplanations,
+      includeMetadataEnvelope: true,
+      pretty: true
+    });
+    downloadJsonFile(jsonString, filename);
   };
 
   const getDifficultyText = (level?: string) => {
@@ -974,6 +990,16 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
 
           <button
             type="button"
+            onClick={handleExportJson}
+            className="px-3 py-1.5 border border-sky-400/40 bg-sky-500/15 hover:bg-sky-500/30 text-sky-200 hover:text-white rounded-[4px] transition text-xs font-mono font-bold cursor-pointer flex items-center gap-1.5"
+            title="Xuất các câu hỏi đang xem ra tệp JSON (.json) để chia sẻ ngoại tuyến"
+          >
+            <Download className="w-3.5 h-3.5 text-sky-300" />
+            <span className="hidden sm:inline">Xuất JSON</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => { vibrateTap(); onClose(); }}
             className="px-3.5 py-1.5 border border-white/20 rounded-[4px] text-slate-300 hover:text-white hover:bg-white/10 transition text-xs font-mono font-bold cursor-pointer"
           >
@@ -1363,13 +1389,15 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
             </div>
 
             {/* Sidebar Bottom Action Controls */}
-            <div className="p-3.5 bg-[#190839] border-t border-theme-accent/25 flex items-center gap-2 shrink-0">
+            <div className="p-3 bg-[#190839] border-t border-theme-accent/25 flex items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => { vibrateTap(); onClose(); }}
-                className="flex-1 py-2 rounded-[4px] border border-white/20 text-slate-300 hover:text-white hover:bg-white/10 font-bold text-xs transition cursor-pointer"
+                onClick={handleExportJson}
+                className="py-2 px-3 rounded-[4px] border border-sky-400/40 bg-sky-500/20 text-sky-200 hover:text-white hover:bg-sky-500/30 font-bold text-xs transition cursor-pointer flex items-center gap-1.5"
+                title="Tải tập tin JSON của các câu hỏi này"
               >
-                Hủy bỏ
+                <Download className="w-3.5 h-3.5" />
+                <span>JSON</span>
               </button>
               <button
                 type="button"

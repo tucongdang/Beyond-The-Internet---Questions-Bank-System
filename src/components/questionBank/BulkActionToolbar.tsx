@@ -38,6 +38,8 @@ interface BulkActionToolbarProps {
   onExportSelected: () => void;
   onCompareSelected?: () => void;
   onBatchAutoTag?: () => void;
+  onBatchDifficultySuggest?: () => void;
+  onDetectDuplicates?: () => void;
   onPrintSelected?: () => void;
   currentRoundName?: string;
   canApprove: boolean;
@@ -63,6 +65,8 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
   onExportSelected,
   onCompareSelected,
   onBatchAutoTag,
+  onBatchDifficultySuggest,
+  onDetectDuplicates,
   onPrintSelected,
   currentRoundName,
   canApprove,
@@ -269,6 +273,40 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
                 </button>
               )}
 
+              {/* Batch Difficulty Suggestion Advisor button */}
+              {onBatchDifficultySuggest && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateTap();
+                    soundFx.playClick();
+                    onBatchDifficultySuggest();
+                  }}
+                  className="px-3 py-1.5 rounded-[4px] bg-gradient-to-r from-amber-600/40 to-orange-600/40 hover:from-amber-600/60 hover:to-orange-600/60 text-amber-200 hover:text-white border border-amber-400/40 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+                  title="Gợi ý & chuẩn hóa mức độ nhận thức (độ khó) bằng cách đối chiếu độ phức tạp với các câu hỏi đã thẩm định trong ngân hàng"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Advisor Độ Khó</span>
+                </button>
+              )}
+
+              {/* Detect Duplicates AI button */}
+              {onDetectDuplicates && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateTap();
+                    soundFx.playClick();
+                    onDetectDuplicates();
+                  }}
+                  className="px-3 py-1.5 rounded-[4px] bg-gradient-to-r from-rose-600/40 to-purple-600/40 hover:from-rose-600/60 hover:to-purple-600/60 text-rose-200 hover:text-white border border-rose-400/50 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+                  title="Phát hiện câu hỏi trùng lặp hoặc chồng lấn miền tri thức bằng AI"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-rose-300 animate-pulse" />
+                  <span>Detect Duplicates AI</span>
+                </button>
+              )}
+
               {/* Batch Approve button */}
               {canApprove && onBatchApprove && (
                 <button
@@ -312,11 +350,11 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
                   soundFx.playClick();
                   onExportSelected();
                 }}
-                className="px-3 py-1.5 rounded-[4px] bg-sky-600/30 hover:bg-sky-600/50 text-sky-200 hover:text-white border border-sky-400/30 text-xs font-medium flex items-center gap-1.5 transition cursor-pointer"
-                title="Xuất các câu hỏi đã chọn ra tệp dữ liệu"
+                className="px-3 py-1.5 rounded-[4px] bg-sky-600/30 hover:bg-sky-600/50 text-sky-200 hover:text-white border border-sky-400/40 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+                title="Xuất các câu hỏi đã chọn ra tệp PDF hoặc JSON để in ấn và chia sẻ ngoại tuyến"
               >
-                <Download className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Xuất JSON</span>
+                <Download className="w-3.5 h-3.5 text-sky-300" />
+                <span className="hidden sm:inline">Xuất PDF • JSON ({selectedCount})</span>
               </button>
 
               {/* Dedicated Print Preview for Selected Questions */}

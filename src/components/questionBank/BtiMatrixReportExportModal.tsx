@@ -109,9 +109,15 @@ export const BtiMatrixReportExportModal: React.FC<BtiMatrixReportExportModalProp
     vibrateTap();
     soundFx.playClick();
 
-    // Create print window with A4 styled HTML document
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    // Create hidden iframe for printing
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -231,14 +237,25 @@ export const BtiMatrixReportExportModal: React.FC<BtiMatrixReportExportModalProp
         </div>
 
         <script>
-          window.onload = function() { window.print(); }
-        </script>
       </body>
       </html>
     `;
 
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(htmlContent);
+      doc.close();
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
+        }, 2000);
+      }, 400);
+    }
   };
 
   return (

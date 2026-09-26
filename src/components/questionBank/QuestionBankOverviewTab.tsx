@@ -15,13 +15,16 @@ import {
   BookOpen,
   Zap,
   ArrowRight,
-  Plus
+  Plus,
+  ShieldAlert
 } from 'lucide-react';
 import { QuestionItem, BtiRoundGroupKey, DigitalCompetencyDomainKey } from '../../types';
 import { DIGITAL_COMPETENCY_DOMAINS } from '../../data/digitalCompetencyData';
 import { QuestionBankStatsWidget } from './QuestionBankStatsWidget';
 import { DashboardOverviewHeader } from './DashboardOverviewHeader';
 import { BtiMatrixOverviewWidget } from './BtiMatrixOverviewWidget';
+import { KnowledgeAreaDifficultyWidget } from './KnowledgeAreaDifficultyWidget';
+import { DifficultyTrendChart30D } from './DifficultyTrendChart30D';
 import { soundFx } from '../../services/audioEffects';
 import { vibrateTap } from '../../utils/hapticUtils';
 
@@ -31,10 +34,12 @@ interface QuestionBankOverviewTabProps {
   onNavigateTab: (tab: 'QUESTIONS' | 'MODERATION' | 'AI_STUDIO' | 'EXCEL_HUB' | 'SCENARIOS' | 'LEGAL_DOCS' | 'MATRIX') => void;
   onFilterRound: (round: BtiRoundGroupKey) => void;
   onFilterLevel: (level: string) => void;
+  onFilterDomain?: (domain: string) => void;
   onFilterStatus: (status: string) => void;
   onOpenAddQuestion: () => void;
   onOpenBulkImport: () => void;
   onOpenExamGenerator: () => void;
+  onOpenDuplicateChecker?: () => void;
 }
 
 export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = ({
@@ -43,10 +48,12 @@ export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = (
   onNavigateTab,
   onFilterRound,
   onFilterLevel,
+  onFilterDomain,
   onFilterStatus,
   onOpenAddQuestion,
   onOpenBulkImport,
-  onOpenExamGenerator
+  onOpenExamGenerator,
+  onOpenDuplicateChecker
 }) => {
   const totalQuestions = questions.length;
 
@@ -211,10 +218,30 @@ export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = (
         defaultExpanded={true}
       />
 
-      {/* MA TRẬN ĐỘ PHỦ KHUNG NĂNG LỰC BTI 2026 (RECHARTS CHART) */}
-      <BtiMatrixOverviewWidget
+      {/* 2. MA TRẬN ĐỘ PHỦ & PHÂN BỐ MIỀN TRI THỨC VỚI 4 MỨC ĐỘ NHẬN THỨC (RECHARTS WIDGET) */}
+      <KnowledgeAreaDifficultyWidget
         questions={questions}
+        onFilterDomainAndLevel={(domainKey, level) => {
+          vibrateTap();
+          soundFx.playClick();
+          if (domainKey && domainKey !== 'ALL') {
+            onFilterDomain?.(domainKey);
+          }
+          if (level) {
+            onFilterLevel(level);
+          }
+          onNavigateTab('QUESTIONS');
+        }}
         onOpenFullMatrix={() => onNavigateTab('MATRIX')}
+      />
+
+      {/* 2B. BIỂU ĐỒ ĐƯỜNG BIẾN THIÊN ĐỘ KHÓ TRUNG BÌNH 30 NGÀY QUA */}
+      <DifficultyTrendChart30D
+        questions={questions}
+        daysRange={30}
+        onFilterLevel={(lvl) => {
+          onFilterLevel(lvl);
+        }}
       />
 
       {/* 3. PHÂN BỔ 4 PHẦN THI GAMESHOW BTI 2026 */}
@@ -570,14 +597,16 @@ export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = (
                   soundFx.playClick();
                   onOpenExamGenerator();
                 }}
-                className="p-3 rounded bg-white/5 hover:bg-amber-500/15 border border-white/10 hover:border-amber-400/40 text-left transition flex flex-col justify-between group cursor-pointer"
+                className="p-3 rounded bg-amber-500/10 hover:bg-amber-500/25 border border-amber-500/30 hover:border-amber-400/60 text-left transition flex flex-col justify-between group cursor-pointer shadow-sm"
               >
-                <div className="w-8 h-8 rounded bg-amber-500/20 text-amber-300 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
-                  <Award className="w-4 h-4" />
+                <div className="w-8 h-8 rounded bg-amber-500/20 text-amber-300 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform border border-amber-400/40">
+                  <Sparkles className="w-4 h-4 text-amber-300" />
                 </div>
                 <div>
-                  <span className="text-xs font-bold text-white block group-hover:text-amber-300 transition">Xuất Đề Thi</span>
-                  <span className="text-[10px] text-white/50 block font-mono">Trộn đề ngẫu nhiên</span>
+                  <span className="text-xs font-bold text-white block group-hover:text-amber-300 transition flex items-center gap-1">
+                    <span>Tạo Đề Thi Thử AI</span>
+                  </span>
+                  <span className="text-[10px] text-amber-200/70 block font-mono">Cân bằng ma trận độ khó</span>
                 </div>
               </button>
 
@@ -616,6 +645,29 @@ export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = (
                   <span className="text-[10px] text-white/50 block font-mono">Tải template</span>
                 </div>
               </button>
+
+              {onOpenDuplicateChecker && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateTap();
+                    soundFx.playClick();
+                    onOpenDuplicateChecker();
+                  }}
+                  className="p-3 rounded bg-rose-500/10 hover:bg-rose-500/25 border border-rose-500/30 hover:border-rose-400/60 text-left transition flex flex-col justify-between group cursor-pointer shadow-sm"
+                >
+                  <div className="w-8 h-8 rounded bg-rose-500/25 text-rose-300 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform border border-rose-400/40">
+                    <ShieldAlert className="w-4 h-4 text-rose-300" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block group-hover:text-rose-300 transition flex items-center gap-1">
+                      <span>Detect Duplicates</span>
+                      <Sparkles className="w-3 h-3 text-amber-300" />
+                    </span>
+                    <span className="text-[10px] text-rose-200/70 block font-mono">Rà soát trùng lặp AI</span>
+                  </div>
+                </button>
+              )}
             </div>
           </div>
         </div>

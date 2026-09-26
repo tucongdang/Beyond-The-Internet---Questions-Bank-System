@@ -57,6 +57,7 @@ import { DIGITAL_COMPETENCY_DOMAINS } from '../../data/digitalCompetencyData';
 import { questionBankManager } from '../../services/questionBankManager';
 import { BtiMatrixReportExportModal } from './BtiMatrixReportExportModal';
 import { BtiCompetencyVisualDashboard } from './BtiCompetencyVisualDashboard';
+import { BtiQuestionCoverageHeatmapView } from './BtiQuestionCoverageHeatmapView';
 import { soundFx } from '../../services/audioEffects';
 import { vibrateTap, vibrateSuccess } from '../../utils/hapticUtils';
 
@@ -654,195 +655,20 @@ export const BtiCompetencyMatrixDashboard: React.FC<BtiCompetencyMatrixDashboard
         </div>
       )}
 
-      {/* VIEW MODE 1: 6x4 CELL HEATMAP MATRIX */}
+      {/* VIEW MODE 1: 6x4 CELL HEATMAP MATRIX & MULTI-DIMENSIONAL HEATMAP */}
       {viewMode === 'CELL_HEATMAP' && (
-        <div className="space-y-4">
-          <div className="overflow-x-auto rounded-[4px] border border-purple-500/30">
-            <table className="w-full text-left text-xs border-collapse font-mono">
-              <thead>
-                <tr className="bg-[#120424] border-b border-purple-500/30 text-purple-200">
-                  <th className="p-3.5 min-w-[200px]">Miền Năng Lực Số (TT 02/2025)</th>
-                  <th className="p-3 text-center min-w-[130px]">
-                    <div className="flex items-center justify-center gap-1 text-sky-300 font-bold">
-                      <Target className="w-3.5 h-3.5" />
-                      <span>Nhận Biết (B1-B2)</span>
-                    </div>
-                  </th>
-                  <th className="p-3 text-center min-w-[130px]">
-                    <div className="flex items-center justify-center gap-1 text-emerald-300 font-bold">
-                      <Zap className="w-3.5 h-3.5" />
-                      <span>Thông Hiểu (B3-B4)</span>
-                    </div>
-                  </th>
-                  <th className="p-3 text-center min-w-[130px]">
-                    <div className="flex items-center justify-center gap-1 text-amber-300 font-bold">
-                      <Flame className="w-3.5 h-3.5" />
-                      <span>Vận Dụng (B5-B6)</span>
-                    </div>
-                  </th>
-                  <th className="p-3 text-center min-w-[130px]">
-                    <div className="flex items-center justify-center gap-1 text-rose-300 font-bold">
-                      <Crown className="w-3.5 h-3.5" />
-                      <span>Vận Dụng Cao (B7-B8)</span>
-                    </div>
-                  </th>
-                  <th className="p-3 text-center min-w-[100px] text-white font-bold bg-[#1B083A]">
-                    Tổng Miền
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-purple-500/20 bg-[#16072D]">
-                {domainKeys.map(dKey => {
-                  const dom = DIGITAL_COMPETENCY_DOMAINS[dKey];
-                  const domainTotal = matrixStats.domainTotals[dKey];
-
-                  return (
-                    <tr key={dKey} className="hover:bg-purple-950/20 transition">
-                      
-                      {/* Domain Info Header */}
-                      <td className="p-3.5 font-bold border-r border-purple-500/20">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 text-[10px] rounded font-bold" style={{ backgroundColor: dom.bgLight, color: dom.color, border: `1px solid ${dom.borderColor}` }}>
-                              {dom.code}
-                            </span>
-                            <span className="text-white text-xs font-semibold">{dom.name}</span>
-                          </div>
-                          <p className="text-[10.5px] text-slate-400 font-sans line-clamp-1">
-                            {dom.description}
-                          </p>
-                        </div>
-                      </td>
-
-                      {/* 4 Cognitive Level Cells */}
-                      {cognitiveLevels.map(lvl => {
-                        const cellList = matrixStats.grid[dKey][lvl];
-                        const count = cellList.length;
-                        const status = getCellStatusStyle(count);
-                        const isSelected = selectedCell?.domain === dKey && selectedCell?.level === lvl;
-
-                        return (
-                          <td 
-                            key={lvl}
-                            onClick={() => {
-                              vibrateTap();
-                              soundFx.playClick();
-                              setSelectedCell({ domain: dKey, level: lvl });
-                            }}
-                            className={`p-3 text-center border-r border-purple-500/20 cursor-pointer transition-all relative ${status.bg} ${
-                              isSelected ? 'ring-2 ring-amber-400 bg-amber-950/50 shadow-inner' : ''
-                            }`}
-                          >
-                            <div className="flex flex-col items-center justify-center space-y-1">
-                              <span className={`text-base font-black ${status.text}`}>
-                                {count} <span className="text-[10px] font-normal text-slate-400">câu</span>
-                              </span>
-
-                              <span className={`px-1.5 py-0.2 text-[9.5px] rounded border ${status.badge}`}>
-                                {count === 0 ? 'TRẮNG 0' : count >= targetPerCell ? 'ĐẠT' : `THIẾU (${count}/${targetPerCell})`}
-                              </span>
-
-                              {/* Quick AI Add Button for Empty or Low Cells */}
-                              {count < targetPerCell && onNavigateToAIStudio && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    vibrateTap();
-                                    soundFx.playClick();
-                                    onNavigateToAIStudio({ domain: dKey, level: lvl });
-                                  }}
-                                  className="mt-1 px-2 py-0.5 text-[9.5px] bg-amber-500/20 hover:bg-amber-500/40 text-amber-200 border border-amber-400/40 rounded flex items-center gap-1 transition cursor-pointer"
-                                  title={`Tạo câu hỏi AI cho ${dom.code} - ${lvl}`}
-                                >
-                                  <Sparkles className="w-2.5 h-2.5 text-amber-300" />
-                                  <span>+ AI</span>
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        );
-                      })}
-
-                      {/* Domain Total */}
-                      <td className="p-3 text-center bg-[#1B083A] font-bold text-amber-300 text-sm font-mono">
-                        {domainTotal}
-                      </td>
-                    </tr>
-                  );
-                })}
-
-                {/* Cognitive Levels Total Row */}
-                <tr className="bg-[#120424] font-bold border-t-2 border-purple-500/40">
-                  <td className="p-3 text-white font-mono uppercase">Tổng Theo Mức Độ</td>
-                  {cognitiveLevels.map(lvl => (
-                    <td key={lvl} className="p-3 text-center text-amber-300 text-sm font-mono">
-                      {matrixStats.levelTotals[lvl]}
-                    </td>
-                  ))}
-                  <td className="p-3 text-center text-emerald-400 text-base font-black bg-[#1F083F]">
-                    {totalQuestions}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* Drill-down Drawer for Selected Matrix Cell */}
-          {selectedCell && (
-            <div className="fluent-card p-4 rounded-[4px] bg-[#130425] border border-amber-500/40 space-y-3 animate-fadeIn">
-              <div className="flex items-center justify-between border-b border-amber-500/20 pb-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-1 text-xs font-mono font-bold rounded bg-amber-500/20 text-amber-300 border border-amber-400/40">
-                    {DIGITAL_COMPETENCY_DOMAINS[selectedCell.domain]?.code}: {DIGITAL_COMPETENCY_DOMAINS[selectedCell.domain]?.name}
-                  </span>
-                  <span className="text-xs font-mono text-purple-300">
-                    Mức độ: <strong>{selectedCell.level}</strong> ({cellQuestions.length} câu)
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {onFilterMatrixCell && (
-                    <button
-                      type="button"
-                      onClick={() => onFilterMatrixCell(selectedCell.domain, selectedCell.level)}
-                      className="px-3 py-1 bg-amber-500/20 hover:bg-amber-500/40 text-amber-200 border border-amber-400/40 rounded text-xs font-mono font-bold flex items-center gap-1 transition cursor-pointer"
-                    >
-                      <Filter className="w-3.5 h-3.5" />
-                      <span>Lọc Trong Kho Câu Hỏi</span>
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCell(null)}
-                    className="p-1 text-slate-400 hover:text-white rounded"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-
-              {/* Cell Questions List */}
-              <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
-                {cellQuestions.length === 0 ? (
-                  <p className="text-xs text-rose-300 italic py-2">
-                    Chưa có câu hỏi nào trong ô ma trận này. Hãy dùng nút "+ AI" để soạn thảo bổ sung.
-                  </p>
-                ) : (
-                  cellQuestions.map(q => (
-                    <div key={q.id} className="p-2.5 rounded bg-[#1C093B] border border-purple-500/20 text-xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono font-bold text-amber-300">{q.id}</span>
-                        <span className="text-[10.5px] text-slate-400 font-mono">{q.round_name}</span>
-                      </div>
-                      <p className="text-slate-200 font-sans line-clamp-2">{q.question_text}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+        <BtiQuestionCoverageHeatmapView
+          questions={questions}
+          onFilterMatrixCell={(domain, level, category) => {
+            vibrateTap();
+            soundFx.playClick();
+            if (onFilterMatrixCell) {
+              onFilterMatrixCell(domain as DigitalCompetencyDomainKey, level);
+            }
+          }}
+          onNavigateToAIStudio={onNavigateToAIStudio}
+          onOpenAddQuestion={onOpenAddQuestion}
+        />
       )}
 
       {/* VIEW MODE 2: SUB-COMPETENCY DETAILED MATRIX (24 Items) */}

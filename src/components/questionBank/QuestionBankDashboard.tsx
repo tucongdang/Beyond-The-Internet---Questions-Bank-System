@@ -48,8 +48,12 @@ import {
   GripVertical,
   ShieldAlert,
   Camera,
-  HardDrive
+  HardDrive,
+  Grid,
+  Database,
+  RotateCcw
 } from 'lucide-react';
+import { questionDraftService, QuestionDraft } from '../../services/questionDraftService';
 import { 
   QuestionItem, 
   CompetitionStage, 
@@ -74,6 +78,7 @@ import { ExcelTemplateHub } from './ExcelTemplateHub';
 import { InteractiveScenarioEditor } from './InteractiveScenarioEditor';
 import { LegalDocumentLibrary } from './LegalDocumentLibrary';
 import { RandomExamGeneratorModal } from './RandomExamGeneratorModal';
+import { AiMockQuizGeneratorModal } from './AiMockQuizGeneratorModal';
 import { UserRoleManagerModal } from './UserRoleManagerModal';
 import { QuestionEditorModal } from './QuestionEditorModal';
 import { BulkQuestionImportModal } from './BulkQuestionImportModal';
@@ -86,6 +91,7 @@ import { CustomTagsManagerModal } from './CustomTagsManagerModal';
 import { CustomCategoriesManagerModal } from './CustomCategoriesManagerModal';
 import { DuplicateCheckerModal } from './DuplicateCheckerModal';
 import { PrintPreviewModal } from './PrintPreviewModal';
+import { QuestionExportModal } from './QuestionExportModal';
 import { QuestionQuickPreviewModal } from './QuestionQuickPreviewModal';
 import { QuestionQuickReviewModal } from './QuestionQuickReviewModal';
 import { questionReviewService, getStatusInfo } from '../../services/questionReviewService';
@@ -105,11 +111,13 @@ import { ModeratorReviewView } from './ModeratorReviewView';
 import { QuestionBankOverviewTab } from './QuestionBankOverviewTab';
 import { DashboardOverviewHeader } from './DashboardOverviewHeader';
 import { BtiCompetencyMatrixDashboard } from './BtiCompetencyMatrixDashboard';
+import { BtiQuestionCoverageHeatmapView } from './BtiQuestionCoverageHeatmapView';
 import { QuestionBankToastContainer, useQuestionBankToasts } from './QuestionBankToast';
 import { generateAutoTagsWithAI, mergeTagsList } from '../../services/aiAutoTaggingService';
 import { batchClassifyAndTagWithMatrix } from '../../services/smartCategorizationService';
 import { BulkUpdatePreviewModal, BulkPreviewItem } from './BulkUpdatePreviewModal';
 import { DifficultyBadgeAndMeter } from './DifficultyBadgeAndMeter';
+import { DifficultyBatchSuggestionModal } from './DifficultyBatchSuggestionModal';
 import { 
   fullTextSearchQuestions, 
   SearchResultItem, 
@@ -226,6 +234,38 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
   const [selectedDriveFile, setSelectedDriveFile] = useState<PickedDriveFile | null>(null);
   const [isDrivePickerLoading, setIsDrivePickerLoading] = useState<boolean>(false);
 
+  // IndexedDB Auto-Saved Draft detection for easy resume after page refresh or navigation
+  const [unsavedIndexedDbDraft, setUnsavedIndexedDbDraft] = useState<QuestionDraft | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkUnsavedDraft = async () => {
+      try {
+        const draft = await questionDraftService.getDraftFromIndexedDB('new');
+        if (!isMounted) return;
+        if (draft && questionDraftService.isMeaningful(draft)) {
+          setUnsavedIndexedDbDraft(draft);
+        } else {
+          setUnsavedIndexedDbDraft(null);
+        }
+      } catch (err) {
+        console.warn('[QuestionBankDashboard] Error checking IndexedDB draft:', err);
+      }
+    };
+
+    checkUnsavedDraft();
+
+    const handleDraftUpdated = () => checkUnsavedDraft();
+    window.addEventListener('bti:draft-saved', handleDraftUpdated);
+    window.addEventListener('bti:draft-cleared', handleDraftUpdated);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('bti:draft-saved', handleDraftUpdated);
+      window.removeEventListener('bti:draft-cleared', handleDraftUpdated);
+    };
+  }, []);
+
   // Pre-load Google Picker client library on dashboard mount
   useEffect(() => {
     loadPickerApi().catch((err) => {
@@ -326,7 +366,9 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
   const [showTagsManagerModal, setShowTagsManagerModal] = useState<boolean>(false);
   const [showCategoriesManagerModal, setShowCategoriesManagerModal] = useState<boolean>(false);
   const [showDuplicateCheckerModal, setShowDuplicateCheckerModal] = useState<boolean>(false);
+  const [showDifficultyBatchModal, setShowDifficultyBatchModal] = useState<boolean>(false);
   const [showPrintPreviewModal, setShowPrintPreviewModal] = useState<boolean>(false);
+  const [showExportModal, setShowExportModal] = useState<boolean>(false);
   const [showBtiMatrixQuickPopup, setShowBtiMatrixQuickPopup] = useState<boolean>(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState<boolean>(false);
   const [historyQuestion, setHistoryQuestion] = useState<QuestionItem | null>(null);
@@ -397,11 +439,11 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
     }
   };
 
-  // View mode: 'compact' (Bảng rút gọn - high density) vs 'detailed' (Thẻ chi tiết)
-  const [viewMode, setViewMode] = useState<'compact' | 'detailed'>(() => {
+  // View mode: 'compact' (Bảng rút gọn - high density) vs 'detailed' (Thẻ chi tiết) vs 'heatmap' (Ma trận độ phủ trực quan)
+  const [viewMode, setViewMode] = useState<'compact' | 'detailed' | 'heatmap'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('bti_qb_view_mode');
-      if (saved === 'compact' || saved === 'detailed') return saved;
+      if (saved === 'compact' || saved === 'detailed' || saved === 'heatmap') return saved;
     }
     return 'compact';
   });
@@ -436,7 +478,7 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
     setExpandedCompactIds(new Set());
   };
 
-  const handleSwitchViewMode = (mode: 'compact' | 'detailed') => {
+  const handleSwitchViewMode = (mode: 'compact' | 'detailed' | 'heatmap') => {
     vibrateTap();
     soundFx.playClick();
     setViewMode(mode);
@@ -874,18 +916,9 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
   };
 
   const handleExportSelected = () => {
-    if (selectedIds.size === 0) return;
     vibrateTap();
     soundFx.playClick();
-    const selectedList = questions.filter(q => selectedIds.has(q.id));
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(selectedList, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `BTI_2026_Selected_${selectedIds.size}_Questions_${new Date().toISOString().slice(0, 10)}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-    addToast('Đã xuất dữ liệu', `Đã tải về tệp JSON chứa ${selectedIds.size} câu hỏi được chọn.`, 'info');
+    setShowExportModal(true);
   };
 
   const handlePopulateSampleVcnv = (q: QuestionItem) => {
@@ -998,6 +1031,7 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
         showTagsManagerModal ||
         showCategoriesManagerModal ||
         showPrintPreviewModal ||
+        showExportModal ||
         showShortcutsModal ||
         isCompareModalOpen ||
         Boolean(previewQuestion) ||
@@ -1046,6 +1080,16 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
         vibrateTap();
         soundFx.playClick();
         setShowPrintPreviewModal(true);
+        return;
+      }
+
+      // 5b. SHORTCUT: Ctrl + E / Cmd + E -> Export Questions (PDF / JSON)
+      if (isModifier && (e.key === 'e' || e.key === 'E')) {
+        e.preventDefault();
+        e.stopPropagation();
+        vibrateTap();
+        soundFx.playClick();
+        setShowExportModal(true);
         return;
       }
 
@@ -1146,6 +1190,22 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
         return;
       }
 
+      // 13b. SHORTCUT: Alt + H -> Toggle Heatmap View
+      if (e.altKey && (e.key === 'h' || e.key === 'H')) {
+        e.preventDefault();
+        e.stopPropagation();
+        vibrateTap();
+        soundFx.playClick();
+        setViewMode(prev => {
+          const next = prev === 'heatmap' ? 'compact' : 'heatmap';
+          try {
+            localStorage.setItem('bti_qb_view_mode', next);
+          } catch {}
+          return next;
+        });
+        return;
+      }
+
       // 14. SHORTCUT: Alt + F -> Toggle Focus Mode
       if (e.altKey && (e.key === 'f' || e.key === 'F')) {
         e.preventDefault();
@@ -1189,7 +1249,7 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
   }, [
     showAddQuestionModal, showExamModal, showUserModal, showBulkImportModal,
     showBulkCategoryModal, showBulkDeleteModal, showTagsManagerModal,
-    showCategoriesManagerModal, showPrintPreviewModal, showShortcutsModal,
+    showCategoriesManagerModal, showPrintPreviewModal, showExportModal, showShortcutsModal,
     isCompareModalOpen, previewQuestion, historyQuestion, activeTab, selectedIds,
     filteredQuestions
   ]);
@@ -1398,10 +1458,24 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                     setShowPrintPreviewModal(true);
                   }}
                   className="fluent-btn-secondary px-3.5 py-2 text-xs flex items-center gap-2 cursor-pointer rounded-[4px]"
-                  title="Xem Trước & In (PDF)"
+                  title="Xem Trước & In A4 (PDF)"
                 >
                   <Printer className="w-4 h-4 text-emerald-400" />
-                  <span>In / Xuất PDF</span>
+                  <span>In / Xem A4</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateTap();
+                    soundFx.playClick();
+                    setShowExportModal(true);
+                  }}
+                  className="px-3.5 py-2 bg-gradient-to-r from-sky-600/30 via-indigo-600/30 to-purple-600/30 hover:from-sky-600/50 hover:to-indigo-600/50 border border-sky-400/50 rounded-[4px] flex items-center gap-2 text-xs font-bold text-sky-200 cursor-pointer shadow-sm transition"
+                  title="Xuất Ngân Hàng Câu Hỏi thành tệp PDF hoặc JSON để in ấn và chia sẻ ngoại tuyến (Ctrl + E)"
+                >
+                  <Download className="w-4 h-4 text-sky-300" />
+                  <span>Xuất Đề (PDF • JSON)</span>
                 </button>
 
                 <button
@@ -1411,10 +1485,15 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                     soundFx.playClick();
                     setShowExamModal(true);
                   }}
-                  className="fluent-btn-secondary px-3.5 py-2 text-xs flex items-center gap-2 cursor-pointer rounded-[4px]"
+                  className="px-3.5 py-2 bg-gradient-to-r from-amber-500/30 via-orange-500/30 to-purple-600/30 hover:from-amber-500/40 hover:to-purple-600/40 border border-amber-400/50 rounded-[4px] flex items-center gap-2 text-xs font-bold text-amber-200 cursor-pointer shadow-sm transition"
+                  title="AI Mock Quiz Generator - Tự động tạo đề thi thử cân bằng độ khó & miền tri thức"
+                  data-testid="ai-mock-quiz-generator-button"
                 >
-                  <Dices className="w-4 h-4 text-amber-400" />
-                  <span>Xuất Đề Ngẫu Nhiên</span>
+                  <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+                  <span>AI Mock Quiz Generator</span>
+                  <span className="hidden sm:inline-block px-1.5 py-0.2 rounded text-[9.5px] font-mono bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                    Auto-Balance
+                  </span>
                 </button>
 
                 <button
@@ -1439,10 +1518,14 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                     setShowDuplicateCheckerModal(true);
                   }}
                   className="px-3.5 py-2 bg-gradient-to-r from-rose-600/40 via-rose-700/50 to-purple-800/50 hover:from-rose-500/50 hover:to-purple-700/60 border border-rose-500/50 rounded-[4px] flex items-center gap-2 text-xs font-bold text-rose-200 cursor-pointer shadow-sm transition"
-                  title="Quét & Xử Lý Câu Hỏi Trùng Lặp (Duplicate Checker)"
+                  title="Detect Duplicates - Quét & Xử Lý Câu Hỏi Trùng Lặp bằng AI Gemini"
+                  data-testid="detect-duplicates-button"
                 >
                   <ShieldAlert className="w-4 h-4 text-rose-300" />
-                  <span>Rà Soát Trùng Lặp</span>
+                  <span>Detect Duplicates AI</span>
+                  <span className="hidden sm:inline-block px-1.5 py-0.2 rounded text-[9.5px] font-mono bg-rose-500/20 text-rose-300 border border-rose-400/30">
+                    Gemini 3.8
+                  </span>
                 </button>
 
                 <button
@@ -1523,6 +1606,61 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             <Keyboard className="w-3.5 h-3.5 text-purple-300" />
             <span>Tất cả phím tắt [Ctrl + K]</span>
           </button>
+        </div>
+      )}
+
+      {/* Unsaved IndexedDB Draft Resume Alert Banner */}
+      {unsavedIndexedDbDraft && !showAddQuestionModal && (
+        <div className="p-3 sm:p-3.5 rounded-[6px] bg-gradient-to-r from-amber-950/90 via-[#2e150a] to-amber-950/90 border-2 border-amber-500/70 shadow-2xl flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 text-xs">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-[4px] bg-amber-500 text-slate-950 flex items-center justify-center font-bold shrink-0 shadow">
+              <Database className="w-4 h-4 text-slate-950 animate-pulse" />
+            </div>
+            <div className="min-w-0 space-y-0.5">
+              <div className="flex items-center gap-2 flex-wrap font-mono">
+                <span className="font-bold text-amber-200">
+                  ⚡ Bạn có bản nháp câu hỏi chưa lưu trong IndexedDB:
+                </span>
+                <span className="px-2 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px]">
+                  {questionDraftService.formatFriendlyTime(unsavedIndexedDbDraft.savedAt)}
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-100/90 font-sans truncate max-w-xl">
+                {unsavedIndexedDbDraft.titleSnippet ? `"${unsavedIndexedDbDraft.titleSnippet}"` : 'Bản nháp đang soạn thảo dở dang'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 font-mono">
+            <button
+              type="button"
+              onClick={() => {
+                vibrateTap();
+                soundFx.playCorrect();
+                setSelectedQuestion(null);
+                setShowAddQuestionModal(true);
+              }}
+              className="px-3.5 py-1.5 rounded-[4px] bg-gradient-to-r from-amber-400 to-amber-500 hover:brightness-110 text-slate-950 font-bold flex items-center gap-1.5 transition cursor-pointer shadow active:scale-95 text-xs"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
+              <span>Tiếp Tục Soạn Thảo (Resume)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                vibrateTap();
+                soundFx.playClick();
+                await questionDraftService.clearDraftFromIndexedDB('new');
+                setUnsavedIndexedDbDraft(null);
+                addToast('Đã xóa bản nháp', 'Bản nháp IndexedDB đã được dọn sạch.', 'info');
+              }}
+              className="px-2.5 py-1.5 rounded-[4px] bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition cursor-pointer border border-white/15"
+              title="Xóa bỏ bản nháp này"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-red-400" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -1700,6 +1838,10 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             setFilterLevel(lvl);
             setActiveTab('QUESTIONS');
           }}
+          onFilterDomain={(dom) => {
+            setFilterDomain(dom);
+            setActiveTab('QUESTIONS');
+          }}
           onFilterStatus={(st) => {
             setFilterStatus(st);
             setActiveTab('QUESTIONS');
@@ -1713,6 +1855,9 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
           }}
           onOpenExamGenerator={() => {
             setShowExamModal(true);
+          }}
+          onOpenDuplicateChecker={() => {
+            setShowDuplicateCheckerModal(true);
           }}
         />
       )}
@@ -1841,6 +1986,8 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
               onBatchApprove={handleBatchApprove}
               onBatchRevert={handleBatchRevert}
               onBatchAutoTag={handleBatchAutoTag}
+              onBatchDifficultySuggest={() => setShowDifficultyBatchModal(true)}
+              onDetectDuplicates={() => setShowDuplicateCheckerModal(true)}
               onChangeStatus={handleBatchStatusChange}
               onExportSelected={handleExportSelected}
               onCompareSelected={() => setIsCompareModalOpen(true)}
@@ -1890,6 +2037,23 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                 >
                   <LayoutList className="w-3.5 h-3.5" />
                   <span>Thẻ Chi Tiết</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSwitchViewMode('heatmap')}
+                  className={`px-2.5 py-1 rounded-[2px] text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                    viewMode === 'heatmap'
+                      ? 'bg-gradient-to-r from-amber-400 to-amber-300 text-[#190839] shadow-sm font-black'
+                      : 'text-amber-300/80 hover:text-amber-200 hover:bg-white/5'
+                  }`}
+                  title="Chế độ xem Ma Trận Độ Phủ trực quan Heatmap 2D (Alt + H)"
+                >
+                  <Grid className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Ma Trận Heatmap</span>
+                  <span className="px-1 py-0.2 rounded text-[9px] font-mono bg-amber-950/60 text-amber-300 border border-amber-400/40">
+                    2D
+                  </span>
                 </button>
               </div>
 
@@ -1975,6 +2139,62 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                   <span className="hidden md:inline">Đánh lại mã</span>
                 </button>
               )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateTap();
+                  soundFx.playClick();
+                  setShowDuplicateCheckerModal(true);
+                }}
+                className="px-2.5 py-1 bg-rose-600/30 hover:bg-rose-600/45 border border-rose-400/50 text-rose-300 hover:text-white rounded-[3px] text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer shadow-sm active:scale-95"
+                title="Quét phát hiện câu hỏi trùng lặp & trùng lặp miền tri thức bằng AI Gemini"
+              >
+                <ShieldAlert className="w-3.5 h-3.5 text-rose-300 animate-pulse" />
+                <span className="hidden sm:inline">Detect Duplicates AI</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateTap();
+                  soundFx.playClick();
+                  setShowDifficultyBatchModal(true);
+                }}
+                className="px-2.5 py-1 bg-amber-600/30 hover:bg-amber-600/45 border border-amber-400/50 text-amber-300 hover:text-white rounded-[3px] text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer shadow-sm active:scale-95"
+                title="Gợi ý & chuẩn hóa độ khó tự động cho câu hỏi bằng phân tích độ phức tạp ngữ nghĩa đối chiếu ngân hàng đề"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">🎯 Advisor Độ Khó</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateTap();
+                  soundFx.playClick();
+                  setShowBulkImportModal(true);
+                }}
+                className="px-2.5 py-1 bg-emerald-600/30 hover:bg-emerald-600/45 border border-emerald-400/50 text-emerald-300 hover:text-white rounded-[3px] text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer shadow-sm active:scale-95"
+                title="Nhập câu hỏi hàng loạt từ tệp CSV, JSON, Excel hoặc Google Drive"
+              >
+                <Download className="w-3.5 h-3.5 rotate-180 text-emerald-400" />
+                <span className="hidden sm:inline">Nhập CSV / JSON</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateTap();
+                  soundFx.playClick();
+                  setShowExportModal(true);
+                }}
+                className="px-2.5 py-1 bg-sky-600/30 hover:bg-sky-600/45 border border-sky-400/50 text-sky-300 hover:text-white rounded-[3px] text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer shadow-sm active:scale-95"
+                title="Xuất đề thi dạng PDF hoặc JSON (Ctrl + E)"
+              >
+                <Download className="w-3.5 h-3.5 text-sky-300" />
+                <span className="hidden sm:inline">Xuất PDF/JSON</span>
+              </button>
 
               <button
                 type="button"
@@ -2076,6 +2296,42 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                 setShowGeminiScannerModal(true);
               }}
               onResetFilters={handleResetAllFilters}
+            />
+          ) : viewMode === 'heatmap' ? (
+            /* HEATMAP COVERAGE MATRIX VIEW */
+            <BtiQuestionCoverageHeatmapView
+              questions={questions}
+              onFilterMatrixCell={(domain, level, category) => {
+                vibrateTap();
+                soundFx.playClick();
+                if (category) {
+                  setFilterTopic(category);
+                } else if (domain) {
+                  setFilterDomain(domain);
+                }
+                if (level) {
+                  setFilterLevel(level);
+                }
+                setViewMode('compact');
+                addToast('Đã lọc câu hỏi theo ô ma trận', `Đang hiển thị các câu hỏi thuộc ô ${domain || category} - ${level}`, 'info');
+              }}
+              onOpenAddQuestion={(prefill) => {
+                vibrateTap();
+                soundFx.playClick();
+                if (prefill.domain) setEditorInitialDomain(prefill.domain);
+                setSelectedQuestion(null);
+                setShowAddQuestionModal(true);
+              }}
+              onNavigateToAIStudio={(prefill) => {
+                vibrateTap();
+                soundFx.playClick();
+                if (prefill.domain) setFilterDomain(prefill.domain);
+                if (prefill.level) setFilterLevel(prefill.level);
+                setActiveTab('AI_STUDIO');
+              }}
+              onSwitchToListView={() => handleSwitchViewMode('compact')}
+              currentFilterDomain={filterDomain}
+              currentFilterLevel={filterLevel}
             />
           ) : viewMode === 'compact' ? (
             /* COMPACT HIGH-DENSITY TABLE VIEW */
@@ -3204,10 +3460,18 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
         />
       )}
 
-            {/* Random Exam Generator Modal */}
+      {/* AI Mock Quiz & Balanced Exam Generator Modal */}
       {showExamModal && (
-        <RandomExamGeneratorModal 
+        <AiMockQuizGeneratorModal 
+          isOpen={showExamModal}
           onClose={() => setShowExamModal(false)}
+          onExamCreated={(exam) => {
+            addToast(
+              'Đã tạo đề thi thử AI thành công',
+              `Bộ đề "${exam.title}" (${exam.totalQuestions} câu) đã được tạo với tỷ lệ phân hóa cân bằng.`,
+              'success'
+            );
+          }}
         />
       )}
 
@@ -3217,6 +3481,17 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
         onClose={() => setShowPrintPreviewModal(false)}
         questions={filteredQuestions}
         selectedQuestions={questions.filter(q => selectedIds.has(q.id))}
+      />
+
+      {/* Question Export Modal (PDF & JSON) */}
+      <QuestionExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        allQuestions={questions}
+        filteredQuestions={filteredQuestions}
+        selectedQuestions={questions.filter(q => selectedIds.has(q.id))}
+        onOpenPrintPreview={() => setShowPrintPreviewModal(true)}
+        onToast={(title, msg, type) => addToast(title, msg, type)}
       />
 
       {/* User Role Modal */}
@@ -3418,6 +3693,11 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             setStats(questionBankManager.getMatrixStats());
           }}
           questions={questions}
+          onEditQuestion={(q) => {
+            setSelectedQuestion(q);
+            setShowAddQuestionModal(true);
+            setShowDuplicateCheckerModal(false);
+          }}
         />
       )}
 
@@ -3474,6 +3754,24 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             addToast(
               'Review nhanh thành công',
               `Câu hỏi ${updatedQ.id} đã chuyển trạng thái [${getStatusInfo(status).label}] và lưu trực tiếp vào Firestore.`,
+              'success'
+            );
+          }}
+        />
+      )}
+
+      {/* Difficulty Batch Suggestion Advisor Modal */}
+      {showDifficultyBatchModal && (
+        <DifficultyBatchSuggestionModal
+          isOpen={showDifficultyBatchModal}
+          questions={questions}
+          onClose={() => setShowDifficultyBatchModal(false)}
+          onApplyComplete={(updatedCount) => {
+            setQuestions(questionBankManager.getQuestions());
+            setStats(questionBankManager.getMatrixStats());
+            addToast(
+              'Chuẩn hóa độ khó thành công',
+              `Đã cập nhật mức độ nhận thức cho ${updatedCount} câu hỏi theo đề xuất của AI Difficulty Advisor.`,
               'success'
             );
           }}
