@@ -75,7 +75,7 @@ export const PasswordGate: React.FC<PasswordGateProps> = ({
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
-  const [regTechnicalRole, setRegTechnicalRole] = useState<TechnicalRole>('SERVER_OPERATOR');
+  const [regTechnicalRole, setRegTechnicalRole] = useState<TechnicalRole>('CONTRIBUTOR');
   const [regNote, setRegNote] = useState('');
   const [regCaptchaId, setRegCaptchaId] = useState('');
   const [regCaptchaAnswer, setRegCaptchaAnswer] = useState('');
@@ -193,6 +193,14 @@ export const PasswordGate: React.FC<PasswordGateProps> = ({
       });
 
       const data = await res.json();
+
+      // Check if account is pending approval
+      if (!res.ok && data.isPending) {
+        soundFx.playError();
+        vibrateError();
+        setError(data.error || 'Tài khoản của bạn đã được tạo và đang ở trạng thái CHỜ PHÊ DUYỆT từ Super Admin. Bạn có thể theo dõi tiến độ ở mục "Tra cứu".');
+        return;
+      }
 
       // Check if technical admin requires email verification
       if (!res.ok && data.requiresEmailVerification) {
@@ -433,7 +441,11 @@ export const PasswordGate: React.FC<PasswordGateProps> = ({
         setRegPassword('');
         setRegConfirmPassword('');
         setActiveTab('EMAIL_VERIFY');
-        setSuccessMsg('Đăng ký thành công! Firebase đã gửi email kích hoạt. Vui lòng bấm vào liên kết trong email (kiểm tra cả mục Thư rác/Spam) để hoàn tất.');
+        if (data.isPending) {
+          setSuccessMsg('Đăng ký thành công! Hệ thống đang kích hoạt chế độ kiểm duyệt thành viên mới (Strict Approval): Yêu cầu của bạn đã được chuyển vào hàng đợi CHỜ PHÊ DUYỆT từ Super Admin. Vui lòng bấm liên kết kích hoạt email do Firebase gửi.');
+        } else {
+          setSuccessMsg('Đăng ký thành công! Firebase đã gửi email kích hoạt. Vui lòng bấm vào liên kết trong email (kiểm tra cả mục Thư rác/Spam) để hoàn tất.');
+        }
       } else {
         soundFx.playError();
         vibrateError();
@@ -1042,7 +1054,7 @@ export const PasswordGate: React.FC<PasswordGateProps> = ({
                 className="text-[10px] sm:text-[11px] font-mono text-[#F7CAC9]/70 hover:text-[#F7CAC9] transition inline-flex items-center gap-1 cursor-pointer"
               >
                 <KeyRound className="w-3 h-3 shrink-0" />
-                <span>Trưởng Ban KT: Đăng nhập Master Key</span>
+                <span>Super Admin: Đăng nhập Master Key</span>
               </button>
             </div>
           </form>
@@ -1099,20 +1111,17 @@ export const PasswordGate: React.FC<PasswordGateProps> = ({
 
               <div>
                 <label className="block text-[10px] sm:text-[11px] font-mono font-bold text-white/70 mb-1">
-                  Vị trí chuyên trách *
+                  Vai trò chuyên trách (Nguyện vọng) *
                 </label>
                 <select
                   value={regTechnicalRole}
                   onChange={(e) => setRegTechnicalRole(e.target.value as TechnicalRole)}
                   className="w-full bg-[#0D0420] border border-white/10 hover:border-white/20 focus:border-sky-400 font-mono text-xs text-white px-2 py-1.5 sm:py-2 rounded-[2px] outline-none transition cursor-pointer"
                 >
-                  <option value="SUPER_ADMIN">🛡️ Super Admin (Toàn quyền)</option>
-                  <option value="HEAD_EDITOR">📝 Trưởng Ban Đề Thi (Phê duyệt)</option>
-                  <option value="EXAMINER">⚖️ Ban Giám Khảo (Khảo thí)</option>
-                  <option value="CONTRIBUTOR">✍️ Người Biên Soạn</option>
-                  <option value="SERVER_OPERATOR">🖥️ Máy chủ Realtime</option>
-                  <option value="LED_OPERATOR">📺 Màn chiếu LED</option>
-                  <option value="STAGE_COORDINATOR">🛠️ Sân khấu</option>
+                  <option value="CONTRIBUTOR">✍️ Người Biên Soạn (Soạn thảo &amp; đóng góp câu hỏi)</option>
+                  <option value="EXAMINER">⚖️ Ban Giám Khảo (Khảo thí &amp; chấm điểm)</option>
+                  <option value="HEAD_EDITOR">📝 Trưởng Ban Đề Thi (Thẩm định &amp; duyệt đề)</option>
+                  <option value="SUPER_ADMIN">🛡️ Super Admin (Quản trị hệ thống)</option>
                 </select>
               </div>
             </div>

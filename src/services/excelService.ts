@@ -13,6 +13,194 @@ export interface ParseExcelResult {
   warnings: string[];
 }
 
+export type MappedQuestionField = 
+  | 'id'
+  | 'question_text'
+  | 'option_a'
+  | 'option_b'
+  | 'option_c'
+  | 'option_d'
+  | 'option_e'
+  | 'correct_key'
+  | 'explanation'
+  | 'cognitive_level'
+  | 'digital_competency_domain'
+  | 'points'
+  | 'time_limit'
+  | 'legal_reference'
+  | 'round_name'
+  | 'media_url'
+  | 'audio_url'
+  | 'distractor_script'
+  | 'custom_constant'
+  | 'unmapped';
+
+export interface ColumnMappingItem {
+  colIndex: number;
+  originalHeader: string;
+  mappedField: MappedQuestionField;
+  constantValue?: string;
+  sampleValues: string[];
+  confidence?: number;
+}
+
+export interface CustomTemplateSheetBlueprint {
+  sheetName: string;
+  headerRowIndex: number;
+  preHeaderRows: any[][];
+  columns: ColumnMappingItem[];
+  totalSampleRows: number;
+}
+
+export interface CustomTemplateBlueprint {
+  id: string;
+  name: string;
+  analyzedAt: number;
+  systemName?: string;
+  aiSummary?: string;
+  sheets: CustomTemplateSheetBlueprint[];
+  targetSheetName: string;
+}
+
+export const MAPPED_FIELD_LABELS: Record<MappedQuestionField, string> = {
+  id: 'Mã câu / STT',
+  question_text: 'Nội dung câu hỏi (*)',
+  option_a: 'Phương án A / Ý a',
+  option_b: 'Phương án B / Ý b',
+  option_c: 'Phương án C / Ý c',
+  option_d: 'Phương án D / Ý d',
+  option_e: 'Phương án E',
+  correct_key: 'Đáp án đúng (*)',
+  explanation: 'Lời giải chi tiết / Hướng dẫn',
+  cognitive_level: 'Mức độ nhận thức',
+  digital_competency_domain: 'Miền năng lực số',
+  points: 'Điểm số',
+  time_limit: 'Thời gian (giây)',
+  legal_reference: 'Căn cứ pháp lý',
+  round_name: 'Vòng thi / Phần thi',
+  media_url: 'Ảnh / Video đính kèm',
+  audio_url: 'File âm thanh',
+  distractor_script: 'Kịch bản phương án sai / bẫy',
+  custom_constant: 'Giá trị cố định',
+  unmapped: 'Bỏ qua (Không sử dụng)'
+};
+
+/**
+ * Intelligent Column Matcher using regex heuristics
+ */
+export function detectColumnField(headerText: string, sampleValues: string[] = []): { field: MappedQuestionField; confidence: number } {
+  const norm = normVn(headerText).toLowerCase()
+    .replace(/[*_#:]/g, ' ')
+    .replace(/\s+/g, ' ');
+
+  const origNorm = (headerText || '').toLowerCase().trim();
+
+  // 1. Specific option columns
+  if (/\b(phuong an a|dap an a|lua chon a|cau a|y a|option a)\b/i.test(norm) || /^(\(?)a(\)?)[\.\s:]*$/i.test(origNorm)) {
+    return { field: 'option_a', confidence: 0.95 };
+  }
+  if (/\b(phuong an b|dap an b|lua chon b|cau b|y b|option b)\b/i.test(norm) || /^(\(?)b(\)?)[\.\s:]*$/i.test(origNorm)) {
+    return { field: 'option_b', confidence: 0.95 };
+  }
+  if (/\b(phuong an c|dap an c|lua chon c|cau c|y c|option c)\b/i.test(norm) || /^(\(?)c(\)?)[\.\s:]*$/i.test(origNorm)) {
+    return { field: 'option_c', confidence: 0.95 };
+  }
+  if (/\b(phuong an d|dap an d|lua chon d|cau d|y d|option d)\b/i.test(norm) || /^(\(?)d(\)?)[\.\s:]*$/i.test(origNorm)) {
+    return { field: 'option_d', confidence: 0.95 };
+  }
+  if (/\b(phuong an e|dap an e|lua chon e|cau e|y e|option e)\b/i.test(norm) || /^(\(?)e(\)?)[\.\s:]*$/i.test(origNorm)) {
+    return { field: 'option_e', confidence: 0.95 };
+  }
+
+  // 2. Question text
+  if (/\b(cau hoi|noi dung|de bai|question|prompt|cau|de)\b/i.test(norm) && !norm.includes('ma cau') && !norm.includes('so cau')) {
+    return { field: 'question_text', confidence: 0.95 };
+  }
+
+  // 3. Correct answer
+  if (/\b(dap an dung|dap an chuan|dap an chinh xac|khoa dap an|correct answer|correct key|key dap an|correct)\b/i.test(norm) ||
+      /^(\(?)dap an(\)?)[\.\s:]*$/i.test(norm) || /^(\(?)key(\)?)[\.\s:]*$/i.test(norm) || /^(\(?)ket qua(\)?)[\.\s:]*$/i.test(norm)) {
+    return { field: 'correct_key', confidence: 0.95 };
+  }
+
+  // 4. Explanation / Solution
+  if (/\b(giai thich|loi giai|huong dan giai|huong dan|chu thich|explanation|solution|feedback)\b/i.test(norm)) {
+    return { field: 'explanation', confidence: 0.9 };
+  }
+
+  // 5. Distractor Script / Phương án sai
+  if (/\b(kich ban sai|phuong an sai|kich ban|phan bien|bay|distractor)\b/i.test(norm)) {
+    return { field: 'distractor_script', confidence: 0.9 };
+  }
+
+  // 6. Cognitive Level / Mức độ nhận thức
+  if (/\b(muc do|nhan thuc|do kho|cognitive|level|bloom|cap do)\b/i.test(norm)) {
+    return { field: 'cognitive_level', confidence: 0.9 };
+  }
+
+  // 7. Domain / Miền năng lực
+  if (/\b(mien|nang luc|chu de|chuyen de|domain|competency|linh vuc)\b/i.test(norm)) {
+    return { field: 'digital_competency_domain', confidence: 0.9 };
+  }
+
+  // 8. Points
+  if (/\b(diem|diem so|muc diem|thang diem|point|points|score)\b/i.test(norm)) {
+    return { field: 'points', confidence: 0.9 };
+  }
+
+  // 9. Time limit
+  if (/\b(thoi gian|thoi luong|giay|time|seconds|duration)\b/i.test(norm)) {
+    return { field: 'time_limit', confidence: 0.9 };
+  }
+
+  // 10. Legal reference
+  if (/\b(can cu|phap ly|thong tu|nghi dinh|luat|legal|reference)\b/i.test(norm)) {
+    return { field: 'legal_reference', confidence: 0.9 };
+  }
+
+  // 11. Round name / Stage
+  if (/\b(vong thi|phan thi|giai doan|danh muc|loai cau|round|stage|category)\b/i.test(norm)) {
+    return { field: 'round_name', confidence: 0.85 };
+  }
+
+  // 12. Media / Audio
+  if (/\b(am thanh|audio|mp3|wav|sound)\b/i.test(norm)) {
+    return { field: 'audio_url', confidence: 0.9 };
+  }
+  if (/\b(anh|hinh anh|media|video|image|photo|picture)\b/i.test(norm)) {
+    return { field: 'media_url', confidence: 0.9 };
+  }
+
+  // 13. ID / STT
+  if (/\b(stt|so thu tu|ma cau|ma|id|code|no)\b/i.test(norm)) {
+    return { field: 'id', confidence: 0.9 };
+  }
+
+  // Fallback: Check sample values
+  if (sampleValues.length > 0) {
+    const s0 = (sampleValues[0] || '').trim();
+    if (s0.length > 30) {
+      return { field: 'question_text', confidence: 0.6 };
+    }
+    const s0Norm = normVn(s0);
+    if (s0Norm.includes('HANG NGANG') || s0Norm.includes('TANG TOC') || s0Norm.includes('THI SINH') || s0Norm.includes('CAU HOI PHU') || s0Norm.includes('VONG')) {
+      return { field: 'round_name', confidence: 0.85 };
+    }
+    // Sequential integers like 1, 2, 3 -> STT (id)
+    if (/^\d+$/.test(s0) && Number(s0) <= 50) {
+      return { field: 'id', confidence: 0.8 };
+    }
+    if (/^[A-D]$/i.test(s0)) {
+      return { field: 'correct_key', confidence: 0.6 };
+    }
+    if (/^\d+$/.test(s0) && Number(s0) <= 100) {
+      return { field: 'points', confidence: 0.5 };
+    }
+  }
+
+  return { field: 'unmapped', confidence: 0.1 };
+}
+
 /**
  * Full sample dataset faithfully extracted from the official 6-page BTI competition template
  */
@@ -127,6 +315,436 @@ export const SAMPLE_BTI_EXCEL_DATA = {
   ]
 };
 
+/**
+ * Vietnamese diacritic normalization supporting Latin D/Đ
+ */
+export function normVn(str: string): string {
+  return String(str || '')
+    .trim()
+    .toUpperCase()
+    .replace(/Đ/g, 'D')
+    .replace(/đ/g, 'd')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Strips directory prefixes and URLs, leaving only pure media file names (e.g. "image.jpg")
+ * compliant with the BTI competition software which auto-resolves paths within Media/ subfolders.
+ */
+export function cleanMediaFileName(raw?: string): string {
+  if (!raw) return '';
+  let str = String(raw).trim().replace(/^["']|["']$/g, '').replace(/\\/g, '/');
+  if (str.includes('/')) {
+    const parts = str.split('/').filter(Boolean);
+    str = parts[parts.length - 1] || str;
+  }
+  return str.trim();
+}
+
+export const isKdSheet = (s: string) => {
+  const norm = normVn(s);
+  return norm.includes('KHOI DONG') || norm === 'KD' || norm.startsWith('KD');
+};
+
+export const isVcnvSheet = (s: string) => {
+  const norm = normVn(s);
+  return norm.includes('CNV') || norm.includes('VUOT') || norm.includes('CHUONG NGAI') || norm === 'VCNV';
+};
+
+export const isTtSheet = (s: string) => {
+  const norm = normVn(s);
+  return norm.includes('TANG TOC') || norm === 'TT' || norm.startsWith('TT');
+};
+
+export const isVdSheet = (s: string) => {
+  const norm = normVn(s);
+  return norm.includes('VE DICH') || norm === 'VD' || norm.startsWith('VD');
+};
+
+export const isChpSheet = (s: string) => {
+  const norm = normVn(s);
+  return norm.includes('CAU HOI PHU') || norm.includes('PHU') || norm === 'CHP';
+};
+
+export const isBgdSheet = (s: string) => {
+  const norm = normVn(s);
+  return norm.includes('VONG LOAI') || norm.includes('BGD') || norm.includes('BO GIAO DUC');
+};
+
+export interface StackedBtiSection {
+  section: 'KD' | 'VCNV' | 'TT' | 'VD' | 'CHP';
+  startRow: number;
+  endRow: number;
+}
+
+export function detectStackedBtiSections(rows: any[][], minDistinct: number = 2): StackedBtiSection[] {
+  const anchors: { section: StackedBtiSection['section']; row: number }[] = [];
+
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || row.length === 0) continue;
+    
+    const c0 = normVn(row[0]);
+    const firstNonEmpty = normVn(row.find(c => String(c).trim() !== ''));
+    const target = c0 || firstNonEmpty;
+
+    if (target === 'KHOI DONG' || target.startsWith('PHAN THI KHOI DONG') || target === 'PHAN 1: KHOI DONG') {
+      anchors.push({ section: 'KD', row: r });
+    } else if (target === 'VUOT CHUONG NGAI VAT' || target.startsWith('PHAN THI VUOT CHUONG NGAI VAT') || target === 'PHAN 2: VUOT CHUONG NGAI VAT') {
+      anchors.push({ section: 'VCNV', row: r });
+    } else if (target === 'TANG TOC' || target.startsWith('PHAN THI TANG TOC') || target === 'PHAN 3: TANG TOC') {
+      anchors.push({ section: 'TT', row: r });
+    } else if (target === 'VE DICH' || target.startsWith('PHAN THI VE DICH') || target === 'PHAN 4: VE DICH') {
+      anchors.push({ section: 'VD', row: r });
+    } else if (target === 'CAU HOI PHU' || target.startsWith('PHAN THI CAU HOI PHU') || target === 'PHAN 5: CAU HOI PHU') {
+      anchors.push({ section: 'CHP', row: r });
+    }
+  }
+
+  const distinct = new Set(anchors.map(a => a.section));
+  if (distinct.size < minDistinct) return [];
+
+  const result: StackedBtiSection[] = [];
+  for (let i = 0; i < anchors.length; i++) {
+    const cur = anchors[i];
+    const nextRow = i + 1 < anchors.length ? anchors[i + 1].row : rows.length;
+    result.push({
+      section: cur.section,
+      startRow: cur.row,
+      endRow: nextRow
+    });
+  }
+
+  return result;
+}
+
+export function parseBtiKdRows(rows: any[][]): QuestionItem[] {
+  const items: QuestionItem[] = [];
+  let currentSection: 'TS1' | 'TS2' | 'TS3' | 'TS4' | 'CHUNG' | 'NONE' = 'NONE';
+  let currentSlot = 1;
+
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || row.length === 0) continue;
+    const fullRowText = normVn(row.map(c => String(c || '').trim()).join(' '));
+
+    if (fullRowText.includes('THI SINH 1') || fullRowText.includes('TS 1')) {
+      currentSection = 'TS1';
+      currentSlot = 1;
+      continue;
+    } else if (fullRowText.includes('THI SINH 2') || fullRowText.includes('TS 2')) {
+      currentSection = 'TS2';
+      currentSlot = 2;
+      continue;
+    } else if (fullRowText.includes('THI SINH 3') || fullRowText.includes('TS 3')) {
+      currentSection = 'TS3';
+      currentSlot = 3;
+      continue;
+    } else if (fullRowText.includes('THI SINH 4') || fullRowText.includes('TS 4')) {
+      currentSection = 'TS4';
+      currentSlot = 4;
+      continue;
+    } else if (fullRowText.includes('LUOT CHUNG') || fullRowText.includes('CHUNG')) {
+      currentSection = 'CHUNG';
+      continue;
+    }
+
+    if (fullRowText.includes('CAU HOI') && fullRowText.includes('DAP AN')) continue;
+    if (fullRowText.includes('HUONG DAN') || fullRowText === 'LUOT RIENG' || fullRowText === 'KHOI DONG') continue;
+
+    const col1 = String(row[1] || '').trim();
+    const col2 = String(row[2] || '').trim();
+    const col3 = String(row[3] || '').trim();
+    const col4 = String(row[4] || '').trim();
+
+    const qText = col1.length > 5 ? col1 : (String(row[0] || '').length > 10 ? String(row[0] || '').trim() : '');
+    const ansText = col1.length > 5 ? col2 : (col1 || col2);
+    const imgFile = cleanMediaFileName(col3);
+    const audioFile = cleanMediaFileName(col4);
+
+    if (qText && qText.length > 3 && ansText) {
+      const isChung = currentSection === 'CHUNG';
+      const roundName = isChung ? 'Vòng 1: Khởi động (Lượt chung)' : `Vòng 1: Khởi động (Lượt riêng - Thí sinh ${currentSlot})`;
+      items.push({
+        id: `KD_${currentSection}_${items.length + 1}`,
+        round_name: roundName,
+        round_type: 'SHORT_ANSWER',
+        round_format: isChung ? 'KHOI_DONG_CHUNG' : 'KHOI_DONG_RIENG',
+        category: 'Khởi động BTI 2026',
+        question_text: qText,
+        options: {},
+        correct_key: ansText,
+        explanation: `Lượt thi: ${roundName}`,
+        time_limit: isChung ? 15 : 10,
+        points: 10,
+        participant_slot: isChung ? undefined : currentSlot,
+        media_type: imgFile ? 'IMAGE' : (audioFile ? 'AUDIO' : 'NONE'),
+        media_url: imgFile || undefined,
+        audio_url: audioFile || undefined,
+        stage: 'BAN_KET_1',
+        cognitive_level: 'THONG_HIEU',
+        digital_competency_domain: 'MIEN_1',
+        approval_status: 'APPROVED',
+        created_by: 'BTI Excel Template',
+        created_at: Date.now()
+      });
+    }
+  }
+  return items;
+}
+
+export function parseBtiVcnvRows(rows: any[][]): QuestionItem[] {
+  const items: QuestionItem[] = [];
+  let obstacleKeyword = 'CHƯỚNG NGẠI VẬT';
+  let obstacleImg = '';
+  let obstacleExp = '';
+
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || row.length === 0) continue;
+    const fullRowText = normVn(row.map(c => String(c || '').trim()).join(' '));
+
+    if (fullRowText.includes('CHUONG NGAI VAT') && !fullRowText.includes('HUONG DAN')) {
+      for (let c = 1; c < row.length; c++) {
+        const val = String(row[c] || '').trim();
+        if (val && !obstacleImg && (val.endsWith('.jpg') || val.endsWith('.png') || val.endsWith('.jpeg') || val.endsWith('.webp'))) {
+          obstacleImg = cleanMediaFileName(val);
+        } else if (val && val !== '1' && val.length > 1 && obstacleKeyword === 'CHƯỚNG NGẠI VẬT') {
+          obstacleKeyword = val;
+        }
+      }
+    }
+
+    if (fullRowText.includes('GIAI THICH') || fullRowText.includes('APP MC') || fullRowText.includes('DAY LA GIAI THICH')) {
+      obstacleExp = row.map(c => String(c || '').trim()).filter(Boolean).join(' ').trim();
+    }
+
+    const label = String(row[0] || '').trim();
+    const qText = String(row[1] || '').trim();
+    const ans = String(row[2] || '').trim();
+    const audio = cleanMediaFileName(String(row[3] || '').trim());
+
+    if (normVn(label).includes('HANG NGANG') && qText.length > 3) {
+      const isCenter = normVn(label).includes('TRUNG TAM');
+      const roundFormat = isCenter ? 'VCNV_TRUNG_TAM' : 'VCNV_HANG_NGANG';
+      items.push({
+        id: `VCNV_${items.length + 1}`,
+        round_name: `Vòng 2: VCNV (${label})`,
+        round_type: 'VCNV',
+        round_format: roundFormat,
+        category: 'Vượt Chướng Ngại Vật BTI 2026',
+        question_text: qText,
+        options: {},
+        correct_key: ans,
+        explanation: `Gợi ý mở hàng ngang cho CNV: "${obstacleKeyword}"`,
+        time_limit: 15,
+        points: isCenter ? 40 : 10,
+        audio_url: audio || undefined,
+        obstacle_info: {
+          obstacleKey: obstacleKeyword,
+          obstacleImage: obstacleImg,
+          explanation: obstacleExp
+        },
+        stage: 'BAN_KET_1',
+        cognitive_level: 'THONG_HIEU',
+        digital_competency_domain: 'MIEN_2',
+        approval_status: 'APPROVED',
+        created_by: 'BTI Excel Template',
+        created_at: Date.now()
+      });
+    }
+  }
+  return items;
+}
+
+export function parseBtiTtRows(rows: any[][]): QuestionItem[] {
+  const ttQuestionItems: QuestionItem[] = [];
+
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || row.length === 0) continue;
+    const col0 = String(row[0] || '').trim();
+    const col1 = String(row[1] || '').trim();
+    const col2 = String(row[2] || '').trim();
+    const col3 = cleanMediaFileName(String(row[3] || '').trim());
+
+    if (normVn(col0).includes('TANG TOC') && col1.length > 3) {
+      const ttIndex = ttQuestionItems.length + 1;
+      const time = ttIndex <= 2 ? 20 : 30;
+      ttQuestionItems.push({
+        id: `TT_${ttIndex}`,
+        round_name: `Vòng 3: Tăng tốc (${col0})`,
+        round_type: 'SEQUENCING',
+        round_format: 'TANG_TOC',
+        category: 'Tăng tốc BTI 2026',
+        question_text: col1,
+        options: {},
+        correct_key: col2,
+        answer_media_url: col3 || undefined,
+        explanation: 'Phần thi Tăng Tốc tính điểm theo thời gian gửi câu trả lời (40 - 30 - 20 - 10 điểm)',
+        time_limit: time,
+        points: 40,
+        stage: 'BAN_KET_1',
+        cognitive_level: 'VAN_DUNG',
+        digital_competency_domain: 'MIEN_3',
+        approval_status: 'APPROVED',
+        created_by: 'BTI Excel Template',
+        created_at: Date.now()
+      });
+    }
+
+    if (normVn(col0).includes('LINK ANH') || normVn(col0).includes('LINK DU LIEU') || normVn(col0).includes('LINK')) {
+      const mediaCols = [1, 3, 5, 7];
+      mediaCols.forEach((cIdx, i) => {
+        const link = cleanMediaFileName(String(row[cIdx] || '').trim());
+        if (link && ttQuestionItems[i]) {
+          if (!ttQuestionItems[i].media_links) ttQuestionItems[i].media_links = [];
+          ttQuestionItems[i].media_links!.push(link);
+          if (!ttQuestionItems[i].media_url) {
+            ttQuestionItems[i].media_url = link;
+            ttQuestionItems[i].media_type = link.endsWith('.mp4') ? 'VIDEO' : 'IMAGE';
+          }
+        }
+      });
+    }
+  }
+  return ttQuestionItems;
+}
+
+export function parseBtiVdAndChpRows(rows: any[][]): { vdQuestions: QuestionItem[]; chpQuestions: QuestionItem[] } {
+  const vdQuestions: QuestionItem[] = [];
+  const chpQuestions: QuestionItem[] = [];
+  let currentLuot = 1;
+  let inChpSection = false;
+
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || row.length === 0) continue;
+    const fullRowText = normVn(row.map(c => String(c || '').trim()).join(' '));
+
+    if (fullRowText.includes('CAU HOI PHU')) {
+      inChpSection = true;
+      continue;
+    }
+
+    if (inChpSection) {
+      if (fullRowText.includes('CAU HOI') && fullRowText.includes('DAP AN')) continue;
+      const col0 = String(row[0] || '').trim();
+      const col1 = String(row[1] || '').trim();
+      const col2 = String(row[2] || '').trim();
+
+      const qText = col1.length > 3 ? col1 : (col0.length > 5 && !normVn(col0).includes('CAU HOI PHU') ? col0 : '');
+      const ans = col1.length > 3 ? col2 : col1;
+
+      if (qText && qText.length > 3 && ans && !normVn(qText).includes('CAU HOI')) {
+        chpQuestions.push({
+          id: `CHP_${chpQuestions.length + 1}`,
+          round_name: 'Câu hỏi phụ (Tie-breaker)',
+          round_type: 'SHORT_ANSWER',
+          round_format: 'CAU_HOI_PHU',
+          category: 'Câu hỏi phụ BTI 2026',
+          question_text: qText,
+          options: {},
+          correct_key: ans,
+          explanation: 'Câu hỏi phụ đấu loại trực tiếp trong 15 giây',
+          time_limit: 15,
+          points: 10,
+          stage: 'BAN_KET_1',
+          cognitive_level: 'THONG_HIEU',
+          digital_competency_domain: 'MIEN_1',
+          approval_status: 'APPROVED',
+          created_by: 'BTI Excel Template',
+          created_at: Date.now()
+        });
+      }
+      continue;
+    }
+
+    if (fullRowText.includes('LUOT 1')) currentLuot = 1;
+    else if (fullRowText.includes('LUOT 2')) currentLuot = 2;
+    else if (fullRowText.includes('LUOT 3')) currentLuot = 3;
+    else if (fullRowText.includes('LUOT 4')) currentLuot = 4;
+
+    if (fullRowText.includes('MUC DIEM') && fullRowText.includes('CAU HOI')) continue;
+    if (fullRowText.includes('HUONG DAN') || fullRowText === 'VE DICH') continue;
+
+    const ptsStr = String(row[0] || '').trim();
+    const qText = String(row[1] || '').trim();
+    const ans = String(row[2] || '').trim();
+    const media = cleanMediaFileName(String(row[3] || '').trim());
+    const note = String(row[4] || '').trim();
+    const audio = cleanMediaFileName(String(row[5] || '').trim());
+
+    if (qText.length > 3 && ans) {
+      const pts = ptsStr.includes('30') ? 30 : ptsStr.includes('40') ? 40 : 20;
+      vdQuestions.push({
+        id: `VD_L${currentLuot}_${vdQuestions.length + 1}`,
+        round_name: `Vòng 4: Về đích (Lượt ${currentLuot} - ${pts} điểm)`,
+        round_type: 'SHORT_ANSWER',
+        round_format: pts === 20 ? 'VE_DICH_20' : (pts === 30 ? 'VE_DICH_30' : 'VE_DICH_40'),
+        category: 'Về đích BTI 2026',
+        question_text: qText,
+        options: {},
+        correct_key: ans,
+        host_notes: note || undefined,
+        explanation: note || 'MC chú ý đối chiếu đáp án và cho quyền chuông nếu trả lời sai',
+        media_type: media ? (media.endsWith('.mp4') ? 'VIDEO' : 'IMAGE') : (audio ? 'AUDIO' : 'NONE'),
+        media_url: media || undefined,
+        audio_url: audio || undefined,
+        time_limit: pts === 20 ? 15 : (pts === 30 ? 20 : 30),
+        points: pts,
+        participant_slot: currentLuot,
+        stage: 'BAN_KET_1',
+        cognitive_level: pts >= 30 ? 'VAN_DUNG_CAO' : 'VAN_DUNG',
+        digital_competency_domain: 'MIEN_4',
+        approval_status: 'APPROVED',
+        created_by: 'BTI Excel Template',
+        created_at: Date.now()
+      });
+    }
+  }
+
+  return { vdQuestions, chpQuestions };
+}
+
+export function parseBtiChpRows(rows: any[][]): QuestionItem[] {
+  const items: QuestionItem[] = [];
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || row.length === 0) continue;
+    const col0 = String(row[0] || '').trim();
+    const col1 = String(row[1] || '').trim();
+    const col2 = String(row[2] || '').trim();
+
+    const qText = col1.length > 3 ? col1 : (col0.length > 5 && !normVn(col0).includes('CAU HOI PHU') ? col0 : '');
+    const ans = col1.length > 3 ? col2 : col1;
+
+    if (qText && qText.length > 3 && ans && !normVn(qText).includes('CAU HOI')) {
+      items.push({
+        id: `CHP_${items.length + 1}`,
+        round_name: 'Câu hỏi phụ (Tie-breaker)',
+        round_type: 'SHORT_ANSWER',
+        round_format: 'CAU_HOI_PHU',
+        category: 'Câu hỏi phụ BTI 2026',
+        question_text: qText,
+        options: {},
+        correct_key: ans,
+        explanation: 'Câu hỏi phụ đấu loại trực tiếp trong 15 giây',
+        time_limit: 15,
+        points: 10,
+        stage: 'BAN_KET_1',
+        cognitive_level: 'THONG_HIEU',
+        digital_competency_domain: 'MIEN_1',
+        approval_status: 'APPROVED',
+        created_by: 'BTI Excel Template',
+        created_at: Date.now()
+      });
+    }
+  }
+  return items;
+}
+
 export const excelService = {
   /**
    * Generates the blank or sample-filled Excel Template matching the exact 6-page PDF template
@@ -172,7 +790,7 @@ export const excelService = {
     });
 
     const wsKd = XLSX.utils.aoa_to_sheet(kdRows);
-    XLSX.utils.book_append_sheet(wb, wsKd, 'KHOI_DONG');
+    XLSX.utils.book_append_sheet(wb, wsKd, 'Khởi động');
 
     // -------------------------------------------------------------
     // SHEET 2: VƯỢT CHƯỚNG NGẠI VẬT (B3=CNV, C3=Ảnh, 4 hàng ngang + trung tâm)
@@ -181,7 +799,7 @@ export const excelService = {
     const vcnvRows: any[][] = [
       ['VƯỢT CHƯỚNG NGẠI VẬT'],
       ['Hướng dẫn: Nhập Chướng ngại vật vào ô B3. Nhập tên ảnh Chướng ngại vật vào ô C3. Nhập câu hỏi và đáp án tương ứng theo mẫu dưới đây.'],
-      ['CHƯỚNG NGẠI VẬT', includeSampleData ? vcnv.keyword : '', includeSampleData ? vcnv.imageFile : '', includeSampleData ? vcnv.piecesCount : '1'],
+      ['CHƯỚNG NGẠI VẬT', includeSampleData ? vcnv.keyword : '', includeSampleData ? cleanMediaFileName(vcnv.imageFile) : '', includeSampleData ? vcnv.piecesCount : '1'],
       ['', 'Câu hỏi', 'Đáp án', 'Âm thanh (nếu có)']
     ];
 
@@ -196,14 +814,14 @@ export const excelService = {
         ];
 
     vcnvList.forEach(r => {
-      vcnvRows.push([r.name, r.q, r.a, r.audio]);
+      vcnvRows.push([r.name, r.q, r.a, cleanMediaFileName(r.audio)]);
     });
 
     vcnvRows.push([]);
     vcnvRows.push([includeSampleData ? vcnv.explanation : 'Đây là giải thích về chướng ngại vật, có thể được mở trên app MC.']);
 
     const wsVcnv = XLSX.utils.aoa_to_sheet(vcnvRows);
-    XLSX.utils.book_append_sheet(wb, wsVcnv, 'VUOT_CNV');
+    XLSX.utils.book_append_sheet(wb, wsVcnv, 'Vượt chướng ngại vật');
 
     // -------------------------------------------------------------
     // SHEET 3: TĂNG TỐC (Bảng 1: Câu hỏi & Đáp án, Bảng 2: Link Dữ Liệu Tăng Tốc)
@@ -225,7 +843,7 @@ export const excelService = {
         ];
 
     ttList.forEach(item => {
-      ttRows.push([item.name, item.q, item.a, item.answerImg]);
+      ttRows.push([item.name, item.q, item.a, cleanMediaFileName(item.answerImg)]);
     });
 
     ttRows.push([]);
@@ -239,17 +857,17 @@ export const excelService = {
     // First media item
     ttRows.push([
       'Link ảnh', 
-      includeSampleData ? ttList[0].mediaList[0] : '', '',
-      includeSampleData ? ttList[1].mediaList[0] : '', '',
-      includeSampleData ? ttList[2].mediaList[0] : '', '',
-      includeSampleData ? ttList[3].mediaList[0] : '', ''
+      includeSampleData ? cleanMediaFileName(ttList[0].mediaList[0]) : '', '',
+      includeSampleData ? cleanMediaFileName(ttList[1].mediaList[0]) : '', '',
+      includeSampleData ? cleanMediaFileName(ttList[2].mediaList[0]) : '', '',
+      includeSampleData ? cleanMediaFileName(ttList[3].mediaList[0]) : '', ''
     ]);
 
     const wsTt = XLSX.utils.aoa_to_sheet(ttRows);
-    XLSX.utils.book_append_sheet(wb, wsTt, 'TANG_TOC');
+    XLSX.utils.book_append_sheet(wb, wsTt, 'Tăng tốc');
 
     // -------------------------------------------------------------
-    // SHEET 4: VỀ ĐÍCH (Lượt 1, 2, 3, 4 với Mức điểm, Chú thích MC, Audio/Video)
+    // SHEET 4: VỀ ĐÍCH (Lượt 1, 2, 3, 4 với Mức điểm, Chú thích MC, Audio/Video & Câu hỏi phụ)
     // -------------------------------------------------------------
     const vd = SAMPLE_BTI_EXCEL_DATA.veDich;
     const vdRows: any[][] = [
@@ -276,21 +894,14 @@ export const excelService = {
           }));
 
       list.forEach(item => {
-        vdRows.push([item.pts, item.q, item.a, item.media, item.note, item.audio]);
+        vdRows.push([item.pts, item.q, item.a, cleanMediaFileName(item.media), item.note, cleanMediaFileName(item.audio)]);
       });
     }
 
-    const wsVd = XLSX.utils.aoa_to_sheet(vdRows);
-    XLSX.utils.book_append_sheet(wb, wsVd, 'VE_DICH');
-
-    // -------------------------------------------------------------
-    // SHEET 5: CÂU HỎI PHỤ (Câu hỏi phụ 1, 2, 3...)
-    // -------------------------------------------------------------
-    const chpRows: any[][] = [
-      ['CÂU HỎI PHỤ'],
-      ['', 'Câu hỏi', 'Đáp án']
-    ];
-
+    // Append CÂU HỎI PHỤ into Về đích sheet matching the official BTI template file
+    vdRows.push([]);
+    vdRows.push(['CÂU HỎI PHỤ']);
+    vdRows.push(['', 'Câu hỏi', 'Đáp án']);
     const chpList = includeSampleData 
       ? SAMPLE_BTI_EXCEL_DATA.cauHoiPhu 
       : [
@@ -300,11 +911,26 @@ export const excelService = {
         ];
 
     chpList.forEach(item => {
+      vdRows.push([item.name, item.q, item.a]);
+    });
+
+    const wsVd = XLSX.utils.aoa_to_sheet(vdRows);
+    XLSX.utils.book_append_sheet(wb, wsVd, 'Về đích');
+
+    // -------------------------------------------------------------
+    // SHEET 5: CÂU HỎI PHỤ (Trang tính riêng tiện dụng)
+    // -------------------------------------------------------------
+    const chpRows: any[][] = [
+      ['CÂU HỎI PHỤ'],
+      ['', 'Câu hỏi', 'Đáp án']
+    ];
+
+    chpList.forEach(item => {
       chpRows.push([item.name, item.q, item.a]);
     });
 
     const wsChp = XLSX.utils.aoa_to_sheet(chpRows);
-    XLSX.utils.book_append_sheet(wb, wsChp, 'CAU_HOI_PHU');
+    XLSX.utils.book_append_sheet(wb, wsChp, 'Câu hỏi phụ');
 
     // -------------------------------------------------------------
     // SHEET 6: VÒNG LOẠI BỘ GD&ĐT (Chuẩn 3 Phần: Trắc nghiệm 4 lựa chọn, Đúng/Sai 4 ý, Trả lời ngắn)
@@ -319,11 +945,11 @@ export const excelService = {
       ['VL_03', 'Phần III: Trả lời ngắn', 'Theo Thông tư 02/2025/TT-BGDĐT, viết tắt của Trí tuệ nhân tạo tạo sinh bằng tiếng Anh là gì?', '', '', '', '', 'Gen AI', 'MIEN_6', 'NHAN_BIET', 'Khoản 19 Điều 2 TT 02/2025/TT-BGDĐT']
     ];
     const wsBgd = XLSX.utils.aoa_to_sheet(bgdRows);
-    XLSX.utils.book_append_sheet(wb, wsBgd, 'VONG_LOAI_BGD');
+    XLSX.utils.book_append_sheet(wb, wsBgd, 'Vòng loại Bộ GD&ĐT');
 
     const filename = includeSampleData 
-      ? 'BTI2026_Mau_Excel_Kem_Du_Lieu_Mau.xlsx' 
-      : 'BTI2026_Mau_Excel_Chuan_BanToChuc.xlsx';
+      ? 'Đề thi_KemDuLieuMau.xlsx' 
+      : 'Đề thi.xlsx';
 
     XLSX.writeFile(wb, filename);
   },
@@ -337,9 +963,9 @@ export const excelService = {
   },
 
   /**
-   * Export questions from the system to the official 5-sheet BTI Excel format
+   * Export questions from the system to the official BTI Excel format ("Đề thi.xlsx")
    */
-  exportToBTIExcel(questions: QuestionItem[], stageName: string = 'Đề Thi BTI 2026'): void {
+  exportToBTIExcel(questions: QuestionItem[], stageName: string = 'Đề thi.xlsx'): void {
     const wb = XLSX.utils.book_new();
 
     // 1. SHEET: KHỞI ĐỘNG
@@ -367,7 +993,7 @@ export const excelService = {
       for (let i = 0; i < 6; i++) {
         const q = items[i];
         if (q) {
-          kdRows.push([i + 1, q.question_text, q.correct_key, q.media_url || '', q.audio_url || '']);
+          kdRows.push([i + 1, q.question_text, q.correct_key, cleanMediaFileName(q.media_url), cleanMediaFileName(q.audio_url)]);
         } else {
           kdRows.push([i + 1, '', '', '', '']);
         }
@@ -383,14 +1009,14 @@ export const excelService = {
     for (let i = 0; i < Math.max(chungItems.length, 12); i++) {
       const q = chungItems[i];
       if (q) {
-        kdRows.push([i + 1, q.question_text, q.correct_key, q.media_url || '', q.audio_url || '']);
+        kdRows.push([i + 1, q.question_text, q.correct_key, cleanMediaFileName(q.media_url), cleanMediaFileName(q.audio_url)]);
       } else {
         kdRows.push([i + 1, '', '', '', '']);
       }
     }
 
     const wsKd = XLSX.utils.aoa_to_sheet(kdRows);
-    XLSX.utils.book_append_sheet(wb, wsKd, 'KHOI_DONG');
+    XLSX.utils.book_append_sheet(wb, wsKd, 'Khởi động');
 
     // 2. SHEET: VƯỢT CHƯỚNG NGẠI VẬT
     const vcnvQuestions = questions.filter(q => 
@@ -402,7 +1028,7 @@ export const excelService = {
     const firstVcnv = vcnvQuestions[0];
     const opts = firstVcnv?.options || {};
     const obstacleKey = firstVcnv?.obstacle_info?.obstacleKey || firstVcnv?.correct_key || 'AN TOÀN THÔNG TIN';
-    const obstacleImg = firstVcnv?.obstacle_info?.obstacleImage || firstVcnv?.media_url || 'cnv.jpg';
+    const obstacleImg = cleanMediaFileName(firstVcnv?.obstacle_info?.obstacleImage || firstVcnv?.media_url || 'cnv.jpg');
     
     // Check if there is risk question
     let obstacleExp = firstVcnv?.obstacle_info?.explanation || firstVcnv?.explanation || '';
@@ -410,7 +1036,7 @@ export const excelService = {
       obstacleExp = `[Ô MẠO HIỂM]: ${opts.riskQuestion || ''} ➔ ĐÁP ÁN: ${opts.riskAnswer || ''}. ${obstacleExp}`.trim();
     }
     if (!obstacleExp) {
-      obstacleExp = 'Giải thích chướng ngại vật theo chuẩn ngân hàng câu hỏi BTI 2026.';
+      obstacleExp = 'Đây là giải thích về chướng ngại vật, có thể được mở trên app MC.';
     }
 
     const vcnvRows: any[][] = [
@@ -431,7 +1057,7 @@ export const excelService = {
       const rowLabels = ['Hàng ngang 1', 'Hàng ngang 2', 'Hàng ngang 3', 'Hàng ngang 4', 'Hàng ngang trung tâm'];
       rowLabels.forEach((label, idx) => {
         const q = vcnvQuestions[idx];
-        vcnvRows.push([label, q?.question_text || '', q?.correct_key || '', q?.audio_url || '']);
+        vcnvRows.push([label, q?.question_text || '', q?.correct_key || '', cleanMediaFileName(q?.audio_url)]);
       });
     }
 
@@ -439,7 +1065,7 @@ export const excelService = {
     vcnvRows.push([obstacleExp]);
 
     const wsVcnv = XLSX.utils.aoa_to_sheet(vcnvRows);
-    XLSX.utils.book_append_sheet(wb, wsVcnv, 'VUOT_CNV');
+    XLSX.utils.book_append_sheet(wb, wsVcnv, 'Vượt chướng ngại vật');
 
     // 3. SHEET: TĂNG TỐC (Tất cả là câu trả lời ngắn, tự động sắp xếp & đưa ra đáp án)
     const ttQuestions = questions.filter(q => 
@@ -479,7 +1105,7 @@ export const excelService = {
         }
       }
 
-      ttRows.push([`Tăng tốc ${i}`, q?.question_text || '', formattedAnswer, q?.answer_media_url || '']);
+      ttRows.push([`Tăng tốc ${i}`, q?.question_text || '', formattedAnswer, cleanMediaFileName(q?.answer_media_url)]);
     }
 
     ttRows.push([]);
@@ -497,20 +1123,25 @@ export const excelService = {
 
     ttRows.push([
       'Link ảnh',
-      ttQuestions[0]?.media_links?.[0] || ttQuestions[0]?.media_url || 'tt1.png', '',
-      ttQuestions[1]?.media_links?.[0] || ttQuestions[1]?.media_url || 'tt2.1.png', '',
-      ttQuestions[2]?.media_links?.[0] || ttQuestions[2]?.media_url || 'tt3.jpg', '',
-      ttQuestions[3]?.media_links?.[0] || ttQuestions[3]?.media_url || 'video.mp4', ''
+      cleanMediaFileName(ttQuestions[0]?.media_links?.[0] || ttQuestions[0]?.media_url || 'tt1.png'), '',
+      cleanMediaFileName(ttQuestions[1]?.media_links?.[0] || ttQuestions[1]?.media_url || 'tt2.1.png'), '',
+      cleanMediaFileName(ttQuestions[2]?.media_links?.[0] || ttQuestions[2]?.media_url || 'tt3.jpg'), '',
+      cleanMediaFileName(ttQuestions[3]?.media_links?.[0] || ttQuestions[3]?.media_url || 'video.mp4'), ''
     ]);
 
     const wsTt = XLSX.utils.aoa_to_sheet(ttRows);
-    XLSX.utils.book_append_sheet(wb, wsTt, 'TANG_TOC');
+    XLSX.utils.book_append_sheet(wb, wsTt, 'Tăng tốc');
 
     // 4. SHEET: VỀ ĐÍCH
     const vdQuestions = questions.filter(q => 
       q.round_name.includes('Về đích') || 
       q.round_format?.startsWith('VE_DICH') ||
       q.round_format === 'THUC_HANH_TINH_HUONG'
+    );
+
+    const chpQuestions = questions.filter(q => 
+      q.round_name.includes('phụ') || 
+      q.round_format === 'CAU_HOI_PHU'
     );
 
     const vdRows: any[][] = [
@@ -529,22 +1160,31 @@ export const excelService = {
         const q = items[i];
         if (q) {
           const ptsText = q.points ? `Câu hỏi ${q.points} điểm` : (i < 3 ? 'Câu hỏi 20 điểm' : 'Câu hỏi 30 điểm');
-          vdRows.push([ptsText, q.question_text, q.correct_key, q.media_url || '', q.host_notes || q.explanation || '', q.audio_url || '']);
+          vdRows.push([ptsText, q.question_text, q.correct_key, cleanMediaFileName(q.media_url), q.host_notes || q.explanation || '', cleanMediaFileName(q.audio_url)]);
         } else {
           vdRows.push([i < 3 ? 'Câu hỏi 20 điểm' : 'Câu hỏi 30 điểm', '', '', '', '', '']);
         }
       }
     }
 
+    // Append CÂU HỎI PHỤ into Về đích sheet matching the official BTI template file
+    vdRows.push([]);
+    vdRows.push(['CÂU HỎI PHỤ']);
+    vdRows.push(['', 'Câu hỏi', 'Đáp án']);
+    if (chpQuestions.length > 0) {
+      chpQuestions.forEach((q, idx) => {
+        vdRows.push([`Câu hỏi phụ ${idx + 1}`, q.question_text, q.correct_key]);
+      });
+    } else {
+      vdRows.push(['Câu hỏi phụ 1', '', '']);
+      vdRows.push(['Câu hỏi phụ 2', '', '']);
+      vdRows.push(['Câu hỏi phụ 3', '', '']);
+    }
+
     const wsVd = XLSX.utils.aoa_to_sheet(vdRows);
-    XLSX.utils.book_append_sheet(wb, wsVd, 'VE_DICH');
+    XLSX.utils.book_append_sheet(wb, wsVd, 'Về đích');
 
-    // 5. SHEET: CÂU HỎI PHỤ
-    const chpQuestions = questions.filter(q => 
-      q.round_name.includes('phụ') || 
-      q.round_format === 'CAU_HOI_PHU'
-    );
-
+    // 5. SHEET: CÂU HỎI PHỤ (Trang tính độc lập)
     const chpRows: any[][] = [
       ['CÂU HỎI PHỤ'],
       ['', 'Câu hỏi', 'Đáp án']
@@ -561,7 +1201,7 @@ export const excelService = {
     }
 
     const wsChp = XLSX.utils.aoa_to_sheet(chpRows);
-    XLSX.utils.book_append_sheet(wb, wsChp, 'CAU_HOI_PHU');
+    XLSX.utils.book_append_sheet(wb, wsChp, 'Câu hỏi phụ');
 
     // 6. SHEET: VÒNG LOẠI BỘ GD&ĐT
     const bgdQuestions = questions.filter(q => 
@@ -594,10 +1234,15 @@ export const excelService = {
       });
 
       const wsBgd = XLSX.utils.aoa_to_sheet(bgdRows);
-      XLSX.utils.book_append_sheet(wb, wsBgd, 'VONG_LOAI_BGD');
+      XLSX.utils.book_append_sheet(wb, wsBgd, 'Vòng loại Bộ GD&ĐT');
     }
 
-    const fileName = `BTI2026_NganHangDeThi_${stageName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    let fileName = 'Đề thi.xlsx';
+    if (stageName && stageName.toLowerCase().endsWith('.xlsx')) {
+      fileName = stageName;
+    } else if (stageName && stageName !== 'Đề thi.xlsx' && stageName !== 'Đề Thi BTI 2026') {
+      fileName = `Đề thi_${stageName.replace(/\s+/g, '_')}.xlsx`;
+    }
     XLSX.writeFile(wb, fileName);
   },
 
@@ -615,336 +1260,140 @@ export const excelService = {
 
     let detectedFormat: ParseExcelResult['detectedFormat'] = 'STANDARD_TABLE';
 
-    // Normalize sheet names check
-    const isKdSheet = (s: string) => s.toUpperCase().includes('KHOI_DONG') || s.toUpperCase().includes('KHỞI ĐỘNG') || s.toUpperCase().includes('KD');
-    const isVcnvSheet = (s: string) => s.toUpperCase().includes('CNV') || s.toUpperCase().includes('VƯỢT') || s.toUpperCase().includes('CHƯỚNG NGẠI');
-    const isTtSheet = (s: string) => s.toUpperCase().includes('TANG_TOC') || s.toUpperCase().includes('TĂNG TỐC') || s.toUpperCase().includes('TT');
-    const isVdSheet = (s: string) => s.toUpperCase().includes('VE_DICH') || s.toUpperCase().includes('VỀ ĐÍCH') || s.toUpperCase().includes('VD');
-    const isChpSheet = (s: string) => s.toUpperCase().includes('CAU_HOI_PHU') || s.toUpperCase().includes('CÂU HỎI PHỤ') || s.toUpperCase().includes('PHU');
-    const isBgdSheet = (s: string) => s.toUpperCase().includes('VONG_LOAI') || s.toUpperCase().includes('BGD');
-
-    const hasBtiOfficialSheets = sheetNames.some(s => isKdSheet(s) || isVcnvSheet(s) || isTtSheet(s) || isVdSheet(s) || isChpSheet(s));
-    if (hasBtiOfficialSheets) {
-      detectedFormat = 'BTI_OFFICIAL_MULTI_SHEET';
-    }
-
-    // Iterate through all sheets
-    for (const sheetName of sheetNames) {
-      const ws = wb.Sheets[sheetName];
+    // 1. If file has a single sheet (e.g. CSV or single-sheet workbook), check for vertically stacked BTI sections
+    let isStackedSingleSheet = false;
+    if (sheetNames.length === 1) {
+      const ws = wb.Sheets[sheetNames[0]];
       const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      const stacked = detectStackedBtiSections(rows, 2);
+      if (stacked.length >= 2) {
+        isStackedSingleSheet = true;
+        detectedFormat = 'BTI_OFFICIAL_MULTI_SHEET';
 
-      if (rows.length === 0) continue;
-
-      // =========================================================================
-      // 1. KHỞI ĐỘNG SHEET
-      // =========================================================================
-      if (isKdSheet(sheetName)) {
-        let currentSection: 'TS1' | 'TS2' | 'TS3' | 'TS4' | 'CHUNG' | 'NONE' = 'NONE';
-        let currentSlot = 1;
-
-        for (let r = 0; r < rows.length; r++) {
-          const row = rows[r];
-          const fullRowText = row.map(c => String(c || '').trim()).join(' ').toUpperCase();
-
-          if (fullRowText.includes('THÍ SINH 1') || fullRowText.includes('TS 1')) {
-            currentSection = 'TS1';
-            currentSlot = 1;
-            continue;
-          } else if (fullRowText.includes('THÍ SINH 2') || fullRowText.includes('TS 2')) {
-            currentSection = 'TS2';
-            currentSlot = 2;
-            continue;
-          } else if (fullRowText.includes('THÍ SINH 3') || fullRowText.includes('TS 3')) {
-            currentSection = 'TS3';
-            currentSlot = 3;
-            continue;
-          } else if (fullRowText.includes('THÍ SINH 4') || fullRowText.includes('TS 4')) {
-            currentSection = 'TS4';
-            currentSlot = 4;
-            continue;
-          } else if (fullRowText.includes('LƯỢT CHUNG') || fullRowText.includes('CHUNG')) {
-            currentSection = 'CHUNG';
-            continue;
-          }
-
-          // Skip headers or empty lines
-          if (fullRowText.includes('CÂU HỎI') && fullRowText.includes('ĐÁP ÁN')) continue;
-          if (fullRowText.includes('HƯỚNG DẪN') || fullRowText === 'LƯỢT RIÊNG') continue;
-
-          // Find question cell and answer cell
-          // Columns typical layout: [STT, Câu hỏi, Đáp án, Ảnh, Âm thanh]
-          const col1 = String(row[1] || '').trim();
-          const col2 = String(row[2] || '').trim();
-          const col3 = String(row[3] || '').trim();
-          const col4 = String(row[4] || '').trim();
-
-          const qText = col1.length > 5 ? col1 : (String(row[0] || '').length > 10 ? String(row[0] || '').trim() : '');
-          const ansText = col1.length > 5 ? col2 : col1;
-          const imgFile = col3;
-          const audioFile = col4;
-
-          if (qText && qText.length > 5 && ansText) {
-            const isChung = currentSection === 'CHUNG';
-            const roundName = isChung ? 'Vòng 1: Khởi động (Lượt chung)' : `Vòng 1: Khởi động (Lượt riêng - Thí sinh ${currentSlot})`;
-            const item: QuestionItem = {
-              id: `KD_${currentSection}_${importedQuestions.length + 1}`,
-              round_name: roundName,
-              round_type: 'SHORT_ANSWER',
-              round_format: isChung ? 'KHOI_DONG_CHUNG' : 'KHOI_DONG_RIENG',
-              category: 'Khởi động BTI 2026',
-              question_text: qText,
-              options: {},
-              correct_key: ansText,
-              explanation: `Lượt thi: ${roundName}`,
-              time_limit: isChung ? 15 : 10,
-              points: 10,
-              participant_slot: isChung ? undefined : currentSlot,
-              media_type: imgFile ? 'IMAGE' : (audioFile ? 'AUDIO' : 'NONE'),
-              media_url: imgFile || undefined,
-              audio_url: audioFile || undefined,
-              stage: 'BAN_KET_1',
-              cognitive_level: 'THONG_HIEU',
-              digital_competency_domain: 'MIEN_1',
-              approval_status: 'APPROVED',
-              created_by: 'BTI Excel Template',
-              created_at: Date.now()
-            };
-            importedQuestions.push(item);
-            byRound[roundName] = (byRound[roundName] || 0) + 1;
-          }
-        }
-        continue;
-      }
-
-      // =========================================================================
-      // 2. VƯỢT CHƯỚNG NGẠI VẬT SHEET
-      // =========================================================================
-      if (isVcnvSheet(sheetName)) {
-        let obstacleKeyword = 'CHƯỚNG NGẠI VẬT';
-        let obstacleImg = '';
-        let obstacleExp = '';
-
-        for (let r = 0; r < rows.length; r++) {
-          const row = rows[r];
-          const fullRowText = row.map(c => String(c || '').trim()).join(' ').toUpperCase();
-
-          if (fullRowText.includes('CHƯỚNG NGẠI VẬT') && !fullRowText.includes('HƯỚNG DẪN')) {
-            // Find keyword in row
-            for (let c = 1; c < row.length; c++) {
-              const val = String(row[c] || '').trim();
-              if (val && !obstacleImg && (val.endsWith('.jpg') || val.endsWith('.png') || val.endsWith('.jpeg'))) {
-                obstacleImg = val;
-              } else if (val && val !== '1' && val.length > 1 && obstacleKeyword === 'CHƯỚNG NGẠI VẬT') {
-                obstacleKeyword = val;
-              }
-            }
-          }
-
-          if (fullRowText.includes('GIẢI THÍCH VỀ CHƯỚNG NGẠI VẬT') || fullRowText.includes('APP MC')) {
-            obstacleExp = row.join(' ').trim();
-          }
-
-          const label = String(row[0] || '').trim();
-          const qText = String(row[1] || '').trim();
-          const ans = String(row[2] || '').trim();
-          const audio = String(row[3] || '').trim();
-
-          if (label.toLowerCase().includes('hàng ngang') && qText.length > 5) {
-            const isCenter = label.toLowerCase().includes('trung tâm');
-            const roundFormat = isCenter ? 'VCNV_TRUNG_TAM' : 'VCNV_HANG_NGANG';
-            const item: QuestionItem = {
-              id: `VCNV_${importedQuestions.length + 1}`,
-              round_name: `Vòng 2: VCNV (${label})`,
-              round_type: 'VCNV',
-              round_format: roundFormat,
-              category: 'Vượt Chướng Ngại Vật BTI 2026',
-              question_text: qText,
-              options: {},
-              correct_key: ans,
-              explanation: `Gợi ý mở hàng ngang cho CNV: "${obstacleKeyword}"`,
-              time_limit: 15,
-              points: isCenter ? 40 : 10,
-              audio_url: audio || undefined,
-              obstacle_info: {
-                obstacleKey: obstacleKeyword,
-                obstacleImage: obstacleImg,
-                explanation: obstacleExp
-              },
-              stage: 'BAN_KET_1',
-              cognitive_level: 'THONG_HIEU',
-              digital_competency_domain: 'MIEN_2',
-              approval_status: 'APPROVED',
-              created_by: 'BTI Excel Template',
-              created_at: Date.now()
-            };
-            importedQuestions.push(item);
-            byRound['Vòng 2: Vượt Chướng Ngại Vật'] = (byRound['Vòng 2: Vượt Chướng Ngại Vật'] || 0) + 1;
-          }
-        }
-        continue;
-      }
-
-      // =========================================================================
-      // 3. TĂNG TỐC SHEET
-      // =========================================================================
-      if (isTtSheet(sheetName)) {
-        const ttQuestionItems: QuestionItem[] = [];
-
-        // Parse Table 1: Tăng tốc 1..4
-        for (let r = 0; r < rows.length; r++) {
-          const row = rows[r];
-          const col0 = String(row[0] || '').trim();
-          const col1 = String(row[1] || '').trim();
-          const col2 = String(row[2] || '').trim();
-          const col3 = String(row[3] || '').trim();
-
-          if (col0.toLowerCase().includes('tăng tốc') && col1.length > 5) {
-            const ttIndex = ttQuestionItems.length + 1;
-            const time = ttIndex <= 2 ? 20 : 30;
-            const item: QuestionItem = {
-              id: `TT_${ttIndex}`,
-              round_name: `Vòng 3: Tăng tốc (${col0})`,
-              round_type: 'SEQUENCING',
-              round_format: 'TANG_TOC',
-              category: 'Tăng tốc BTI 2026',
-              question_text: col1,
-              options: {},
-              correct_key: col2,
-              answer_media_url: col3 || undefined,
-              explanation: 'Phần thi Tăng Tốc tính điểm theo thời gian gửi câu trả lời (40 - 30 - 20 - 10 điểm)',
-              time_limit: time,
-              points: 40,
-              stage: 'BAN_KET_1',
-              cognitive_level: 'VAN_DUNG',
-              digital_competency_domain: 'MIEN_3',
-              approval_status: 'APPROVED',
-              created_by: 'BTI Excel Template',
-              created_at: Date.now()
-            };
-            ttQuestionItems.push(item);
-          }
-
-          // Parse Table 2: LINK DỮ LIỆU TĂNG TỐC
-          if (col0.toLowerCase().includes('link ảnh') || col0.toLowerCase().includes('link')) {
-            // Columns B, D, F, H
-            const mediaCols = [1, 3, 5, 7];
-            mediaCols.forEach((cIdx, i) => {
-              const link = String(row[cIdx] || '').trim();
-              if (link && ttQuestionItems[i]) {
-                if (!ttQuestionItems[i].media_links) ttQuestionItems[i].media_links = [];
-                ttQuestionItems[i].media_links!.push(link);
-                ttQuestionItems[i].media_url = link;
-                ttQuestionItems[i].media_type = link.endsWith('.mp4') ? 'VIDEO' : 'IMAGE';
-              }
+        for (const sec of stacked) {
+          const secRows = rows.slice(sec.startRow, sec.endRow);
+          if (sec.section === 'KD') {
+            const qs = parseBtiKdRows(secRows);
+            qs.forEach(q => {
+              importedQuestions.push(q);
+              byRound[q.round_name] = (byRound[q.round_name] || 0) + 1;
+            });
+          } else if (sec.section === 'VCNV') {
+            const qs = parseBtiVcnvRows(secRows);
+            qs.forEach(q => {
+              importedQuestions.push(q);
+              byRound['Vòng 2: Vượt Chướng Ngại Vật'] = (byRound['Vòng 2: Vượt Chướng Ngại Vật'] || 0) + 1;
+            });
+          } else if (sec.section === 'TT') {
+            const qs = parseBtiTtRows(secRows);
+            qs.forEach(q => {
+              importedQuestions.push(q);
+              byRound['Vòng 3: Tăng tốc'] = (byRound['Vòng 3: Tăng tốc'] || 0) + 1;
+            });
+          } else if (sec.section === 'VD') {
+            const { vdQuestions, chpQuestions } = parseBtiVdAndChpRows(secRows);
+            vdQuestions.forEach(q => {
+              importedQuestions.push(q);
+              byRound['Vòng 4: Về đích'] = (byRound['Vòng 4: Về đích'] || 0) + 1;
+            });
+            chpQuestions.forEach(q => {
+              importedQuestions.push(q);
+              byRound['Câu hỏi phụ'] = (byRound['Câu hỏi phụ'] || 0) + 1;
+            });
+          } else if (sec.section === 'CHP') {
+            const qs = parseBtiChpRows(secRows);
+            qs.forEach(q => {
+              importedQuestions.push(q);
+              byRound['Câu hỏi phụ'] = (byRound['Câu hỏi phụ'] || 0) + 1;
             });
           }
         }
+      }
+    }
 
-        ttQuestionItems.forEach(q => {
-          importedQuestions.push(q);
-          byRound['Vòng 3: Tăng tốc'] = (byRound['Vòng 3: Tăng tốc'] || 0) + 1;
-        });
-        continue;
+    if (!isStackedSingleSheet) {
+      const hasBtiOfficialSheets = sheetNames.some(s => isKdSheet(s) || isVcnvSheet(s) || isTtSheet(s) || isVdSheet(s) || isChpSheet(s));
+      if (hasBtiOfficialSheets) {
+        detectedFormat = 'BTI_OFFICIAL_MULTI_SHEET';
       }
 
-      // =========================================================================
-      // 4. VỀ ĐÍCH SHEET
-      // =========================================================================
-      if (isVdSheet(sheetName)) {
-        let currentLuot = 1;
+      let parsedChpInVd = false;
 
-        for (let r = 0; r < rows.length; r++) {
-          const row = rows[r];
-          const fullRowText = row.map(c => String(c || '').trim()).join(' ').toUpperCase();
+      // Iterate through all sheets
+      for (const sheetName of sheetNames) {
+        const ws = wb.Sheets[sheetName];
+        const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
-          if (fullRowText.includes('LƯỢT 1')) currentLuot = 1;
-          else if (fullRowText.includes('LƯỢT 2')) currentLuot = 2;
-          else if (fullRowText.includes('LƯỢT 3')) currentLuot = 3;
-          else if (fullRowText.includes('LƯỢT 4')) currentLuot = 4;
+        if (rows.length === 0) continue;
 
-          // Header row skip
-          if (fullRowText.includes('MỨC ĐIỂM') && fullRowText.includes('CÂU HỎI')) continue;
-          if (fullRowText.includes('HƯỚNG DẪN')) continue;
+        // =========================================================================
+        // 1. KHỞI ĐỘNG SHEET
+        // =========================================================================
+        if (isKdSheet(sheetName)) {
+          const qs = parseBtiKdRows(rows);
+          qs.forEach(q => {
+            importedQuestions.push(q);
+            byRound[q.round_name] = (byRound[q.round_name] || 0) + 1;
+          });
+          continue;
+        }
 
-          const ptsStr = String(row[0] || '').trim();
-          const qText = String(row[1] || '').trim();
-          const ans = String(row[2] || '').trim();
-          const media = String(row[3] || '').trim();
-          const note = String(row[4] || '').trim();
-          const audio = String(row[5] || '').trim();
+        // =========================================================================
+        // 2. VƯỢT CHƯỚNG NGẠI VẬT SHEET
+        // =========================================================================
+        if (isVcnvSheet(sheetName)) {
+          const qs = parseBtiVcnvRows(rows);
+          qs.forEach(q => {
+            importedQuestions.push(q);
+            byRound['Vòng 2: Vượt Chướng Ngại Vật'] = (byRound['Vòng 2: Vượt Chướng Ngại Vật'] || 0) + 1;
+          });
+          continue;
+        }
 
-          if (qText.length > 5 && ans) {
-            const pts = ptsStr.includes('30') ? 30 : ptsStr.includes('40') ? 40 : 20;
-            const item: QuestionItem = {
-              id: `VD_L${currentLuot}_${importedQuestions.length + 1}`,
-              round_name: `Vòng 4: Về đích (Lượt ${currentLuot} - ${pts} điểm)`,
-              round_type: 'SHORT_ANSWER',
-              round_format: pts === 20 ? 'VE_DICH_20' : (pts === 30 ? 'VE_DICH_30' : 'VE_DICH_40'),
-              category: 'Về đích BTI 2026',
-              question_text: qText,
-              options: {},
-              correct_key: ans,
-              host_notes: note || undefined,
-              explanation: note || 'MC chú ý đối chiếu đáp án và cho quyền chuông nếu trả lời sai',
-              media_type: media ? (media.endsWith('.mp4') ? 'VIDEO' : 'IMAGE') : (audio ? 'AUDIO' : 'NONE'),
-              media_url: media || undefined,
-              audio_url: audio || undefined,
-              time_limit: pts === 20 ? 15 : (pts === 30 ? 20 : 30),
-              points: pts,
-              participant_slot: currentLuot,
-              stage: 'BAN_KET_1',
-              cognitive_level: pts >= 30 ? 'VAN_DUNG_CAO' : 'VAN_DUNG',
-              digital_competency_domain: 'MIEN_4',
-              approval_status: 'APPROVED',
-              created_by: 'BTI Excel Template',
-              created_at: Date.now()
-            };
-            importedQuestions.push(item);
+        // =========================================================================
+        // 3. TĂNG TỐC SHEET
+        // =========================================================================
+        if (isTtSheet(sheetName)) {
+          const qs = parseBtiTtRows(rows);
+          qs.forEach(q => {
+            importedQuestions.push(q);
+            byRound['Vòng 3: Tăng tốc'] = (byRound['Vòng 3: Tăng tốc'] || 0) + 1;
+          });
+          continue;
+        }
+
+        // =========================================================================
+        // 4. VỀ ĐÍCH SHEET (Bao gồm cả CÂU HỎI PHỤ nếu có ở cuối trang tính)
+        // =========================================================================
+        if (isVdSheet(sheetName)) {
+          const { vdQuestions, chpQuestions } = parseBtiVdAndChpRows(rows);
+          vdQuestions.forEach(q => {
+            importedQuestions.push(q);
             byRound['Vòng 4: Về đích'] = (byRound['Vòng 4: Về đích'] || 0) + 1;
+          });
+          if (chpQuestions.length > 0) {
+            parsedChpInVd = true;
+            chpQuestions.forEach(q => {
+              importedQuestions.push(q);
+              byRound['Câu hỏi phụ'] = (byRound['Câu hỏi phụ'] || 0) + 1;
+            });
           }
+          continue;
         }
-        continue;
-      }
 
-      // =========================================================================
-      // 5. CÂU HỎI PHỤ SHEET
-      // =========================================================================
-      if (isChpSheet(sheetName)) {
-        for (let r = 0; r < rows.length; r++) {
-          const row = rows[r];
-          const col0 = String(row[0] || '').trim();
-          const col1 = String(row[1] || '').trim();
-          const col2 = String(row[2] || '').trim();
-
-          const qText = col1.length > 5 ? col1 : (col0.length > 10 ? col0 : '');
-          const ans = col1.length > 5 ? col2 : col1;
-
-          if (qText && qText.length > 5 && ans && !qText.toUpperCase().includes('CÂU HỎI')) {
-            const item: QuestionItem = {
-              id: `CHP_${importedQuestions.length + 1}`,
-              round_name: 'Câu hỏi phụ (Tie-breaker)',
-              round_type: 'SHORT_ANSWER',
-              round_format: 'CAU_HOI_PHU',
-              category: 'Câu hỏi phụ BTI 2026',
-              question_text: qText,
-              options: {},
-              correct_key: ans,
-              explanation: 'Câu hỏi phụ đấu loại trực tiếp trong 15 giây',
-              time_limit: 15,
-              points: 10,
-              stage: 'BAN_KET_1',
-              cognitive_level: 'THONG_HIEU',
-              digital_competency_domain: 'MIEN_1',
-              approval_status: 'APPROVED',
-              created_by: 'BTI Excel Template',
-              created_at: Date.now()
-            };
-            importedQuestions.push(item);
-            byRound['Câu hỏi phụ'] = (byRound['Câu hỏi phụ'] || 0) + 1;
+        // =========================================================================
+        // 5. CÂU HỎI PHỤ SHEET (Nếu không được tích hợp trong sheet Về đích)
+        // =========================================================================
+        if (isChpSheet(sheetName)) {
+          if (!parsedChpInVd) {
+            const qs = parseBtiChpRows(rows);
+            qs.forEach(q => {
+              importedQuestions.push(q);
+              byRound['Câu hỏi phụ'] = (byRound['Câu hỏi phụ'] || 0) + 1;
+            });
           }
+          continue;
         }
-        continue;
-      }
 
       // =========================================================================
       // 6. FALLBACK / GENERAL TABLE OR VÒNG LOẠI BỘ GD&ĐT
@@ -1032,6 +1481,7 @@ export const excelService = {
         byRound[key] = (byRound[key] || 0) + 1;
       }
     }
+  }
 
     if (importedQuestions.length === 0) {
       warnings.push('Không nhận diện được dòng câu hỏi hợp lệ nào trong tệp. Vui lòng kiểm tra định dạng hoặc tải mẫu Excel chuẩn.');
@@ -1245,11 +1695,503 @@ export const excelService = {
     XLSX.writeFile(wb, `Mau_Excel_Nhap_Cau_Hoi_BTI2026_${new Date().toISOString().slice(0, 10)}.xlsx`);
   },
 
+  /**
+   * Analyzes an uploaded custom Excel exam template file:
+   * - Detects sheets, title/instruction banners (pre-header rows)
+   * - Detects table header row index
+   * - Scans column headers and matches them to standard QuestionItem fields
+   * - Extracts sample values for verification
+   * - Communicates with Gemini AI for semantic refinement when available
+   * - Automatically persists the blueprint
+   */
+  async analyzeCustomTemplate(file: File): Promise<CustomTemplateBlueprint> {
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, { type: 'array' });
+
+    const sheetBlueprints: CustomTemplateSheetBlueprint[] = [];
+
+    for (const sheetName of wb.SheetNames) {
+      const ws = wb.Sheets[sheetName];
+      const rawRows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (rawRows.length === 0) continue;
+
+      // Detect header row by scoring keywords and structure
+      let bestRowIdx = 0;
+      let bestScore = -1;
+
+      for (let r = 0; r < Math.min(rawRows.length, 25); r++) {
+        const row = rawRows[r];
+        if (!row || row.length === 0) continue;
+
+        let score = 0;
+        const rowStr = row.map(c => String(c || '').toLowerCase()).join(' ');
+
+        // Instructions banner penalty (e.g. "Hướng dẫn: ...", "Lưu ý: ...")
+        if (rowStr.startsWith('hướng dẫn') || rowStr.startsWith('lưu ý') || rowStr.includes('hướng dẫn:')) {
+          score -= 30;
+        }
+
+        // Count non-empty columns
+        const nonEmptyCount = row.filter(c => String(c || '').trim().length > 0).length;
+        if (nonEmptyCount >= 2) score += 4;
+        if (nonEmptyCount >= 3) score += 3;
+
+        // Reward column header keywords
+        row.forEach(cell => {
+          const val = normVn(cell);
+          if (val === 'CAU HOI' || val === 'QUESTION' || val === 'NOI DUNG' || val === 'NOI DUNG CAU HOI') score += 10;
+          else if (val.includes('CAU HOI') && val.length < 30) score += 6;
+          
+          if (val === 'DAP AN' || val === 'ANSWER' || val === 'KEY') score += 10;
+          else if (val.includes('DAP AN') && val.length < 30) score += 6;
+
+          if (val === 'MUC DIEM' || val === 'DIEM') score += 6;
+          if (val.includes('ANH') || val.includes('MEDIA') || val.includes('VIDEO')) score += 6;
+          if (val.includes('AM THANH') || val.includes('AUDIO')) score += 6;
+          if (val.includes('CHU THICH')) score += 6;
+          if (val === 'STT' || val === 'SO THU TU') score += 4;
+        });
+
+        const textCells = row.map(c => String(c || '').trim().toUpperCase());
+        if (textCells.includes('A') && textCells.includes('B')) score += 8;
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestRowIdx = r;
+        }
+      }
+
+      if (bestScore < 2) bestRowIdx = 0;
+
+      const preHeaderRows = rawRows.slice(0, bestRowIdx);
+      const headerRow = rawRows[bestRowIdx] || [];
+      const columns: ColumnMappingItem[] = [];
+
+      for (let c = 0; c < headerRow.length; c++) {
+        const headerName = String(headerRow[c] || '').trim();
+        if (!headerName && c > 15) break;
+
+        const samples: string[] = [];
+        for (let r = bestRowIdx + 1; r < Math.min(rawRows.length, bestRowIdx + 10); r++) {
+          const cellVal = String(rawRows[r]?.[c] || '').trim();
+          if (cellVal) {
+            samples.push(cellVal);
+            if (samples.length >= 3) break;
+          }
+        }
+
+        const detected = detectColumnField(headerName || `Cột ${c + 1}`, samples);
+        columns.push({
+          colIndex: c,
+          originalHeader: headerName || `Cột ${c + 1}`,
+          mappedField: detected.field,
+          sampleValues: samples,
+          confidence: detected.confidence
+        });
+      }
+
+      sheetBlueprints.push({
+        sheetName,
+        headerRowIndex: bestRowIdx,
+        preHeaderRows,
+        columns,
+        totalSampleRows: Math.max(0, rawRows.length - (bestRowIdx + 1))
+      });
+    }
+
+    if (sheetBlueprints.length === 0) {
+      throw new Error('Tệp Excel không chứa trang tính hoặc dữ liệu nào.');
+    }
+
+    // Determine target sheet (the sheet with the most question fields mapped)
+    let targetSheetName = sheetBlueprints[0].sheetName;
+    let maxMappedScore = -1;
+
+    for (const sb of sheetBlueprints) {
+      const score = sb.columns.filter(c => c.mappedField !== 'unmapped').length;
+      if (score > maxMappedScore) {
+        maxMappedScore = score;
+        targetSheetName = sb.sheetName;
+      }
+    }
+
+    // Check if uploaded template is BTI Official or stacked BTI
+    const lowerFileName = file.name.toLowerCase();
+    const isBtiTemplate = lowerFileName.includes('đề thi') || 
+      lowerFileName.includes('de thi') || 
+      lowerFileName.includes('bti') ||
+      sheetBlueprints.some(s => isKdSheet(s.sheetName) || isVcnvSheet(s.sheetName) || isTtSheet(s.sheetName) || isVdSheet(s.sheetName));
+
+    // If single sheet contains stacked BTI sections, partition into virtual sheets
+    if (sheetBlueprints.length === 1 && wb.SheetNames.length === 1) {
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rawRows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      const stacked = detectStackedBtiSections(rawRows);
+      if (stacked.length >= 2) {
+        const sectionNames: Record<StackedBtiSection['section'], string> = {
+          KD: 'Khởi động',
+          VCNV: 'Vượt chướng ngại vật',
+          TT: 'Tăng tốc',
+          VD: 'Về đích',
+          CHP: 'Câu hỏi phụ'
+        };
+
+        const virtualSheets: CustomTemplateSheetBlueprint[] = [];
+        stacked.forEach(sec => {
+          const secRows = rawRows.slice(sec.startRow, sec.endRow);
+          let hIdx = 0;
+          for (let r = 0; r < Math.min(secRows.length, 10); r++) {
+            const str = secRows[r].join(' ').toLowerCase();
+            if (str.includes('câu hỏi') && (str.includes('đáp án') || str.includes('mức điểm') || str.includes('ảnh'))) {
+              hIdx = r;
+              break;
+            }
+          }
+          const preRows = secRows.slice(0, hIdx);
+          const headerRow = secRows[hIdx] || [];
+          const columns: ColumnMappingItem[] = [];
+
+          for (let c = 0; c < headerRow.length; c++) {
+            const hName = String(headerRow[c] || '').trim();
+            if (!hName && c > 10) break;
+            const samples: string[] = [];
+            for (let r = hIdx + 1; r < Math.min(secRows.length, hIdx + 10); r++) {
+              const val = String(secRows[r]?.[c] || '').trim();
+              if (val) {
+                samples.push(val);
+                if (samples.length >= 3) break;
+              }
+            }
+            const det = detectColumnField(hName || `Cột ${c + 1}`, samples);
+            columns.push({
+              colIndex: c,
+              originalHeader: hName || `Cột ${c + 1}`,
+              mappedField: det.field,
+              sampleValues: samples,
+              confidence: det.confidence
+            });
+          }
+
+          virtualSheets.push({
+            sheetName: sectionNames[sec.section] || sec.section,
+            headerRowIndex: hIdx,
+            preHeaderRows: preRows,
+            columns,
+            totalSampleRows: Math.max(0, secRows.length - (hIdx + 1))
+          });
+        });
+
+        if (virtualSheets.length > 0) {
+          sheetBlueprints.length = 0;
+          sheetBlueprints.push(...virtualSheets);
+          targetSheetName = virtualSheets[0].sheetName;
+        }
+      }
+    }
+
+    // Initial heuristic system name
+    let systemName = 'Biểu Mẫu Khảo Thí Tùy Biến';
+    if (isBtiTemplate) {
+      systemName = 'Phần mềm BTI (Đề thi.xlsx)';
+    } else if (lowerFileName.includes('azota')) systemName = 'Azota';
+    else if (lowerFileName.includes('k12')) systemName = 'K12Online';
+    else if (lowerFileName.includes('shub')) systemName = 'Shub Classroom';
+    else if (lowerFileName.includes('olm')) systemName = 'OLM';
+    else if (lowerFileName.includes('quizizz')) systemName = 'Quizizz';
+    else if (lowerFileName.includes('bgd') || lowerFileName.includes('bo_giao_duc')) systemName = 'Chuẩn Bộ GD&ĐT';
+    else if (lowerFileName.includes('subiz')) systemName = 'Subiz';
+    else if (lowerFileName.includes('canvas') || lowerFileName.includes('moodle')) systemName = 'Canvas / Moodle';
+
+    let aiSummary = isBtiTemplate
+      ? `Agent đã nhận diện chuẩn mẫu tệp của Phần mềm Điều khiển BTI 2026 ("Đề thi.xlsx").\n• Quy định bắt buộc: Tên file luôn phải đặt là "Đề thi.xlsx" (không đổi tên).\n• Cây thư mục Media: Media/Starting (Khởi động), Media/Obstacle (VCNV), Media/Acceleration/AC1-AC4 (Tăng tốc), Media/Finish (Về đích), StudentImage (Ảnh thí sinh).\n• Các cột media chỉ ghi tên file gốc, phần mềm tự liên kết theo thư mục phần thi tương ứng.`
+      : `Agent đã phân tích biểu mẫu "${file.name}": Nhận diện ${sheetBlueprints.length} trang tính, dòng tiêu đề ở vị trí ${sheetBlueprints[0].headerRowIndex + 1} và đã ánh xạ ${sheetBlueprints[0].columns.filter(c => c.mappedField !== 'unmapped').length} cột dữ liệu.`;
+
+    // Try Gemini AI enhancement via backend
+    try {
+      const sheetsPayload = sheetBlueprints.map(sb => {
+        const ws = wb.Sheets[sb.sheetName];
+        const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        return {
+          sheetName: sb.sheetName,
+          rows: raw.slice(0, 10)
+        };
+      });
+
+      const res = await fetch('/api/ai/analyze-excel-template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: file.name, sheets: sheetsPayload })
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.analysis) {
+          if (json.analysis.systemName) systemName = json.analysis.systemName;
+          if (json.analysis.aiSummary) aiSummary = json.analysis.aiSummary;
+          if (json.analysis.targetSheetName) targetSheetName = json.analysis.targetSheetName;
+
+          // Merge AI column mapping if provided
+          if (Array.isArray(json.analysis.columnMappings)) {
+            const targetSb = sheetBlueprints.find(s => s.sheetName === targetSheetName) || sheetBlueprints[0];
+            json.analysis.columnMappings.forEach((aiCol: any) => {
+              const matchedCol = targetSb.columns.find(c => c.colIndex === aiCol.colIndex);
+              if (matchedCol && aiCol.mappedField && aiCol.mappedField in MAPPED_FIELD_LABELS) {
+                matchedCol.mappedField = aiCol.mappedField as MappedQuestionField;
+                matchedCol.confidence = 0.99;
+              }
+            });
+          }
+        }
+      }
+    } catch (aiErr) {
+      console.warn('AI Template analysis fallback to heuristic:', aiErr);
+    }
+
+    const blueprint: CustomTemplateBlueprint = {
+      id: `TMPL_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      name: file.name,
+      analyzedAt: Date.now(),
+      systemName,
+      aiSummary,
+      sheets: sheetBlueprints,
+      targetSheetName
+    };
+
+    customTemplateStorage.save(blueprint);
+    return blueprint;
+  },
+
+  /**
+   * Adaptive Exporter:
+   * Exports questions from Question Bank matching 100% the layout, instructions, and column structure of an analyzed template blueprint.
+   */
+  exportMatchingCustomTemplate(
+    questions: QuestionItem[], 
+    blueprint: CustomTemplateBlueprint, 
+    customFileName?: string
+  ): void {
+    const wb = XLSX.utils.book_new();
+    const targetSheet = blueprint.sheets.find(s => s.sheetName === blueprint.targetSheetName) || blueprint.sheets[0];
+
+    if (!targetSheet) {
+      throw new Error('Không tìm thấy cấu trúc trang tính trong mẫu đề.');
+    }
+
+    const rows: any[][] = [];
+
+    // 1. Recreate all original pre-header rows (instruction banners, titles)
+    for (const pRow of targetSheet.preHeaderRows) {
+      rows.push([...pRow]);
+    }
+
+    // 2. Insert original header row
+    const headerRow = targetSheet.columns.map(c => c.originalHeader);
+    rows.push(headerRow);
+
+    // 3. Map question data into each corresponding column
+    questions.forEach((q, qIdx) => {
+      const rowData: any[] = [];
+
+      for (const col of targetSheet.columns) {
+        let val: any = '';
+
+        switch (col.mappedField) {
+          case 'id':
+            val = q.id || String(qIdx + 1);
+            break;
+          case 'question_text':
+            val = q.question_text || '';
+            break;
+          case 'option_a':
+            val = q.options?.A || q.options?.a || '';
+            break;
+          case 'option_b':
+            val = q.options?.B || q.options?.b || '';
+            break;
+          case 'option_c':
+            val = q.options?.C || q.options?.c || '';
+            break;
+          case 'option_d':
+            val = q.options?.D || q.options?.d || '';
+            break;
+          case 'option_e':
+            val = q.options?.E || q.options?.e || '';
+            break;
+          case 'correct_key': {
+            const sample = (col.sampleValues[0] || '').trim();
+            let key = (q.correct_key || '').trim();
+
+            if (/^[1-4]$/.test(sample)) {
+              const numMap: Record<string, string> = { A: '1', B: '2', C: '3', D: '4' };
+              key = numMap[key.toUpperCase()] || key;
+            } else if (/^[a-d]$/.test(sample)) {
+              key = key.toLowerCase();
+            } else if (/^[A-D]$/.test(sample)) {
+              key = key.toUpperCase();
+            } else if (sample.length > 5 && q.options) {
+              const fullOption = q.options[key.toUpperCase()] || q.options[key];
+              if (fullOption) key = fullOption;
+            }
+            val = key;
+            break;
+          }
+          case 'explanation':
+            val = q.explanation || q.host_notes || '';
+            break;
+          case 'cognitive_level': {
+            const sample = (col.sampleValues[0] || '').toLowerCase();
+            const level = q.cognitive_level || 'THONG_HIEU';
+            if (sample.includes('nhận biết') || sample.includes('thông hiểu') || sample.includes('vận dụng')) {
+              const map: Record<string, string> = {
+                NHAN_BIET: 'Nhận biết',
+                THONG_HIEU: 'Thông hiểu',
+                VAN_DUNG: 'Vận dụng',
+                VAN_DUNG_CAO: 'Vận dụng cao'
+              };
+              val = map[level] || 'Thông hiểu';
+            } else {
+              val = level;
+            }
+            break;
+          }
+          case 'digital_competency_domain': {
+            const sample = (col.sampleValues[0] || '').toLowerCase();
+            const dom = q.digital_competency_domain || 'MIEN_1';
+            if (sample.includes('miền') || sample.includes('chủ đề')) {
+              const map: Record<string, string> = {
+                MIEN_1: 'Miền 1: Dữ liệu và thông tin',
+                MIEN_2: 'Miền 2: Giao tiếp và hợp tác',
+                MIEN_3: 'Miền 3: Sáng tạo nội dung số',
+                MIEN_4: 'Miền 4: An toàn số',
+                MIEN_5: 'Miền 5: Giải quyết vấn đề',
+                MIEN_6: 'Miền 6: Sử dụng thiết bị'
+              };
+              val = map[dom] || 'Miền 1';
+            } else {
+              val = dom;
+            }
+            break;
+          }
+          case 'points':
+            val = q.points ?? 10;
+            break;
+          case 'time_limit':
+            val = q.time_limit ?? 30;
+            break;
+          case 'legal_reference':
+            val = q.legal_reference || 'Thông tư 02/2025/TT-BGDĐT';
+            break;
+          case 'round_name':
+            val = q.round_name || 'Vòng 1: Khởi động';
+            break;
+          case 'media_url':
+            val = q.media_url || '';
+            break;
+          case 'audio_url':
+            val = q.audio_url || '';
+            break;
+          case 'distractor_script':
+            val = q.scenario_details?.scriptText || q.host_notes || '';
+            break;
+          case 'custom_constant':
+            val = col.constantValue || '';
+            break;
+          case 'unmapped':
+          default:
+            val = '';
+            break;
+        }
+
+        rowData.push(val);
+      }
+
+      rows.push(rowData);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+
+    // Dynamic column width calculation
+    ws['!cols'] = targetSheet.columns.map((c, colIdx) => {
+      let maxLen = (c.originalHeader || '').length;
+      for (let r = 0; r < Math.min(rows.length, 50); r++) {
+        const cellStr = String(rows[r]?.[colIdx] || '');
+        if (cellStr.length > maxLen) maxLen = cellStr.length;
+      }
+      return { wch: Math.min(Math.max(maxLen + 3, 10), 65) };
+    });
+
+    XLSX.utils.book_append_sheet(wb, ws, targetSheet.sheetName || 'DE_THI');
+
+    // Add remaining sheets from blueprint if any, maintaining original multi-sheet format
+    for (const otherSheet of blueprint.sheets) {
+      if (otherSheet.sheetName !== targetSheet.sheetName) {
+        const otherRows: any[][] = [];
+        for (const pRow of otherSheet.preHeaderRows) {
+          otherRows.push([...pRow]);
+        }
+        otherRows.push(otherSheet.columns.map(c => c.originalHeader));
+        const wsOther = XLSX.utils.aoa_to_sheet(otherRows);
+        XLSX.utils.book_append_sheet(wb, wsOther, otherSheet.sheetName);
+      }
+    }
+
+    const baseName = blueprint.name.replace(/\.[^/.]+$/, '').replace(/\s+/g, '_');
+    const finalFilename = customFileName || `DeThi_KhopMau_${baseName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+    XLSX.writeFile(wb, finalFilename);
+  },
+
   parseExcelFile(file: File): Promise<ParseExcelResult> {
     return this.parseUploadedFile(file);
   },
 
   exportQuestionsToExcel(questions: QuestionItem[], filename?: string): void {
     this.exportToBTIExcel(questions, filename);
+  }
+};
+
+/**
+ * Storage helpers for learned custom templates
+ */
+const BLUEPRINTS_STORAGE_KEY = 'BTI2026_CUSTOM_EXCEL_TEMPLATE_BLUEPRINTS';
+const ACTIVE_BLUEPRINT_KEY = 'BTI2026_ACTIVE_CUSTOM_EXCEL_TEMPLATE_ID';
+
+export const customTemplateStorage = {
+  getAll(): CustomTemplateBlueprint[] {
+    try {
+      const raw = localStorage.getItem(BLUEPRINTS_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  },
+  save(blueprint: CustomTemplateBlueprint): void {
+    const list = this.getAll().filter(b => b.id !== blueprint.id);
+    list.unshift(blueprint);
+    localStorage.setItem(BLUEPRINTS_STORAGE_KEY, JSON.stringify(list));
+    localStorage.setItem(ACTIVE_BLUEPRINT_KEY, blueprint.id);
+  },
+  getActive(): CustomTemplateBlueprint | null {
+    const activeId = localStorage.getItem(ACTIVE_BLUEPRINT_KEY);
+    const list = this.getAll();
+    if (activeId) {
+      const found = list.find(b => b.id === activeId);
+      if (found) return found;
+    }
+    return list[0] || null;
+  },
+  setActive(id: string): void {
+    localStorage.setItem(ACTIVE_BLUEPRINT_KEY, id);
+  },
+  delete(id: string): void {
+    const list = this.getAll().filter(b => b.id !== id);
+    localStorage.setItem(BLUEPRINTS_STORAGE_KEY, JSON.stringify(list));
+    if (localStorage.getItem(ACTIVE_BLUEPRINT_KEY) === id) {
+      if (list.length > 0) {
+        localStorage.setItem(ACTIVE_BLUEPRINT_KEY, list[0].id);
+      } else {
+        localStorage.removeItem(ACTIVE_BLUEPRINT_KEY);
+      }
+    }
   }
 };

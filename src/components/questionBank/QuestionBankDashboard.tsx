@@ -52,7 +52,8 @@ import {
   HardDrive,
   Grid,
   Database,
-  RotateCcw
+  RotateCcw,
+  TrendingUp
 } from 'lucide-react';
 import { questionDraftService, QuestionDraft } from '../../services/questionDraftService';
 import { 
@@ -126,8 +127,10 @@ import {
 import { soundFx } from '../../services/audioEffects';
 import { vibrateTap, vibrateSuccess, vibrateWarning } from '../../utils/hapticUtils';
 import { getTagColorScheme } from '../../utils/tagColorUtils';
+import { QuestionBankStatsView } from './QuestionBankStatsView';
+import { PracticeExamView } from './PracticeExamView';
 
-type MainTab = 'OVERVIEW' | 'QUESTIONS' | 'MODERATION' | 'AI_STUDIO' | 'EXCEL_HUB' | 'SCENARIOS' | 'LEGAL_DOCS' | 'MATRIX';
+type MainTab = 'OVERVIEW' | 'QUESTIONS' | 'MODERATION' | 'AI_STUDIO' | 'EXCEL_HUB' | 'SCENARIOS' | 'LEGAL_DOCS' | 'MATRIX' | 'STATS' | 'PRACTICE';
 
 interface QuestionBankDashboardProps {
   onOpenGeminiStudio?: (tab?: 'CHAT' | 'IMAGE' | 'VIDEO') => void;
@@ -1918,7 +1921,9 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
               {activeTab === 'SCENARIOS' && <Theater className="w-4 h-4 text-purple-900" />}
               {activeTab === 'LEGAL_DOCS' && <Scale className="w-4 h-4 text-amber-900" />}
               {activeTab === 'MATRIX' && <BarChart3 className="w-4 h-4 text-[#190839]" />}
-              {!['EXCEL_HUB', 'SCENARIOS', 'LEGAL_DOCS', 'MATRIX'].includes(activeTab) && (
+              {activeTab === 'STATS' && <TrendingUp className="w-4 h-4 text-purple-300" />}
+              {activeTab === 'PRACTICE' && <PlayCircle className="w-4 h-4 text-emerald-300" />}
+              {!['EXCEL_HUB', 'SCENARIOS', 'LEGAL_DOCS', 'MATRIX', 'STATS', 'PRACTICE'].includes(activeTab) && (
                 <FolderPlus className="w-4 h-4 text-purple-300" />
               )}
 
@@ -1927,7 +1932,9 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                 {activeTab === 'SCENARIOS' && 'Kịch Tương Tác'}
                 {activeTab === 'LEGAL_DOCS' && 'Thư Viện Pháp Lý'}
                 {activeTab === 'MATRIX' && 'Ma Trận BTI'}
-                {!['EXCEL_HUB', 'SCENARIOS', 'LEGAL_DOCS', 'MATRIX'].includes(activeTab) && 'Công Cụ Mở Rộng'}
+                {activeTab === 'STATS' && 'Thống Kê'}
+                {activeTab === 'PRACTICE' && 'Thi Thử'}
+                {!['EXCEL_HUB', 'SCENARIOS', 'LEGAL_DOCS', 'MATRIX', 'STATS', 'PRACTICE'].includes(activeTab) && 'Công Cụ Mở Rộng'}
               </span>
 
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isToolsDropdownOpen ? 'rotate-180' : ''}`} />
@@ -2019,6 +2026,46 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                     <div className="flex items-center gap-2.5">
                       <BarChart3 className="w-4 h-4 text-theme-accent" />
                       <span>Ma Trận &amp; Độ Phủ BTI</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateTap();
+                      soundFx.playClick();
+                      setActiveTab('STATS');
+                      setIsToolsDropdownOpen(false);
+                    }}
+                    className={`w-full px-3 py-2 text-left flex items-center justify-between transition cursor-pointer ${
+                      activeTab === 'STATS'
+                        ? 'bg-theme-accent/20 text-theme-accent font-bold'
+                        : 'text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <TrendingUp className="w-4 h-4 text-purple-400" />
+                      <span>Thống Kê Ngân Hàng</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateTap();
+                      soundFx.playClick();
+                      setActiveTab('PRACTICE');
+                      setIsToolsDropdownOpen(false);
+                    }}
+                    className={`w-full px-3 py-2 text-left flex items-center justify-between transition cursor-pointer ${
+                      activeTab === 'PRACTICE'
+                        ? 'bg-theme-accent/20 text-theme-accent font-bold'
+                        : 'text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <PlayCircle className="w-4 h-4 text-emerald-400" />
+                      <span>Thi Thử BTI 2026</span>
                     </div>
                   </button>
                 </div>
@@ -3554,6 +3601,16 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             setShowAddQuestionModal(true);
           }}
         />
+      )}
+
+      {/* TAB: STATS - Thống Kê Ngân Hàng Đề */}
+      {activeTab === 'STATS' && (
+        <QuestionBankStatsView />
+      )}
+
+      {/* TAB: PRACTICE - Thi Thử BTI 2026 */}
+      {activeTab === 'PRACTICE' && (
+        <PracticeExamView onClose={() => setActiveTab('OVERVIEW')} />
       )}
 
       {/* AI Mock Quiz & Balanced Exam Generator Modal */}

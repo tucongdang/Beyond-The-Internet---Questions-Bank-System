@@ -30,7 +30,8 @@ import {
   downloadJsonFile, 
   generatePrintableHtmlDocument, 
   printHtmlDocument, 
-  downloadHtmlDocument 
+  downloadHtmlDocument,
+  downloadWordDocument
 } from '../../services/questionExportService';
 
 export interface QuestionExportModalProps {
@@ -162,6 +163,33 @@ export const QuestionExportModal: React.FC<QuestionExportModalProps> = ({
     downloadHtmlDocument(html, filename);
 
     onToast?.('Đã tải tài liệu ngoại tuyến', `Đã tải về tệp "${filename}" có thể mở trên mọi thiết bị mà không cần Internet.`, 'info');
+  };
+
+  // Handle Download Word Document (.doc)
+  const handleDownloadWord = () => {
+    if (targetQuestions.length === 0) return;
+    vibrateSuccess();
+    soundFx.playCorrect();
+
+    const html = generatePrintableHtmlDocument(targetQuestions, {
+      scope,
+      layout: pdfLayout,
+      title: examTitle,
+      institution,
+      subtitle: examSubtitle,
+      includeLegalRef,
+      includeExplanation: pdfLayout === 'TEACHER',
+      includeQuickAnswerKey,
+      includeStudentInfoBox: includeStudentInfo,
+      includeCompetencyMatrix,
+      fontSize
+    });
+
+    const now = new Date().toISOString().slice(0, 10);
+    const filename = `BTI_2026_${pdfLayout}_${targetQuestions.length}Q_${now}.doc`;
+    downloadWordDocument(html, filename);
+
+    onToast?.('Đã xuất file Word', `Đã tải về tệp "${filename}" có thể mở và biên tập trực tiếp trong Microsoft Word hoặc Google Docs.`, 'success');
   };
 
   // Handle Download JSON
@@ -693,6 +721,16 @@ export const QuestionExportModal: React.FC<QuestionExportModalProps> = ({
                 >
                   <Download className="w-3.5 h-3.5 text-purple-300" />
                   <span>Tải HTML Ngoại Tuyến</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadWord}
+                  className="px-3.5 py-1.5 rounded-[4px] bg-sky-600/30 hover:bg-sky-600/50 text-sky-200 border border-sky-400/40 text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5"
+                  title="Tải file Microsoft Word (.doc) chuẩn để mở và biên tập trực tiếp trong Word / Docs"
+                >
+                  <FileText className="w-3.5 h-3.5 text-sky-300" />
+                  <span>Xuất File Word (.doc)</span>
                 </button>
 
                 <button

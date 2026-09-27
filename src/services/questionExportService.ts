@@ -645,3 +645,54 @@ export function downloadHtmlDocument(htmlContent: string, filename: string): voi
     URL.revokeObjectURL(url);
   }, 300);
 }
+
+/**
+ * Triggers browser download of a Microsoft Word document (.doc)
+ * Opens cleanly in Microsoft Word, Google Docs, LibreOffice with standard exam layout
+ */
+export function downloadWordDocument(htmlContent: string, filename: string): void {
+  const wordHeader = `
+    <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+          xmlns:w='urn:schemas-microsoft-com:office:word' 
+          xmlns='http://www.w3.org/TR/REC-html40'>
+    <head>
+      <meta charset='utf-8'>
+      <title>${filename}</title>
+      <!--[if gte mso 9]>
+      <xml>
+        <w:WordDocument>
+          <w:View>Print</w:View>
+          <w:Zoom>100</w:Zoom>
+          <w:DoNotOptimizeForBrowser/>
+        </w:WordDocument>
+      </xml>
+      <![endif]-->
+      <style>
+        @page { size: 21cm 29.7cm; margin: 2cm 2cm 2cm 2cm; }
+        body { font-family: 'Times New Roman', serif; font-size: 13pt; line-height: 1.4; color: #000; }
+        h1 { font-size: 16pt; font-weight: bold; text-align: center; margin-bottom: 4pt; }
+        h2 { font-size: 13pt; font-weight: bold; text-align: center; margin-bottom: 12pt; }
+        .question-item { margin-bottom: 16pt; page-break-inside: avoid; }
+        .question-text { font-weight: bold; margin-bottom: 6pt; }
+        .options-grid { margin-left: 18pt; margin-bottom: 8pt; }
+        .option-item { margin-bottom: 4pt; }
+        .explanation-box { background-color: #f3f4f6; border-left: 3pt solid #6b7280; padding: 6pt 10pt; margin-top: 6pt; font-size: 11pt; }
+        .legal-ref { color: #4b5563; font-style: italic; font-size: 10.5pt; margin-top: 4pt; }
+      </style>
+    </head>
+    <body>
+  `;
+  const wordFooter = `</body></html>`;
+  const completeDoc = wordHeader + htmlContent + wordFooter;
+  const blob = new Blob(['\ufeff' + completeDoc], { type: 'application/msword;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename.endsWith('.doc') ? filename : `${filename}.doc`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 300);
+}

@@ -20,7 +20,10 @@ import {
   Save,
   Check,
   User,
-  Shield
+  Shield,
+  Clock,
+  XCircle,
+  Info
 } from 'lucide-react';
 import { AppUser, UserRole } from '../../types';
 import { questionBankManager } from '../../services/questionBankManager';
@@ -44,6 +47,60 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
   const [users, setUsers] = useState<AppUser[]>(() => questionBankManager.getUsers());
   const [currentUser, setCurrentUser] = useState<AppUser>(() => questionBankManager.getCurrentUser());
   const isSuperAdmin = currentUser.role === 'SUPER_ADMIN';
+
+  // Approval & Tab states
+  const [activeTab, setActiveTab] = useState<'MEMBERS' | 'PENDING'>('MEMBERS');
+  const [approvalMode, setApprovalMode] = useState<boolean>(() => questionBankManager.isApprovalModeActive());
+  const [pendingRoleMap, setPendingRoleMap] = useState<Record<string, UserRole>>({});
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+
+  const approvedUsers = users.filter(u => u.status !== 'PENDING' && u.status !== 'REJECTED');
+  const pendingUsers = users.filter(u => u.status === 'PENDING');
+
+  // Toggle Strict Approval Mode
+  const handleToggleApprovalMode = () => {
+    const next = !approvalMode;
+    setApprovalMode(next);
+    questionBankManager.setApprovalModeActive(next);
+    vibrateTap();
+    soundFx.playClick();
+    setActionNotice(next ? 'Đã BẬT Chế Độ Duyệt Thành Viên (Strict Approval). Người đăng ký mới sẽ chờ Super Admin phê duyệt.' : 'Đã TẮT Chế Độ Duyệt Thành Viên (Tự động duyệt ngay khi đăng ký).');
+    setTimeout(() => setActionNotice(null), 3500);
+  };
+
+  // Approve Pending User
+  const handleApproveUser = (userId: string, userName: string) => {
+    const roleToAssign = pendingRoleMap[userId] || 'CONTRIBUTOR';
+    questionBankManager.approveUser(userId, roleToAssign, currentUser.name);
+    vibrateSuccess();
+    soundFx.playPacingChime('complete');
+    setUsers(questionBankManager.getUsers());
+    setActionNotice(`Đã phê duyệt tài khoản "${userName}" thành công với vai trò ${roleToAssign}!`);
+    setTimeout(() => setActionNotice(null), 3500);
+    if (onUserChanged) onUserChanged();
+  };
+
+  // Reject Pending User
+  const handleRejectUser = (userId: string, userName: string) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn từ chối yêu cầu đăng ký của "${userName}"?`)) return;
+    questionBankManager.rejectUser(userId);
+    vibrateTap();
+    soundFx.playClick();
+    setUsers(questionBankManager.getUsers());
+    setActionNotice(`Đã từ chối yêu cầu của "${userName}".`);
+    setTimeout(() => setActionNotice(null), 3500);
+    if (onUserChanged) onUserChanged();
+  };
+
+  // Delete Pending User
+  const handleDeletePendingUser = (userId: string, userName: string) => {
+    if (!window.confirm(`Xóa yêu cầu đăng ký của "${userName}" khỏi hàng đợi?`)) return;
+    questionBankManager.deleteUser(userId);
+    vibrateTap();
+    soundFx.playClick();
+    setUsers(questionBankManager.getUsers());
+    if (onUserChanged) onUserChanged();
+  };
 
   // Modal Sub-view states
   const [showAddUser, setShowAddUser] = useState<boolean>(false);
@@ -222,6 +279,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
       role: newUserRole,
       title: newUserTitle.trim() || undefined,
       department: newUserOrg.trim() || 'Ban Đề Thi BTI 2026',
+      status: 'APPROVED',
       createdAt: Date.now()
     };
 
@@ -238,6 +296,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
           password: newUserPassword || 'BTI2026Admin',
           technicalRole: newUser.role,
           note: newUser.department,
+          isDirectAdminCreate: true,
           captchaId: 'bypass_direct',
           captchaAnswer: 'bypass_direct'
         })
@@ -323,6 +382,23 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
         {/* Modal Content */}
         <div className="p-5 sm:px-6 py-5 overflow-y-auto space-y-5 flex-1 text-xs custom-scrollbar modal-scroll-isolated overscroll-contain">
           
+          {/* Action Notice Toast Banner */}
+          {actionNotice && (
+            <div className="p-3 bg-emerald-950/80 border border-emerald-500/50 rounded-[6px] text-emerald-200 text-xs font-mono flex items-center justify-between gap-2 animate-fadeIn shadow-lg">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{actionNotice}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActionNotice(null)}
+                className="text-emerald-400/60 hover:text-emerald-200"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {/* Active User Card with Edit Profile & Change Password Buttons */}
           <div className="p-4 bg-[#241148]/80 border border-white/10 rounded-[6px] flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 shadow-md">
             <div className="flex items-center gap-3 min-w-0">
@@ -387,6 +463,43 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
               )}
             </div>
           </div>
+
+          {/* Super Admin Strict Approval Mode Settings Card */}
+          {isSuperAdmin && (
+            <div className="p-3.5 bg-[#241148]/60 border border-white/10 rounded-[6px] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+              <div className="flex items-start sm:items-center gap-3 min-w-0">
+                <div className={`w-9 h-9 rounded-[4px] flex items-center justify-center font-bold text-xs shrink-0 ${approvalMode ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}`}>
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-white font-mono text-xs">Chế Độ Duyệt Thành Viên (Strict Approval Mode)</span>
+                    <span className={`px-2 py-0.5 rounded-[3px] text-[10px] font-mono font-bold ${approvalMode ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-white/10 text-white/60 border border-white/15'}`}>
+                      {approvalMode ? 'ĐANG BẬT' : 'ĐANG TẮT'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#B6A6D8] mt-0.5 font-sans">
+                    {approvalMode 
+                      ? 'Người đăng ký mới sẽ vào hàng đợi CHỜ PHÊ DUYỆT (PENDING), chỉ có thể đăng nhập sau khi Super Admin duyệt.' 
+                      : 'Tự động duyệt và cấp quyền ngay lập tức sau khi người dùng đăng ký.'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleToggleApprovalMode}
+                className={`px-3 py-1.5 rounded-[4px] font-mono text-xs font-bold transition flex items-center gap-1.5 shrink-0 self-start sm:self-center cursor-pointer ${
+                  approvalMode 
+                    ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40' 
+                    : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 border border-emerald-500/40'
+                }`}
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>{approvalMode ? 'Tắt Kiểm Duyệt' : 'Bật Kiểm Duyệt'}</span>
+              </button>
+            </div>
+          )}
 
           {/* Form: Sửa Thông Tin Cá Nhân (Edit Profile Form) */}
           {showEditProfile && (
@@ -624,15 +737,47 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
             </form>
           )}
 
-          {/* Members List & RBAC Management */}
+          {/* Tab Navigation: Members vs Pending Requests */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold font-mono text-white/90 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-sky-400" />
-                <span>Danh Sách Thành Viên Ban Đề Thi ({users.length}):</span>
-              </span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-white/10 pb-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateTap();
+                    setActiveTab('MEMBERS');
+                  }}
+                  className={`px-3 py-1.5 rounded-[4px] font-mono text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                    activeTab === 'MEMBERS'
+                      ? 'bg-sky-500 text-white shadow-sm'
+                      : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Thành Viên Đã Duyệt ({approvedUsers.length})</span>
+                </button>
 
-              {isSuperAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateTap();
+                    setActiveTab('PENDING');
+                  }}
+                  className={`px-3 py-1.5 rounded-[4px] font-mono text-xs font-bold flex items-center gap-1.5 transition cursor-pointer relative ${
+                    activeTab === 'PENDING'
+                      ? 'bg-amber-500 text-slate-950 shadow-sm'
+                      : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Yêu Cầu Chờ Duyệt ({pendingUsers.length})</span>
+                  {pendingUsers.length > 0 && (
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block ml-0.5" />
+                  )}
+                </button>
+              </div>
+
+              {isSuperAdmin && activeTab === 'MEMBERS' && (
                 <button
                   type="button"
                   onClick={() => {
@@ -640,7 +785,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                     setShowEditProfile(false);
                     setShowChangePassword(false);
                   }}
-                  className="text-[11px] font-mono text-theme-accent hover:text-white flex items-center gap-1 cursor-pointer bg-white/5 hover:bg-white/10 px-2 py-1 rounded-[4px] border border-white/10 transition"
+                  className="text-[11px] font-mono text-theme-accent hover:text-white flex items-center gap-1 cursor-pointer bg-white/5 hover:bg-white/10 px-2.5 py-1 rounded-[4px] border border-white/10 transition self-start sm:self-auto"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Thêm thành viên</span>
@@ -648,182 +793,292 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
               )}
             </div>
 
-            {/* Add Member Form (Super Admin only) */}
-            {showAddUser && isSuperAdmin && (
-              <form onSubmit={handleCreateUser} className="p-4 bg-[#0D0420]/90 border border-theme-accent/30 rounded-[6px] space-y-3 animate-fadeIn shadow-lg text-left">
-                <div className="font-bold text-xs text-white font-mono flex items-center justify-between border-b border-white/10 pb-2">
-                  <div className="flex items-center gap-1.5">
-                    <Plus className="w-3.5 h-3.5 text-theme-accent" />
-                    <span>Tạo Tài Khoản Cán Bộ Khảo Thí Mới</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddUser(false)}
-                    className="text-white/50 hover:text-white"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+            {/* TAB 1: MEMBERS LIST */}
+            {activeTab === 'MEMBERS' && (
+              <div className="space-y-3">
+                {/* Add Member Form (Super Admin only) */}
+                {showAddUser && isSuperAdmin && (
+                  <form onSubmit={handleCreateUser} className="p-4 bg-[#0D0420]/90 border border-theme-accent/30 rounded-[6px] space-y-3 animate-fadeIn shadow-lg text-left">
+                    <div className="font-bold text-xs text-white font-mono flex items-center justify-between border-b border-white/10 pb-2">
+                      <div className="flex items-center gap-1.5">
+                        <Plus className="w-3.5 h-3.5 text-theme-accent" />
+                        <span>Tạo Tài Khoản Cán Bộ Khảo Thí Mới (Tự Động Duyệt)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddUser(false)}
+                        className="text-white/50 hover:text-white"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[#B6A6D8] mb-1 font-medium font-mono text-[11px]">Họ và tên *</label>
-                    <input
-                      type="text"
-                      required
-                      value={newUserName}
-                      onChange={e => setNewUserName(e.target.value)}
-                      className="w-full fluent-input px-3 py-1.5 text-xs font-mono"
-                      placeholder="TS. Nguyễn Văn A"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[#B6A6D8] mb-1 font-medium font-mono text-[11px]">Địa chỉ Email *</label>
-                    <input
-                      type="email"
-                      required
-                      value={newUserEmail}
-                      onChange={e => setNewUserEmail(e.target.value)}
-                      className="w-full fluent-input px-3 py-1.5 text-xs font-mono"
-                      placeholder="user@bti2026.edu.vn"
-                    />
-                  </div>
-                </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[#B6A6D8] mb-1 font-medium font-mono text-[11px]">Họ và tên *</label>
+                        <input
+                          type="text"
+                          required
+                          value={newUserName}
+                          onChange={e => setNewUserName(e.target.value)}
+                          className="w-full fluent-input px-3 py-1.5 text-xs font-mono"
+                          placeholder="TS. Nguyễn Văn A"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[#B6A6D8] mb-1 font-medium font-mono text-[11px]">Địa chỉ Email *</label>
+                        <input
+                          type="email"
+                          required
+                          value={newUserEmail}
+                          onChange={e => setNewUserEmail(e.target.value)}
+                          className="w-full fluent-input px-3 py-1.5 text-xs font-mono"
+                          placeholder="user@bti2026.edu.vn"
+                        />
+                      </div>
+                    </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[#B6A6D8] mb-1 font-medium font-mono text-[11px]">Cấp vai trò (RBAC) *</label>
-                    <select
-                      value={newUserRole}
-                      onChange={e => setNewUserRole(e.target.value as UserRole)}
-                      className="w-full fluent-input px-2.5 py-1.5 text-xs font-mono bg-[#190839]"
-                    >
-                      <option value="SUPER_ADMIN">Super Admin (Quản trị viên tối cao)</option>
-                      <option value="HEAD_EDITOR">Trưởng Ban Đề Thi (Phê duyệt)</option>
-                      <option value="EXAMINER">Ban Giám Khảo (Khảo thí &amp; Chấm điểm)</option>
-                      <option value="CONTRIBUTOR">Người Biên Soạn (Soạn thảo đề)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[#B6A6D8] mb-1 font-medium font-mono text-[11px]">Đơn vị / Ban công tác</label>
-                    <input
-                      type="text"
-                      value={newUserOrg}
-                      onChange={e => setNewUserOrg(e.target.value)}
-                      className="w-full fluent-input px-3 py-1.5 text-xs font-mono"
-                      placeholder="Viện CNTT / Tổ Biên Soạn"
-                    />
-                  </div>
-                </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[#B6A6D8] mb-1 font-medium font-mono text-[11px]">Cấp vai trò (RBAC) *</label>
+                        <select
+                          value={newUserRole}
+                          onChange={e => setNewUserRole(e.target.value as UserRole)}
+                          className="w-full fluent-input px-2.5 py-1.5 text-xs font-mono bg-[#190839]"
+                        >
+                          <option value="SUPER_ADMIN">Super Admin (Quản trị viên tối cao)</option>
+                          <option value="HEAD_EDITOR">Trưởng Ban Đề Thi (Phê duyệt)</option>
+                          <option value="EXAMINER">Ban Giám Khảo (Khảo thí &amp; Chấm điểm)</option>
+                          <option value="CONTRIBUTOR">Người Biên Soạn (Soạn thảo đề)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[#B6A6D8] mb-1 font-medium font-mono text-[11px]">Đơn vị / Ban công tác</label>
+                        <input
+                          type="text"
+                          value={newUserOrg}
+                          onChange={e => setNewUserOrg(e.target.value)}
+                          className="w-full fluent-input px-3 py-1.5 text-xs font-mono"
+                          placeholder="Viện CNTT / Tổ Biên Soạn"
+                        />
+                      </div>
+                    </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[#B6A6D8] mb-1 font-medium font-mono text-[11px]">Chức danh / Học hàm</label>
-                    <input
-                      type="text"
-                      value={newUserTitle}
-                      onChange={e => setNewUserTitle(e.target.value)}
-                      className="w-full fluent-input px-3 py-1.5 text-xs font-mono"
-                      placeholder="Chuyên viên ra đề"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[#B6A6D8] mb-1 font-medium font-mono text-[11px]">Mật khẩu khởi tạo</label>
-                    <input
-                      type="text"
-                      value={newUserPassword}
-                      onChange={e => setNewUserPassword(e.target.value)}
-                      className="w-full fluent-input px-3 py-1.5 text-xs font-mono"
-                      placeholder="BTI2026Admin"
-                    />
-                  </div>
-                </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[#B6A6D8] mb-1 font-medium font-mono text-[11px]">Chức danh / Học hàm</label>
+                        <input
+                          type="text"
+                          value={newUserTitle}
+                          onChange={e => setNewUserTitle(e.target.value)}
+                          className="w-full fluent-input px-3 py-1.5 text-xs font-mono"
+                          placeholder="Chuyên viên ra đề"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[#B6A6D8] mb-1 font-medium font-mono text-[11px]">Mật khẩu khởi tạo</label>
+                        <input
+                          type="text"
+                          value={newUserPassword}
+                          onChange={e => setNewUserPassword(e.target.value)}
+                          className="w-full fluent-input px-3 py-1.5 text-xs font-mono"
+                          placeholder="BTI2026Admin"
+                        />
+                      </div>
+                    </div>
 
-                <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddUser(false)}
-                    className="fluent-btn-secondary px-3 py-1.5 text-xs font-mono"
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    type="submit"
-                    className="fluent-btn-primary px-4 py-1.5 text-xs font-mono font-bold"
-                  >
-                    Lưu &amp; Cấp Quyền
-                  </button>
+                    <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddUser(false)}
+                        className="fluent-btn-secondary px-3 py-1.5 text-xs font-mono"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        type="submit"
+                        className="fluent-btn-primary px-4 py-1.5 text-xs font-mono font-bold"
+                      >
+                        Lưu &amp; Cấp Quyền
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* List of approved members */}
+                <div className="space-y-2">
+                  {approvedUsers.map(u => {
+                    const isActive = u.id === currentUser.id;
+
+                    return (
+                      <div
+                        key={u.id}
+                        className={`p-3 rounded-[6px] border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition ${
+                          isActive
+                            ? 'border-theme-accent bg-[#3E1D74]/40 shadow-sm'
+                            : 'border-white/10 bg-[#241148]/50 hover:border-white/20'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-[4px] bg-[#190839] flex items-center justify-center font-bold text-xs text-theme-accent border border-theme-accent/30 shrink-0">
+                            {u.name.charAt(0)}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-white truncate">{u.name}</span>
+                              {getRoleBadge(u.role)}
+                            </div>
+                            <span className="text-[11px] text-[#B6A6D8] font-mono truncate block">
+                              {u.email} {u.department ? `• ${u.department}` : ''}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                          {/* Active indicator */}
+                          {isActive && (
+                            <div className="flex items-center gap-1 text-theme-accent font-mono text-[11px] font-bold px-2 py-1 bg-theme-accent/10 border border-theme-accent/30 rounded-[3px]">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Đang sử dụng</span>
+                            </div>
+                          )}
+
+                          {/* Super Admin Actions for other members */}
+                          {isSuperAdmin && !isActive && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditProfile(u)}
+                                className="p-1.5 text-white/70 hover:text-sky-300 hover:bg-white/10 rounded-[3px] transition cursor-pointer border border-white/10 flex items-center gap-1 text-[10px] font-mono"
+                                title="Sửa thông tin thành viên này"
+                              >
+                                <Edit3 className="w-3 h-3 text-sky-400" />
+                                <span>Sửa</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteUser(u.id, u.name)}
+                                className="p-1.5 text-rose-300/70 hover:text-rose-200 hover:bg-rose-950/60 rounded-[3px] transition cursor-pointer border border-rose-500/30 flex items-center gap-1 text-[10px] font-mono"
+                                title="Xóa thành viên khỏi danh sách"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Xóa</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </form>
+              </div>
             )}
 
-            {/* List of members with direct info & edit options (NO arbitrary switch buttons) */}
-            <div className="space-y-2">
-              {users.map(u => {
-                const isActive = u.id === currentUser.id;
-
-                return (
-                  <div
-                    key={u.id}
-                    className={`p-3 rounded-[6px] border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition ${
-                      isActive
-                        ? 'border-theme-accent bg-[#3E1D74]/40 shadow-sm'
-                        : 'border-white/10 bg-[#241148]/50 hover:border-white/20'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-[4px] bg-[#190839] flex items-center justify-center font-bold text-xs text-theme-accent border border-theme-accent/30 shrink-0">
-                        {u.name.charAt(0)}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-white truncate">{u.name}</span>
-                          {getRoleBadge(u.role)}
-                        </div>
-                        <span className="text-[11px] text-[#B6A6D8] font-mono truncate block">
-                          {u.email} {u.department ? `• ${u.department}` : ''}
-                        </span>
-                      </div>
+            {/* TAB 2: PENDING APPROVAL REQUESTS */}
+            {activeTab === 'PENDING' && (
+              <div className="space-y-3">
+                {pendingUsers.length === 0 ? (
+                  <div className="p-8 text-center bg-[#241148]/30 border border-white/10 rounded-[6px] space-y-2">
+                    <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-300 mx-auto">
+                      <Clock className="w-6 h-6" />
                     </div>
-
-                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                      {/* Active indicator */}
-                      {isActive && (
-                        <div className="flex items-center gap-1 text-theme-accent font-mono text-[11px] font-bold px-2 py-1 bg-theme-accent/10 border border-theme-accent/30 rounded-[3px]">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Đang sử dụng</span>
-                        </div>
-                      )}
-
-                      {/* Super Admin Actions for other members */}
-                      {isSuperAdmin && !isActive && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditProfile(u)}
-                            className="p-1.5 text-white/70 hover:text-sky-300 hover:bg-white/10 rounded-[3px] transition cursor-pointer border border-white/10 flex items-center gap-1 text-[10px] font-mono"
-                            title="Sửa thông tin thành viên này"
-                          >
-                            <Edit3 className="w-3 h-3 text-sky-400" />
-                            <span>Sửa</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteUser(u.id, u.name)}
-                            className="p-1.5 text-rose-300/70 hover:text-rose-200 hover:bg-rose-950/60 rounded-[3px] transition cursor-pointer border border-rose-500/30 flex items-center gap-1 text-[10px] font-mono"
-                            title="Xóa thành viên khỏi danh sách"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                            <span>Xóa</span>
-                          </button>
-                        </>
-                      )}
-                    </div>
+                    <div className="font-bold text-white font-mono text-sm">Hàng Đợi Trống</div>
+                    <p className="text-[#B6A6D8] text-xs max-w-md mx-auto font-sans leading-relaxed">
+                      Hiện tại không có thành viên nào đang chờ phê duyệt. Khi có cán bộ đăng ký tài khoản mới qua hệ thống (hoặc qua Google SSO), hồ sơ sẽ hiển thị tại đây để Super Admin phê duyệt và cấp vai trò.
+                    </p>
                   </div>
-                );
-              })}
-            </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    <div className="p-2.5 rounded-[4px] bg-amber-950/40 border border-amber-500/40 text-[11px] text-amber-200 font-sans flex items-center gap-2">
+                      <Info className="w-4 h-4 shrink-0 text-amber-300" />
+                      <span>Có <strong>{pendingUsers.length}</strong> yêu cầu đăng ký mới. Vui lòng chọn vai trò phù hợp và nhấn <strong>Duyệt &amp; Cấp Quyền</strong> để cấp quyền truy cập.</span>
+                    </div>
+
+                    {pendingUsers.map(p => {
+                      const selectedRole = pendingRoleMap[p.id] || p.role || 'CONTRIBUTOR';
+
+                      return (
+                        <div
+                          key={p.id}
+                          className="p-3.5 rounded-[6px] border border-amber-500/40 bg-amber-950/20 flex flex-col gap-3 shadow-md"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-10 h-10 rounded-[4px] bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold text-base border border-amber-500/40 shrink-0">
+                                {p.name.charAt(0)}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-bold text-white text-xs sm:text-sm truncate">{p.name}</span>
+                                  <span className="text-[10px] font-mono font-semibold text-amber-300 bg-amber-950/80 border border-amber-500/50 px-2 py-0.5 rounded-[3px]">
+                                    ⏳ Chờ Phê Duyệt
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-[#B6A6D8] font-mono truncate mt-0.5">
+                                  {p.email} {p.department ? `• Đơn vị: ${p.department}` : ''} {p.createdAt ? `• Đăng ký lúc: ${new Date(p.createdAt).toLocaleDateString('vi-VN')}` : ''}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Role assignment dropdown & actions for Super Admin */}
+                            {isSuperAdmin && (
+                              <div className="flex items-center gap-2 flex-wrap self-end sm:self-center shrink-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[11px] text-white/70 font-mono">Cấp vai trò:</span>
+                                  <select
+                                    value={selectedRole}
+                                    onChange={e => {
+                                      const nextRole = e.target.value as UserRole;
+                                      setPendingRoleMap(prev => ({ ...prev, [p.id]: nextRole }));
+                                    }}
+                                    className="fluent-input px-2 py-1 text-xs font-mono bg-[#190839] border border-amber-500/40 text-amber-200"
+                                  >
+                                    <option value="CONTRIBUTOR">Người Biên Soạn</option>
+                                    <option value="EXAMINER">Ban Giám Khảo</option>
+                                    <option value="HEAD_EDITOR">Trưởng Ban Đề Thi</option>
+                                    <option value="SUPER_ADMIN">Super Admin</option>
+                                  </select>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveUser(p.id, p.name)}
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[4px] font-mono text-xs font-bold flex items-center gap-1 transition cursor-pointer shadow-sm"
+                                  title="Phê duyệt tài khoản và cấp vai trò này"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Duyệt &amp; Cấp Quyền</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleRejectUser(p.id, p.name)}
+                                  className="px-2 py-1 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-500/40 text-rose-300 rounded-[4px] font-mono text-xs flex items-center gap-1 transition cursor-pointer"
+                                  title="Từ chối yêu cầu"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                  <span>Từ chối</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePendingUser(p.id, p.name)}
+                                  className="p-1 text-white/40 hover:text-rose-300 hover:bg-white/10 rounded transition cursor-pointer"
+                                  title="Xóa yêu cầu"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Role Permissions Matrix */}

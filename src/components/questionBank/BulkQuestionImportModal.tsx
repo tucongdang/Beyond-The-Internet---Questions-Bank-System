@@ -1075,6 +1075,9 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
     let errors = 0;
     let duplicates = 0;
 
+    const byDomain: Record<string, number> = {};
+    const byLevel: Record<string, number> = {};
+
     parsedList.forEach(q => {
       let isInvalid = false;
       let hasWarning = false;
@@ -1091,9 +1094,16 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
       if (isInvalid) errors++;
       else if (hasWarning) warnings++;
       else valid++;
+
+      if (q.digital_competency_domain) {
+        byDomain[q.digital_competency_domain] = (byDomain[q.digital_competency_domain] || 0) + 1;
+      }
+      if (q.cognitive_level) {
+        byLevel[q.cognitive_level] = (byLevel[q.cognitive_level] || 0) + 1;
+      }
     });
 
-    return { total: parsedList.length, valid, warnings, errors, duplicates };
+    return { total: parsedList.length, valid, warnings, errors, duplicates, byDomain, byLevel };
   }, [parsedList]);
 
   // Filtered list for preview
@@ -1803,6 +1813,60 @@ Trong bảng tính Excel, hàm nào dùng để đếm số ô thỏa mãn một
                   >
                     <X className="w-3 h-3" />
                   </button>
+                </div>
+              )}
+
+              {/* Distribution Summary: Domains & Cognitive Levels */}
+              {parsedList.length > 0 && (
+                <div className="p-2.5 rounded-[4px] bg-[#120424] border border-purple-500/30 text-xs font-mono space-y-2">
+                  <div className="flex items-center justify-between text-[11px] text-white/70">
+                    <span className="font-bold text-amber-300 flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-purple-400" />
+                      Phân Phối Nội Dung Nhận Diện ({parsedList.length} câu)
+                    </span>
+                    <span className="text-[10px] text-white/40">Tự động phân loại theo BTI 2026</span>
+                  </div>
+
+                  {/* Domains row */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] text-white/50 shrink-0">Miền:</span>
+                    {(['MIEN_1', 'MIEN_2', 'MIEN_3', 'MIEN_4', 'MIEN_5', 'MIEN_6'] as const).map(d => {
+                      const count = validationSummary.byDomain[d] || 0;
+                      return (
+                        <span
+                          key={d}
+                          className={`px-1.5 py-0.5 rounded text-[10px] border ${
+                            count > 0 ? 'bg-purple-950/60 text-purple-200 border-purple-400/40 font-bold' : 'bg-white/5 text-white/30 border-white/10'
+                          }`}
+                        >
+                          {d}: {count}
+                        </span>
+                      );
+                    })}
+                  </div>
+
+                  {/* Levels row */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] text-white/50 shrink-0">Cấp độ:</span>
+                    {[
+                      { key: 'NHAN_BIET', label: 'Nhận biết', cls: 'text-emerald-300 border-emerald-500/30' },
+                      { key: 'THONG_HIEU', label: 'Thông hiểu', cls: 'text-sky-300 border-sky-500/30' },
+                      { key: 'VAN_DUNG', label: 'Vận dụng', cls: 'text-amber-300 border-amber-500/30' },
+                      { key: 'VAN_DUNG_CAO', label: 'Vận dụng cao', cls: 'text-rose-300 border-rose-500/30' },
+                    ].map(l => {
+                      const count = validationSummary.byLevel[l.key] || 0;
+                      return (
+                        <span
+                          key={l.key}
+                          className={`px-1.5 py-0.5 rounded text-[10px] border ${l.cls} ${
+                            count > 0 ? 'bg-black/60 font-bold' : 'bg-white/5 text-white/30 border-white/10'
+                          }`}
+                        >
+                          {l.label}: {count}
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 

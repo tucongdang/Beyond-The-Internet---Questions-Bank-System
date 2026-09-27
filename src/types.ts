@@ -277,6 +277,10 @@ export interface AppUser {
   department?: string;
   createdAt?: number;
   lastActive?: number;
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  approvedAt?: number;
+  approvedBy?: string;
+  assignedDomains?: DigitalCompetencyDomainKey[]; // Domain-based authoring permission (Feature #8)
 }
 
 export type TechnicalRole =

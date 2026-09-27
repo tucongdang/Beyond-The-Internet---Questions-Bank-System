@@ -48,7 +48,20 @@
       "status": "APPROVED",
       "emailVerified": true,
       "createdAt": 1790444357144
+    },
+    {
+      "id": "usr_1790483940185_43",
+      "fullName": "Nico Hukenberg",
+      "username": "nh27",
+      "email": "dangtu2006+gb5@gmail.com",
+      "emailVerified": false,
+      "password": "1234567890",
+      "role": "SUPER_ADMIN",
+      "technicalRole": "SUPER_ADMIN",
+      "status": "APPROVED",
+      "createdAt": 1790483940186
     }
   ],
-  "audienceUsers": []
+  "audienceUsers": [],
+  "strictApprovalMode": true
 }

@@ -240,11 +240,20 @@ class QuestionBankManager {
       // 4. Load Users
       const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS_LIST);
       if (savedUsers) {
-        this.users = JSON.parse(savedUsers);
+        try {
+          const parsed = JSON.parse(savedUsers);
+          this.users = Array.isArray(parsed) ? parsed.map(u => ({
+            ...u,
+            status: u.status || 'APPROVED'
+          })) : [...INITIAL_APP_USERS];
+        } catch {
+          this.users = [...INITIAL_APP_USERS];
+        }
       } else {
         this.users = [...INITIAL_APP_USERS];
         this.saveUsers();
       }
+      setTimeout(() => this.syncUsersFromBackend(), 150);
 
       // 5. Load Active User
       const savedCurUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
@@ -1488,6 +1497,14 @@ class QuestionBankManager {
     this.users = this.users.filter(x => x.id !== userId);
     this.saveUsers();
     this.notify();
+
+    if (typeof window !== 'undefined') {
+      fetch('/api/admin/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      }).catch(err => console.warn('Backend delete sync note:', err));
+    }
     return true;
   }
 
@@ -1504,6 +1521,117 @@ class QuestionBankManager {
     this.saveUsers();
     this.notify();
     return true;
+  }
+
+  public getPendingUsers(): AppUser[] {
+    return this.users.filter(x => x.status === 'PENDING');
+  }
+
+  public getApprovedUsers(): AppUser[] {
+    return this.users.filter(x => x.status !== 'PENDING' && x.status !== 'REJECTED');
+  }
+
+  public approveUser(userId: string, approvedRole?: UserRole, approverName?: string): boolean {
+    const u = this.users.find(x => x.id === userId);
+    if (!u) return false;
+    u.status = 'APPROVED';
+    u.approvedAt = Date.now();
+    u.approvedBy = approverName || this.currentUser.name;
+    if (approvedRole) u.role = approvedRole;
+    this.saveUsers();
+    this.notify();
+
+    if (typeof window !== 'undefined') {
+      fetch('/api/admin/approve-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          approvedRole: approvedRole || u.role,
+          approverName: approverName || this.currentUser.name
+        })
+      }).catch(err => console.warn('Backend approve sync note:', err));
+    }
+    return true;
+  }
+
+  public rejectUser(userId: string): boolean {
+    const u = this.users.find(x => x.id === userId);
+    if (!u) return false;
+    u.status = 'REJECTED';
+    this.saveUsers();
+    this.notify();
+
+    if (typeof window !== 'undefined') {
+      fetch('/api/admin/reject-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      }).catch(err => console.warn('Backend reject sync note:', err));
+    }
+    return true;
+  }
+
+  public isApprovalModeActive(): boolean {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('BTI2026_STRICT_APPROVAL_MODE') !== 'false';
+    }
+    return true;
+  }
+
+  public setApprovalModeActive(active: boolean): void {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('BTI2026_STRICT_APPROVAL_MODE', active ? 'true' : 'false');
+      fetch('/api/admin/approval-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ strictApprovalMode: active })
+      }).catch(err => console.warn('Backend approval-config note:', err));
+    }
+    this.notify();
+  }
+
+  public async syncUsersFromBackend(): Promise<void> {
+    if (typeof window === 'undefined') return;
+    try {
+      // 1. Sync approval config
+      const configRes = await fetch('/api/admin/approval-config');
+      if (configRes.ok) {
+        const configData = await configRes.json();
+        if (typeof configData.strictApprovalMode === 'boolean') {
+          localStorage.setItem('BTI2026_STRICT_APPROVAL_MODE', configData.strictApprovalMode ? 'true' : 'false');
+        }
+      }
+
+      // 2. Sync admin users list
+      const res = await fetch('/api/admin/users');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.users)) {
+          const userMap = new Map<string, AppUser>(this.users.map(u => [u.id, u]));
+          data.users.forEach((bu: any) => {
+            const mappedUser: AppUser = {
+              id: bu.id,
+              name: bu.fullName || bu.username,
+              email: bu.email,
+              role: bu.role || 'CONTRIBUTOR',
+              title: bu.title,
+              department: bu.note || bu.department,
+              status: bu.status || 'APPROVED',
+              approvedAt: bu.approvedAt,
+              approvedBy: bu.approvedBy,
+              createdAt: bu.createdAt
+            };
+            userMap.set(bu.id, { ...(userMap.get(bu.id) || {}), ...mappedUser });
+          });
+          this.users = Array.from(userMap.values());
+          this.saveUsers();
+          this.notify();
+        }
+      }
+    } catch (err) {
+      console.warn('Could not sync users from backend:', err);
+    }
   }
 
   public canApprove(): boolean {

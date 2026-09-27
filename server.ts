@@ -168,6 +168,7 @@ async function startServer() {
 
   let adminUsers: StoredUser[] = [...DEFAULT_ADMIN_USERS];
   let audienceUsers: StoredUser[] = [];
+  let strictApprovalMode: boolean = true;
   const captchaMap = new Map<string, number>();
 
   // Load from disk if exists
@@ -184,6 +185,9 @@ async function startServer() {
       if (Array.isArray(data.audienceUsers)) {
         audienceUsers = data.audienceUsers;
       }
+      if (typeof data.strictApprovalMode === 'boolean') {
+        strictApprovalMode = data.strictApprovalMode;
+      }
     }
   } catch (err) {
     console.warn('Could not read auth_store.json:', err);
@@ -194,7 +198,7 @@ async function startServer() {
       if (!fs.existsSync(path.dirname(authStorePath))) {
         fs.mkdirSync(path.dirname(authStorePath), { recursive: true });
       }
-      fs.writeFileSync(authStorePath, JSON.stringify({ adminUsers, audienceUsers }, null, 2), 'utf-8');
+      fs.writeFileSync(authStorePath, JSON.stringify({ adminUsers, audienceUsers, strictApprovalMode }, null, 2), 'utf-8');
     } catch (err) {
       console.warn('Could not write auth_store.json:', err);
     }
@@ -244,6 +248,12 @@ async function startServer() {
     // Master passcode fallback
     if (cleanPassword === 'BTI2026Admin' || cleanPassword === 'admin123' || cleanPassword === 'BTI2026@ROOT') {
       const u = adminUsers.find(x => x.username.toLowerCase() === cleanUsername || x.email.toLowerCase() === cleanUsername) || adminUsers[0];
+      if (u.status === 'PENDING' && !DEFAULT_ADMIN_USERS.some(x => x.username.toLowerCase() === u.username.toLowerCase())) {
+        return res.status(403).json({
+          isPending: true,
+          error: 'Tài khoản của bạn đang ở trạng thái CHỜ PHÊ DUYỆT từ Super Admin / Trưởng Ban Đề Thi.'
+        });
+      }
       const { password: _, ...safeUser } = u;
       return res.json({
         success: true,
@@ -259,6 +269,23 @@ async function startServer() {
 
     if (!found) {
       return res.status(401).json({ error: 'Tên đăng nhập hoặc mật khẩu không chính xác.' });
+    }
+
+    if (found.status === 'PENDING') {
+      return res.status(403).json({
+        isPending: true,
+        fullName: found.fullName,
+        username: found.username,
+        email: found.email,
+        error: 'Tài khoản của bạn đã đăng ký nhưng đang chờ Quản trị viên (Super Admin / Trưởng Ban Đề Thi) phê duyệt và cấp quyền.'
+      });
+    }
+
+    if (found.status === 'REJECTED') {
+      return res.status(403).json({
+        isRejected: true,
+        error: 'Yêu cầu đăng ký tài khoản của bạn đã bị từ chối truy cập. Vui lòng liên hệ Ban Tổ Chức.'
+      });
     }
 
     if (found.emailVerified === false) {
@@ -280,7 +307,7 @@ async function startServer() {
 
   // 3. Admin Register
   app.post('/api/admin/register', (req, res) => {
-    const { fullName, username, email, emailVerified, password, technicalRole, note, captchaId, captchaAnswer } = req.body;
+    const { fullName, username, email, emailVerified, password, technicalRole, note, isDirectAdminCreate, captchaId, captchaAnswer } = req.body;
     if (!fullName || !username || !email || !password) {
       return res.status(400).json({ error: 'Vui lòng điền đầy đủ các thông tin bắt buộc.' });
     }
@@ -303,6 +330,8 @@ async function startServer() {
     else if (tRole === 'HEAD_EDITOR') mappedRole = 'HEAD_EDITOR';
     else if (tRole === 'EXAMINER' || tRole === 'STAGE_COORDINATOR' || tRole === 'LED_OPERATOR') mappedRole = 'EXAMINER';
 
+    const initialStatus: 'APPROVED' | 'PENDING' = (Boolean(isDirectAdminCreate) || !strictApprovalMode) ? 'APPROVED' : 'PENDING';
+
     const newUser: StoredUser = {
       id: `usr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       fullName: String(fullName).trim(),
@@ -312,7 +341,7 @@ async function startServer() {
       password: String(password),
       role: mappedRole,
       technicalRole: tRole,
-      status: 'APPROVED',
+      status: initialStatus,
       note: note ? String(note).trim() : undefined,
       createdAt: Date.now()
     };
@@ -321,7 +350,11 @@ async function startServer() {
     saveAuthStore();
 
     const { password: _, ...safeUser } = newUser;
-    return res.json({ success: true, user: safeUser });
+    return res.json({ 
+      success: true, 
+      user: safeUser,
+      isPending: initialStatus === 'PENDING'
+    });
   });
 
   // 4. Admin Google Auth
@@ -341,6 +374,8 @@ async function startServer() {
       else if (tRole === 'HEAD_EDITOR') mappedRole = 'HEAD_EDITOR';
       else if (tRole === 'EXAMINER') mappedRole = 'EXAMINER';
 
+      const initialStatus: 'APPROVED' | 'PENDING' = strictApprovalMode ? 'PENDING' : 'APPROVED';
+
       user = {
         id: uid || `usr_g_${Date.now()}`,
         username: cleanEmail.split('@')[0],
@@ -350,12 +385,37 @@ async function startServer() {
         authProvider: 'google',
         role: mappedRole,
         technicalRole: tRole,
-        status: 'APPROVED',
+        status: initialStatus,
         note: note ? String(note).trim() : undefined,
         createdAt: Date.now()
       };
       adminUsers.push(user);
       saveAuthStore();
+
+      if (initialStatus === 'PENDING') {
+        return res.status(200).json({
+          success: false,
+          status: 'PENDING',
+          isPending: true,
+          message: 'Tài khoản Google đã đăng ký thành công và đang chờ Quản trị viên (Super Admin) phê duyệt trước khi đăng nhập.'
+        });
+      }
+    } else {
+      if (user.status === 'PENDING') {
+        return res.status(403).json({
+          success: false,
+          status: 'PENDING',
+          isPending: true,
+          error: 'Tài khoản Google của bạn đang chờ Quản trị viên (Super Admin) phê duyệt và cấp quyền.'
+        });
+      }
+      if (user.status === 'REJECTED') {
+        return res.status(403).json({
+          success: false,
+          status: 'REJECTED',
+          error: 'Yêu cầu tài khoản Google của bạn đã bị từ chối truy cập.'
+        });
+      }
     }
 
     const { password: _, ...safeUser } = user;
@@ -379,9 +439,11 @@ async function startServer() {
 
     if (user) {
       user.emailVerified = true;
-      user.status = 'APPROVED';
+      if (!strictApprovalMode) {
+        user.status = 'APPROVED';
+      }
       saveAuthStore();
-      return res.json({ success: true });
+      return res.json({ success: true, status: user.status });
     }
     return res.json({ success: true });
   });
@@ -457,6 +519,74 @@ async function startServer() {
     saveAuthStore();
     const { password: _, ...safeUser } = user;
     return res.json({ success: true, user: safeUser });
+  });
+
+  // Admin Get All Users
+  app.get('/api/admin/users', (req, res) => {
+    const safeList = adminUsers.map(({ password: _, ...u }) => u);
+    return res.json({ success: true, users: safeList });
+  });
+
+  // Admin Approval Mode Configuration
+  app.get('/api/admin/approval-config', (req, res) => {
+    return res.json({ success: true, strictApprovalMode });
+  });
+
+  app.post('/api/admin/approval-config', (req, res) => {
+    const { strictApprovalMode: newMode } = req.body;
+    if (typeof newMode === 'boolean') {
+      strictApprovalMode = newMode;
+      saveAuthStore();
+    }
+    return res.json({ success: true, strictApprovalMode });
+  });
+
+  // Admin Approve User
+  app.post('/api/admin/approve-user', (req, res) => {
+    const { userId, approvedRole, approverName } = req.body;
+    if (!userId) return res.status(400).json({ error: 'Thiếu mã người dùng (userId).' });
+
+    const user = adminUsers.find(x => x.id === userId);
+    if (!user) return res.status(404).json({ error: 'Không tìm thấy hồ sơ người dùng.' });
+
+    user.status = 'APPROVED';
+    user.approvedAt = Date.now();
+    user.approvedBy = approverName || 'Super Admin';
+    if (approvedRole) {
+      user.role = approvedRole;
+      user.technicalRole = approvedRole;
+    }
+    saveAuthStore();
+
+    const { password: _, ...safeUser } = user;
+    return res.json({ success: true, user: safeUser });
+  });
+
+  // Admin Reject User
+  app.post('/api/admin/reject-user', (req, res) => {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'Thiếu mã người dùng (userId).' });
+
+    const user = adminUsers.find(x => x.id === userId);
+    if (!user) return res.status(404).json({ error: 'Không tìm thấy hồ sơ người dùng.' });
+
+    user.status = 'REJECTED';
+    saveAuthStore();
+    return res.json({ success: true });
+  });
+
+  // Admin Delete User
+  app.post('/api/admin/delete-user', (req, res) => {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'Thiếu mã người dùng (userId).' });
+
+    const idx = adminUsers.findIndex(x => x.id === userId);
+    if (idx !== -1) {
+      adminUsers.splice(idx, 1);
+      saveAuthStore();
+      return res.json({ success: true });
+    }
+    return res.status(404).json({ error: 'Không tìm thấy người dùng.' });
   });
 
   // 7. Admin Forgot Password Request
@@ -677,6 +807,121 @@ async function startServer() {
     return res.status(404).json({ error: 'Không tìm thấy tài khoản.' });
   });
 
+  // =========================================================================
+  // BTI 2026 OFFICIAL COMPETITION RULES KNOWLEDGE BASE (LUẬT CHƠI CHÍNH THỨC)
+  // =========================================================================
+  const BTI_2026_OFFICIAL_RULES_PROMPT = `
+HỆ THỐNG QUY CHẾ VÀ LUẬT CHƠI CHÍNH THỨC CUỘC THI "BEYOND THE INTERNET 2026" (BTI 2026):
+
+1. VÒNG 1: KHỞI ĐỘNG
+- Chia thành 2 phần:
+  1.1. Khởi động riêng:
+    * Mỗi thí sinh trả lời 12 câu hỏi trong 60 giây (bình quân 5 giây/câu).
+    * Trả lời đúng: +10 điểm, trả lời sai: 0 điểm (không bị trừ điểm).
+    * Vào đầu mỗi lượt, MC điều khiển hiệu lệnh ánh sáng ngẫu nhiên quanh sân khấu để chọn ra 1 thí sinh.
+    * Thí sinh có thể thay đổi đáp án liên tục trước khi MC công bố đáp án và đáp án cuối cùng được ghi nhận. Nếu không đổi, ghi nhận đáp án đầu tiên.
+  1.2. Khởi động chung:
+    * Thời gian không giới hạn, diễn ra trong 3 lượt với số câu hỏi lần lượt là: Lượt 1 (10 câu), Lượt 2 (15 câu), Lượt 3 (20 câu) -> Tổng 45 câu hỏi chung.
+    * 1 trong 4 thí sinh giành quyền trả lời bằng bấm chuông nhanh (được bấm chuông trong khi MC đang đọc câu hỏi).
+    * Thời gian suy nghĩ: 3 giây tính từ lúc giành quyền trả lời.
+    * Đúng: +10 điểm. Trả lời sai hoặc bấm chuông không trả lời sau 3 giây: trừ 5 điểm (-5đ) và BỊ MẤT QUYỀN TRẢ LỜI TRONG CÂU HỎI TIẾP THEO.
+    * Sau 3 giây tính từ thời điểm MC đọc xong câu hỏi, nếu không ai bấm chuông, câu hỏi bị bỏ qua.
+  1.3. 7 Dạng câu hỏi Khởi động:
+    1. Điền từ vào chỗ trống / Tìm đáp án đúng (KD_DIEN_CHO_TRONG)
+    2. Lựa chọn Đúng/sai, Nên/Không nên,... (KD_DUNG_SAI_NEN)
+    3. Chọn các đáp án có sẵn ABCD / 123 (KD_TRAC_NGHIEM_ABCD)
+    4. Câu hỏi có hình ảnh hoặc đoạn nhạc gợi ý (KD_HINH_ANH_AM_THANH)
+    5. Câu hỏi tình huống ngắn phản xạ (KD_TINH_HUONG_NGAN)
+    6. Câu hỏi phân tích, so sánh nhanh (KD_PHAN_TICH_SO_SANH)
+    7. Câu hỏi "Tìm Lỗ Hổng / Phát Hiện Bất Thường" (Spot the Flaw) (KD_SPOT_THE_FLAW)
+    8. Câu hỏi "Sắp xếp quy trình nhanh" (Quick Process Sequencing) (KD_QUICK_PROCESS)
+
+2. VÒNG 2: VƯỢT CHƯỚNG NGẠI VẬT (VCNV)
+  2.1. Hàng ngang và hình ảnh gợi ý:
+    * Gồm 4 từ hàng ngang (4 gợi ý liên quan đến CNV) tương ứng 4 miếng ghép ở 4 góc và 1 miếng ghép ô trung tâm (gợi ý cuối cùng).
+    * Mỗi thí sinh có tối đa 1 lượt chọn hàng ngang (bắt đầu từ vị trí số 1). Trả lời bằng máy tính trong 15 giây.
+    * Trả lời đúng được 10 điểm; riêng thí sinh lựa chọn từ hàng ngang đó nếu đúng được 15 điểm. Đúng mở miếng ghép góc tương ứng.
+    * Yêu cầu đúng chính tả. Chấp nhận câu trả lời có ý nghĩa tương đồng và cùng tổng số chữ cái.
+  2.2. Trả lời chướng ngại vật:
+    * Bấm chuông trả lời CNV bất cứ lúc nào:
+      - Đúng trong 1 từ hàng ngang đầu tiên: 80 điểm.
+      - Đúng trong 2 từ hàng ngang: 60 điểm.
+      - Đúng trong 3 từ hàng ngang: 40 điểm.
+      - Đúng trong 4 từ hàng ngang: 20 điểm.
+    * Khi cả 4 hàng ngang đã mở mà không ai đoán CNV -> Mở gợi ý ở ô trung tâm (tất cả hàng ngang bị ẩn ngay lập tức). Trả lời đúng câu hỏi ô trung tâm được 10 điểm. Sau đó có 15 giây suy nghĩ cuối cùng (ảnh bị ẩn) để đoán CNV được 10 điểm.
+    * Trả lời sai CNV: Thí sinh bị loại khỏi phần thi này.
+  2.3. Ô mạo hiểm:
+    * Gợi ý rất gần CNV, xuất hiện 10 giây trước khi xuất hiện các hàng ngang hoặc trước khi một thí sinh chọn hàng ngang.
+    * Dành cho thí sinh nhanh tay nhất nhấp chuột vào ô mạo hiểm.
+    * Thời gian trả lời Ô mạo hiểm là 20 giây, trả lời CNV là 30 giây.
+    * Thí sinh trả lời đúng CNV sau ô mạo hiểm nhận 120 điểm (+120đ).
+    * Trả lời sai CNV sau ô mạo hiểm: Bị trừ 1/2 số điểm hiện có tại thời điểm đó và mất quyền chơi phần thi này.
+    * Câu hỏi ô mạo hiểm chỉ hiển thị trên máy thí sinh và MC, công bố khi kết thúc phần thi VCNV.
+
+3. VÒNG 3: TĂNG TỐC
+- Có 4 câu hỏi với thời gian suy nghĩ lần lượt là: 20 giây, 20 giây, 30 giây, 30 giây (Câu 1: 20s, Câu 2: 20s, Câu 3: 30s, Câu 4: 30s).
+- Trả lời bằng máy tính.
+- Điểm số: Đúng và nhanh nhất: 40 điểm; nhanh thứ 2: 30 điểm; nhanh thứ 3: 20 điểm; nhanh thứ 4: 10 điểm. Thí sinh cùng thời gian nhận cùng mức điểm.
+- Điểm thưởng chuỗi:
+  * Trả lời đúng và nhanh nhất 2 câu liên tiếp: cộng thêm 20 điểm (+20đ).
+  * Trả lời đúng và nhanh nhất cả 4 câu: cộng thêm 40 điểm (+40đ).
+- 7 loại câu hỏi Tăng tốc:
+  1. Câu hỏi sắp xếp quy trình (TT_SAP_XEP - 20s)
+  2. Câu hỏi Tìm điểm khác biệt / Spot the Flaw (TT_DIEM_KHAC_BIET - 20s)
+  3. Câu hỏi dữ kiện logic thời gian (TT_DU_KIEN - 30s)
+  4. Câu hỏi suy luận thông thường (TT_SUY_LUAN_THUONG - 20s)
+  5. Câu hỏi giải quyết tình huống (TT_GIAI_QUYET_TH - 30s)
+  6. Câu hỏi suy luận nâng cao trắc nghiệm 6 đáp án (TT_TRAC_NGHIEM_6 - 30s): Sau mỗi 10 giây loại bỏ 2 đáp án sai; 10 giây cuối còn 1 đúng + 1 sai.
+  7. Câu hỏi đoạn băng Video / Audio (TT_DOAN_BANG - 30s)
+
+4. VÒNG 4: VỀ ĐÍCH
+  4.1. Gói câu hỏi và thời gian:
+    * Có 3 mức điểm: 20, 30 và 40 điểm. Mỗi thí sinh có 1 lượt chọn 3 câu hỏi (chọn tổ hợp từ 20, 30, 40đ) tạo thành gói điểm của mình.
+    * Thời gian suy nghĩ và trả lời lý thuyết:
+      - Câu hỏi 20 điểm: 15 giây.
+      - Câu hỏi 30 điểm: 20 giây.
+      - Câu hỏi 40 điểm: 30 giây.
+    * Thứ tự tham gia:
+      - Lượt 1: Thí sinh có điểm số cao nhất sau Tăng tốc (nếu bằng điểm, vị trí đứng thấp hơn).
+      - Lượt 2: Thí sinh có điểm cao nhất trong các thí sinh còn lại (tính tại thời điểm sau lượt 1).
+      - Lượt 3: Thí sinh có điểm cao hơn trong 2 thí sinh còn lại (tính sau lượt 2).
+      - Lượt 4: Thí sinh cuối cùng.
+    * Trả lời đúng: ghi điểm câu hỏi (+20, +30, +40đ).
+    * Trả lời sai: 1 trong 3 thí sinh còn lại bấm chuông nhanh trong 5 giây giành quyền.
+      - Thí sinh chuông đúng: giành được điểm từ thí sinh trả lời sai.
+      - Thí sinh chuông sai: bị trừ 1/2 số điểm của câu hỏi (trừ 10, 15, hoặc 20 điểm).
+    * Thí sinh chính được đổi đáp án liên tục (lấy đáp án cuối). Thí sinh chuông chỉ lấy đáp án đầu tiên.
+  4.2. Câu hỏi Thực hành / Giải quyết tình huống:
+    * Thí sinh chính:
+      - Câu 20 điểm: 15 giây suy nghĩ, 30 giây thực hành.
+      - Câu 30 điểm: 20 giây suy nghĩ, 60 giây thực hành.
+      - Câu 40 điểm: 30 giây suy nghĩ, 90 giây thực hành.
+    * Thí sinh chuông giành quyền (nếu thí sinh chính không đạt):
+      - Câu 20 điểm: 20 giây thực hành.
+      - Câu 30 điểm: 40 giây thực hành.
+      - Câu 40 điểm: 60 giây thực hành.
+    * Thí sinh chuông sai bị trừ 1/2 số điểm câu hỏi.
+  4.3. Ngôi sao hy vọng (NSHV):
+    * Mỗi thí sinh được đặt 1 lần trước khi câu hỏi được đọc hoặc hiển thị.
+    * Đúng: nhân đôi điểm (+40, +60, +80đ).
+    * Sai: bị trừ số điểm câu hỏi (-20, -30, -40đ), kể cả có ai bấm chuông hay không.
+
+5. PHẦN THI CÂU HỎI PHỤ (TIE-BREAKER)
+- Áp dụng sau Về đích cho các thí sinh có cùng số điểm để đấu loại trực tiếp.
+- Trả lời tối đa 5 câu hỏi. Thời gian suy nghĩ: 15 giây/câu.
+- Bấm chuông nhanh nhất trả lời đúng sẽ chiến thắng ngay lập tức. Nếu sai, bước sang câu tiếp theo.
+- Sau 5 câu nếu chưa phân định -> giải quyết 1 câu hỏi tình huống.
+- Bấm chuông trước hiệu lệnh MC bị mất quyền trả lời câu hỏi đó.
+
+6. LƯỢT VỀ ĐÍCH ĐẶC BIỆT KHI CẢ 4 THÍ SINH CÙNG ĐIỂM (100 ĐIỂM KHỞI ĐIỂM)
+- Áp dụng khi cả 4 thí sinh bằng điểm nhau.
+- Mỗi thí sinh nhận 100 điểm khởi điểm (không ảnh hưởng điểm trước).
+- MC điều khiển ánh sáng sân khấu chọn ngẫu nhiên thứ tự thi.
+- Mỗi thí sinh chọn gói 3 câu (20, 30, 40 điểm).
+- Ngôi sao hy vọng: Đặt trước khi chọn gói câu hỏi và có hiệu lực đối với TẤT CẢ câu hỏi trong gói của mình!
+- Thí sinh có điểm cao nhất sau lượt thi này giành chiến thắng chung cuộc.
+`;
+
   // Resilient Gemini content generator with exponential backoff, Search Grounding & multi-tier model fallbacks
 
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -686,8 +931,7 @@ async function startServer() {
     const fallbackModels = [
       "gemini-3.8-flash",
       "gemini-3.5-flash",
-      "gemini-3.6-flash",
-      "gemini-flash-latest",
+      "gemini-3.5-flash-lite",
       "gemini-3.1-flash-lite"
     ];
 
@@ -699,8 +943,9 @@ async function startServer() {
       ...config,
     };
 
-    // Attach Google Search Grounding tool if enabled
-    if (useSearchGrounding !== false) {
+    // Attach Google Search Grounding tool ONLY if not using responseSchema/responseMimeType
+    // (Google GenAI API forbids combining Search Grounding with structured responseSchema)
+    if (useSearchGrounding !== false && !config.responseSchema && config.responseMimeType !== "application/json") {
       configWithSearch.tools = [
         ...(configWithSearch.tools || []),
         { googleSearch: {} }
@@ -829,6 +1074,8 @@ async function startServer() {
       });
 
       const prompt = `Bạn là Trợ lý AI Khảo thí chuyên sâu của Cuộc thi "Beyond The Internet 2026" (BTI 2026).
+${BTI_2026_OFFICIAL_RULES_PROMPT}
+
 Nhiệm vụ: Tạo nhanh 1 câu hỏi thi hoàn chỉnh, tính phân loại cao, thực tế số năm 2026, đúng định dạng và bám sát:
 - Từ khóa/Chủ đề: "${topic || 'An toàn số, bảo vệ quyền riêng tư & phòng chống lừa đảo trực tuyến'}"
 - Giai đoạn: ${stage}
@@ -1151,11 +1398,19 @@ Hãy trả về JSON hợp lệ theo Schema được quy định.`;
 
       const prompt = `Bạn là Trưởng Ban Thẩm định Khảo thí Cuộc thi "Beyond The Internet 2026" (BTI 2026).
 Nhiệm vụ: Thẩm định chuyên sâu và đánh giá chất lượng câu hỏi thi dưới đây dựa trên:
-1. Độ chuẩn xác về mặt khoa học, kỹ thuật số và an toàn thông tin năm 2026.
-2. Tính chuẩn mực pháp lý (Nghị định 13/2023/NĐ-CP, Luật An ninh mạng 2018, Thông tư 02/2025/TT-BGDĐT...).
-3. Độ rõ ràng của đề bài, tính phân loại, không đa nghĩa gây tranh cãi.
-4. Chất lượng các phương án nhiễu (distractors) hoặc gợi ý (đối với VCNV).
-5. Tính khớp nối với Miền năng lực số và Mức độ nhận thức.
+1. BỘ QUY CHẾ VÀ LUẬT THI ĐẤU CHÍNH THỨC BTI 2026:
+${BTI_2026_OFFICIAL_RULES_PROMPT}
+
+2. Khung năng lực số người học (Thông tư số 02/2025/TT-BGDĐT) & Căn cứ pháp lý Việt Nam (Nghị định 13/2023/NĐ-CP, Luật An ninh mạng 2018...).
+3. Độ chuẩn xác khoa học, công nghệ số và tính khả thi trong thực tế năm 2026.
+4. Thời gian suy nghĩ và điểm số có đúng chuẩn luật BTI 2026 tương ứng với vòng thi không:
+   - Khởi động: 10 điểm, 3-5 giây (hoặc 60s riêng).
+   - Vượt CNV: 15s máy tính, 10 điểm (người chọn +15đ), ô mạo hiểm 20s/30s 120đ, đoán CNV 80-60-40-20-10đ.
+   - Tăng tốc: 4 câu (20s-20s-30s-30s), điểm 40-30-20-10.
+   - Về đích: Gói 20, 30, 40 điểm; thời gian lý thuyết 15s/20s/30s; thực hành 15+30s / 20+60s / 30+90s (chuông giành quyền: 20s/40s/60s).
+   - Vòng loại: 24 câu trắc nghiệm (1đ/câu, 30s) và 4 câu Đúng/Sai 4 ý (4đ/câu, 60s).
+5. Đánh giá phương án nhiễu (distractors) hoặc gợi ý (VCNV): Không gây tranh cãi hai đáp án đúng.
+6. Tính khớp nối với Miền năng lực số và Mức độ nhận thức.
 
 Dữ liệu câu hỏi cần thẩm định:
 ${JSON.stringify(question, null, 2)}
@@ -1191,10 +1446,23 @@ Hãy đưa ra đánh giá khách quan, đề xuất quyết định duyệt (APP
                 },
                 required: ["isCompliant", "notes"]
               },
+              ruleCompliance: {
+                type: Type.OBJECT,
+                properties: {
+                  isRuleCompliant: { type: Type.BOOLEAN, description: "Tuân thủ đúng luật thi đấu BTI 2026 (thời gian, thang điểm, format)" },
+                  ruleNotes: { type: Type.STRING, description: "Nhận xét đối chiếu với luật chơi BTI 2026" }
+                },
+                required: ["isRuleCompliant", "ruleNotes"]
+              },
+              isLegalValid: { type: Type.BOOLEAN, description: "Đúng chuẩn văn bản pháp lý" },
+              identifiedDomain: { type: Type.STRING, description: "Miền năng lực số chuẩn xác nhất" },
+              identifiedLevel: { type: Type.STRING, description: "Mức độ nhận thức phù hợp" },
+              improvedQuestionText: { type: Type.STRING, description: "Đề xuất văn bản câu hỏi cải tiến nếu cần" },
+              improvedExplanation: { type: Type.STRING, description: "Đề xuất lời giải thích hoàn thiện nếu cần" },
               suggestedReviewNotes: { type: Type.STRING, description: "Gợi ý nội dung ghi chú thẩm định chuyên nghiệp để lưu vào review_notes" },
               suggestedFixes: { type: Type.STRING, description: "Đề xuất chỉnh sửa cụ thể nếu có" }
             },
-            required: ["recommendation", "qualityScore", "summary", "suggestedReviewNotes"]
+            required: ["recommendation", "qualityScore", "summary", "strengths", "weaknesses", "suggestedReviewNotes"]
           }
         }
       });
@@ -1367,6 +1635,9 @@ Hãy phân tích cẩn trọng và trả về danh sách đánh giá theo địn
       const prompt = `Bạn là Trưởng ban Đề thi Quốc gia & Chuyên gia Khảo thí Cuộc thi "Beyond The Internet 2026" (BTI 2026).
 Nhiệm vụ: Tạo một BỘ ĐỀ THI THỬ (MOCK QUIZ) HOÀN CHỈNH, CHUẨN XÁC VÀ CÂN BẰNG TỐI ƯU từ danh sách câu hỏi có sẵn trong ngân hàng đề.
 
+BỘ QUY CHẾ VÀ LUẬT THI ĐẤU CHÍNH THỨC BTI 2026 ĐỂ ĐỐI CHIẾU:
+${BTI_2026_OFFICIAL_RULES_PROMPT}
+
 THÔNG SỐ ĐỀ THI YÊU CẦU:
 - Loại đề (Preset): "${presetType}"
 - Số lượng câu hỏi cần chọn: ${targetCount} câu
@@ -1495,7 +1766,10 @@ Bạn có nhiệm vụ tạo ra câu hỏi thi học thuật xuất sắc, có t
 1. KHUNG NĂNG LỰC SỐ CHO NGƯỜI HỌC (Thông tư số 02/2025/TT-BGDĐT ngày 24/01/2025 của Bộ Giáo dục và Đào tạo).
    - Miền năng lực: ${domain} (Thành phần: ${subCompetency})
    - Mức độ nhận thức: ${cognitiveLevel} (Nhận biết / Thông hiểu / Vận dụng / Vận dụng cao)
-2. GIAI ĐOẠN VÀ ĐỊNH DẠNG VÒNG THI:
+2. BỘ QUY CHẾ VÀ LUẬT THI ĐẤU CHÍNH THỨC BTI 2026 BẮT BUỘC TUÂN THỦ:
+${BTI_2026_OFFICIAL_RULES_PROMPT}
+
+3. GIAI ĐOẠN VÀ ĐỊNH DẠNG VÒNG THI:
    - Giai đoạn thi: ${stage}
    - Định dạng thi: ${roundFormat}
    ${stage === 'VONG_LOAI' ? `
@@ -1504,10 +1778,10 @@ Bạn có nhiệm vụ tạo ra câu hỏi thi học thuật xuất sắc, có t
    - Nếu định dạng là BGD_MULTIPLE_CHOICE: Soạn câu trắc nghiệm 4 lựa chọn A, B, C, D với 1 đáp án đúng nhất (roundType: "MULTIPLE_CHOICE", timeLimit: 30, points: 1).
    - Nếu định dạng là BGD_TRUE_FALSE_4: Soạn 1 tình huống cùng 4 nhận định/mệnh đề A, B, C, D (ứng với ý a, b, c, d). correctKey định dạng chuẩn: "A:Đ|B:S|C:Đ|D:S" (roundType: "TRUE_FALSE_4", timeLimit: 60, points: 4).
    ` : formatRules}
-3. CĂN CỨ PHÁP LÝ BẮT BUỘC:
+4. CĂN CỨ PHÁP LÝ BẮT BUỘC:
    - Căn cứ pháp lý: ${legalReference}
    ${contextDoc ? `\n- NỘI DUNG TÀI LIỆU PHÁP LÝ THAM CHIẾU ĐÍNH KÈM:\n${contextDoc.slice(0, 3000)}\n` : formatRules}
-4. YÊU CẦU CHẤT LƯỢNG KỸ THUẬT:
+5. YÊU CẦU CHẤT LƯỢNG KỸ THUẬT:
    - ĐỐI VỚI VƯỢT CHƯỚNG NGẠI VẬT: correctKey CHỈ là Từ khóa Hàng ngang (rất ngắn gọn).
    - ĐỐI VỚI ĐIỀN KHUYẾT / TRẢ LỜI NGẮN: correctKey phải CHÍNH XÁC là cụm từ cần điền, không dư thừa chữ.
    - Trắc nghiệm (MULTIPLE_CHOICE): correctKey là A, B, C, D.
@@ -1541,8 +1815,8 @@ Bạn có nhiệm vụ tạo ra câu hỏi thi học thuật xuất sắc, có t
                 },
                 correctKey: { type: Type.STRING, description: "Đáp án đúng (A, B, C, D hoặc từ khóa đối với câu trả lời ngắn)" },
                 explanation: { type: Type.STRING, description: "Lời giải thích chi tiết và trích dẫn văn bản pháp lý tương ứng" },
-                timeLimit: { type: Type.INTEGER, description: "Thời gian trả lời (giây, vd: 15, 20, 30)" },
-                points: { type: Type.INTEGER, description: "Điểm số quy định (10, 20, 30, 40)" },
+                timeLimit: { type: Type.INTEGER, description: "Thời gian trả lời (giây: Khởi động 3-5s hoặc 60s; VCNV 15s; Tăng tốc 20s hoặc 30s; Về đích 15s/20s/30s lý thuyết hoặc 45-120s thực hành; Câu hỏi phụ 15s)" },
+                points: { type: Type.INTEGER, description: "Điểm số quy định theo luật BTI 2026: Khởi động 10đ; VCNV 10-15đ; Tăng tốc 10-40đ; Về đích 20-30-40đ; Ô mạo hiểm 120đ; Vòng loại 1đ hoặc 4đ" },
                 legalReference: { type: Type.STRING, description: "Căn cứ điều khoản luật cụ thể (vd: Điều 9 NĐ 13/2023/NĐ-CP)" },
                 cognitiveLevel: { type: Type.STRING, description: "NHAN_BIET | THONG_HIEU | VAN_DUNG | VAN_DUNG_CAO" },
                 subCompetency: { type: Type.STRING, description: "Mã năng lực thành phần TT 02/2025 (vd: 4.2)" },
@@ -1614,6 +1888,17 @@ Bạn có nhiệm vụ tạo ra câu hỏi thi học thuật xuất sắc, có t
       const prompt = `Soạn thảo một kịch bản Kịch tương tác / Tình huống thực hành trên sân khấu Cuộc thi BTI 2026.
 ĐẶC BIỆT: Thay vì đưa ra thang điểm / chỉ dẫn chấm điểm, hãy xây dựng 4 PHƯƠNG ÁN XỬ LÝ (A, B, C, D) VÀ KỊCH BẢN PHÍA SAU (DIỄN BIẾN TIẾP NỐI TRÊN SÂN KHẤU, HỆ QUẢ SỐ VÀ PHẢN HỒI CHUYÊN MÔN) ĐỐI VỚI TỪNG PHƯƠNG ÁN.
 
+QUY ĐỊNH PHẦN THI THỰC HÀNH / TÌNH HUỐNG VỀ ĐÍCH BTI 2026:
+- Thí sinh chính:
+  + Gói 20 điểm: 15 giây suy nghĩ, 30 giây thực hành/diễn xuất.
+  + Gói 30 điểm: 20 giây suy nghĩ, 60 giây thực hành/diễn xuất.
+  + Gói 40 điểm: 30 giây suy nghĩ, 90 giây thực hành/diễn xuất.
+- Thí sinh chuông giành quyền (nếu thí sinh chính không xử lý được):
+  + Gói 20 điểm: 20 giây thực hành.
+  + Gói 30 điểm: 40 giây thực hành.
+  + Gói 40 điểm: 60 giây thực hành. (Sai bị trừ 1/2 số điểm câu hỏi).
+- Cơ chế Ngôi sao hy vọng (NSHV): Thí sinh chính đặt trước khi diễn, đúng x2 điểm, sai bị trừ điểm.
+
 Chủ đề: ${topic}
 Miền năng lực số: ${domain} (Theo Thông tư 02/2025/TT-BGDĐT)
 Giai đoạn: ${stage}
@@ -1636,7 +1921,7 @@ Cấu trúc kịch bản yêu cầu:
 7. Ô kịch bản ứng biến trên sân khấu khi thí sinh chọn các phương án sai / chưa tối ưu (subOptimalScript): Lời thoại kịch tính của MC bước ra can thiệp, kết hợp phân tích chuyên môn của Ban Giám khảo / Ban Cố vấn để răn đe, giáo dục nhận thức và định hướng giải pháp an toàn trước toàn trường.
 8. Phương án đúng / tối ưu nhất (correctOption: 'A' | 'B' | 'C' | 'D')
 9. Checklist các hành động chuẩn của thí sinh (actionChecklist)
-10. Thời gian suy nghĩ (15-30s) và thời gian diễn xuất / thực hành (45-90s)
+10. Thời gian suy nghĩ và thực hành theo chuẩn BTI (timeLimitThought: 15, 20 hoặc 30 giây; timeLimitAction: 30, 60 hoặc 90 giây)
 11. Căn cứ pháp lý cụ thể (Luật An ninh mạng, Nghị định 13/2023/NĐ-CP, Thông tư 02/2025/TT-BGDĐT...)`;
 
       const response = await generateWithFallback(ai, {
@@ -1735,64 +2020,6 @@ Cấu trúc kịch bản yêu cầu:
     }
   });
 
-  // AI Route: Question Audit & Fact-check against Vietnam Law & TT 02/2025
-  app.post("/api/ai/audit-question", async (req, res) => {
-    try {
-      const { question } = req.body;
-      const apiKey = getEffectiveApiKey(req);
-      if (!apiKey) return res.status(500).json({ error: "Chưa cấu hình GEMINI_API_KEY." });
-
-      const ai = new GoogleGenAI({
-        apiKey,
-        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-      });
-
-      const prompt = `Bạn là Trưởng Ban Thẩm định Đề thi Cuộc thi Beyond The Internet 2026.
-Hãy thẩm định và đánh giá toàn diện câu hỏi sau:
-Nội dung: "${question.question_text || question.questionText}"
-Phương án: ${JSON.stringify(question.options)}
-Đáp án công bố: "${question.correct_key || question.correctKey}"
-Lời giải thích: "${question.explanation}"
-Miền năng lực hiện tại: "${question.digital_competency_domain || ''}"
-Mức độ nhận thức: "${question.cognitive_level || ''}"
-
-Hãy kiểm tra:
-1. Tính chính xác khoa học & công nghệ (có bị lỗi thời, sai thuật ngữ không?).
-2. Tính chuẩn xác của căn cứ pháp luật Việt Nam (Thông tư 02/2025/TT-BGDĐT, Nghị định 13/2023/NĐ-CP, Luật An ninh mạng 2018).
-3. Đánh giá phương án nhiễu (distractors): Có phương án nào gây tranh cãi 2 đáp án đúng không?
-4. Đánh giá mức độ nhận thức (Nhận biết/Thông hiểu/Vận dụng/Vận dụng cao) có phù hợp không?
-5. Điểm số chất lượng (thang 100).
-6. Đề xuất chỉnh sửa cải tiến câu hỏi để hay hơn.`;
-
-      const response = await generateWithFallback(ai, {
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              qualityScore: { type: Type.INTEGER, description: "Điểm chất lượng từ 0 đến 100" },
-              isLegalValid: { type: Type.BOOLEAN, description: "Đúng chuẩn văn bản pháp lý" },
-              identifiedDomain: { type: Type.STRING, description: "Miền năng lực số chuẩn xác nhất" },
-              identifiedLevel: { type: Type.STRING, description: "Mức độ nhận thức phù hợp" },
-              strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-              weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-              improvedQuestionText: { type: Type.STRING },
-              improvedExplanation: { type: Type.STRING },
-              legalReferenceVerified: { type: Type.STRING }
-            },
-            required: ["qualityScore", "isLegalValid", "strengths", "weaknesses", "improvedQuestionText"]
-          }
-        }
-      });
-
-      if (!response.text) throw new Error("AI không trả về đánh giá.");
-      res.json({ success: true, audit: JSON.parse(response.text.trim()) });
-    } catch (error: any) {
-      console.error("AI Audit Error:", error);
-      res.status(500).json({ error: error.message || "Lỗi thẩm định câu hỏi." });
-    }
-  });
 
   // AI Route: Auto-classify drafted question for tags and levels
   app.post("/api/ai/classify-question", async (req, res) => {
@@ -1954,6 +2181,392 @@ THÔNG TIN CÂU HỎI:
     }
   });
 
+  // =========================================================================
+  // NOTEBOOKLM LEGAL RESEARCH AGENT ROUTE (THƯ VIỆN PHÁP LÝ NOTEBOOKLM)
+  // Supports: Grounded Chat, Executive Study Guide, Audio Overview Podcast,
+  // Question Drafting from Sources, and Comparative Analysis.
+  // =========================================================================
+  app.post("/api/ai/notebooklm-query", async (req, res) => {
+    try {
+      const {
+        action = 'CHAT', // 'CHAT' | 'STUDY_GUIDE' | 'AUDIO_OVERVIEW' | 'GENERATE_QUESTIONS'
+        sources = [],
+        query = '',
+        chatHistory = [],
+        focusArticle = null,
+        questionCount = 3
+      } = req.body;
+
+      if (!sources || !Array.isArray(sources) || sources.length === 0) {
+        return res.status(400).json({ error: "Vui lòng chọn ít nhất một văn bản pháp lý làm nguồn tài liệu (Source)." });
+      }
+
+      const apiKey = getEffectiveApiKey(req);
+      if (!apiKey) return res.status(500).json({ error: "Chưa cấu hình GEMINI_API_KEY trên máy chủ." });
+
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      // Prepare consolidated sources text
+      const sourcesText = sources.map((s: any, idx: number) => {
+        const articlesText = (s.keyArticles || [])
+          .map((a: any) => `  * ${a.article}: ${a.content}`)
+          .join('\n');
+        return `[NGUỒN ${idx + 1}]
+- Tiêu đề: ${s.title}
+- Số hiệu: ${s.documentNumber}
+- Cơ quan ban hành: ${s.issuingAuthority || 'N/A'}
+- Ngày ban hành/hiệu lực: ${s.issuedDate || s.issueDate || 'N/A'}
+- Tóm tắt: ${s.summary || 'N/A'}
+- Các điều khoản trọng tâm:
+${articlesText || '  (Chưa có danh sách điều khoản cụ thể)'}
+${s.fullText ? `- Toàn văn / Trích lục bổ sung:\n${s.fullText.slice(0, 4000)}` : ''}
+`;
+      }).join('\n====================\n');
+
+      if (action === 'CHAT') {
+        const historyText = (chatHistory || []).slice(-6).map((m: any) => 
+          `${m.role === 'user' ? 'Người dùng' : 'NotebookLM Agent'}: ${m.text}`
+        ).join('\n');
+
+        const prompt = `Bạn là Trợ lý Nghiên cứu Pháp lý NotebookLM (Grounded Legal Agent) của Cuộc thi "Beyond The Internet 2026" (BTI 2026).
+Bạn có nhiệm vụ giải đáp câu hỏi của người dùng DỰA TRÊN CÁC NGUỒN TÀI LIỆU PHÁP LÝ SAU ĐÂY:
+${sourcesText}
+
+${focusArticle ? `* ĐIỀU KHOẢN ĐANG ĐƯỢC TẬP TRUNG (FOCUS ARTICLE): ${JSON.stringify(focusArticle)}` : ''}
+${historyText ? `* LỊCH SỬ HỘI THOẠI TRƯỚC ĐÓ:\n${historyText}\n` : ''}
+
+CÂU HỎI CỦA NGƯỜI DÙNG: "${query}"
+
+YÊU CẦU:
+1. TRẢ LỜI CHUẨN XÁC, SÚC TÍCH VÀ CÓ CẤU TRÚC (Sử dụng Markdown, gạch đầu dòng, in đậm từ khóa quan trọng).
+2. TRÍCH DẪN NGUỒN CHÍNH XÁC: Mỗi luận điểm, quy định, quyền, nghĩa vụ, hành vi bị cấm đều PHẢI viện dẫn rõ số hiệu văn bản và điều khoản cụ thể (ví dụ: "[Thông tư 02/2025/TT-BGDĐT, Điều 2 Khoản 1]" hoặc "[Nghị định 13/2023/NĐ-CP, Điều 9]").
+3. Cung cấp mảng 'citations' chứa danh sách các trích dẫn điều khoản được dùng.
+4. Nêu 1 kết luận then chốt 'keyTakeaway'.
+5. Đề xuất 3 câu hỏi gợi mở tiếp theo 'suggestedFollowUps' kích thích tư duy người học/người ra đề thi.`;
+
+        const response = await generateWithFallback(ai, {
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                answer: { type: Type.STRING, description: "Nội dung trả lời chi tiết kèm trích dẫn pháp lý chuẩn mực" },
+                citations: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      sourceTitle: { type: Type.STRING },
+                      documentNumber: { type: Type.STRING },
+                      article: { type: Type.STRING },
+                      snippet: { type: Type.STRING }
+                    },
+                    required: ["sourceTitle", "documentNumber", "article", "snippet"]
+                  }
+                },
+                keyTakeaway: { type: Type.STRING, description: "Đúc kết then chốt một dòng" },
+                suggestedFollowUps: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3 câu hỏi đào sâu tiếp theo" }
+              },
+              required: ["answer", "citations", "keyTakeaway", "suggestedFollowUps"]
+            }
+          }
+        });
+
+        if (!response.text) throw new Error("AI không trả về kết quả.");
+        return res.json({ success: true, result: JSON.parse(response.text.trim()) });
+      }
+
+      if (action === 'STUDY_GUIDE') {
+        const prompt = `Bạn là Trợ lý Nghiên cứu Pháp lý NotebookLM của Cuộc thi BTI 2026.
+Hãy tổng hợp một BẢN CẨM NANG NGHIÊN CỨU PHÁP LÝ TOÀN DIỆN (STUDY GUIDE / BRIEFING) từ các nguồn tài liệu pháp lý sau:
+${sourcesText}
+
+YÊU CẦU:
+1. Executive Summary: Tóm lược cô đọng mục đích, phạm vi điều chỉnh và tinh thần cốt lõi.
+2. Key Entities: Các chủ thể chịu tác động (Người học, Nhà trường, Doanh nghiệp công nghệ, Cơ quan quản lý...) cùng quyền và nghĩa vụ chính.
+3. Critical Articles: Top điều khoản quan trọng nhất thường gặp trong đời sống số hoặc đề thi.
+4. FAQs: 4-6 câu hỏi - giải đáp pháp lý thường gặp nhất.
+5. BTI Exam Relevance: Mối liên kết với Khung năng lực số người học TT 02/2025 và gợi ý chủ đề ra đề thi BTI 2026.
+6. Compliance Checklist: 4-6 hành động cần tuân thủ ngay.`;
+
+        const response = await generateWithFallback(ai, {
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                executiveSummary: { type: Type.STRING },
+                jurisdictionScope: { type: Type.STRING },
+                keyEntities: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      entity: { type: Type.STRING },
+                      rights: { type: Type.STRING },
+                      obligations: { type: Type.STRING }
+                    },
+                    required: ["entity", "rights", "obligations"]
+                  }
+                },
+                criticalArticles: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      documentNumber: { type: Type.STRING },
+                      article: { type: Type.STRING },
+                      summary: { type: Type.STRING },
+                      relevanceToBTI: { type: Type.STRING }
+                    },
+                    required: ["documentNumber", "article", "summary", "relevanceToBTI"]
+                  }
+                },
+                faqs: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      question: { type: Type.STRING },
+                      answer: { type: Type.STRING },
+                      legalReference: { type: Type.STRING }
+                    },
+                    required: ["question", "answer", "legalReference"]
+                  }
+                },
+                complianceChecklist: { type: Type.ARRAY, items: { type: Type.STRING } },
+                btiExamRelevance: { type: Type.STRING }
+              },
+              required: ["executiveSummary", "keyEntities", "criticalArticles", "faqs", "complianceChecklist", "btiExamRelevance"]
+            }
+          }
+        });
+
+        if (!response.text) throw new Error("AI không trả về kết quả Study Guide.");
+        return res.json({ success: true, result: JSON.parse(response.text.trim()) });
+      }
+
+      if (action === 'AUDIO_OVERVIEW') {
+        const prompt = `Bạn là Đạo diễn kiêm Nhà sản xuất chương trình Audio Overview (Podcast 2 Chuyên gia theo phong cách Google NotebookLM) cho Cuộc thi "Beyond The Internet 2026" (BTI 2026).
+Nhiệm vụ: Hãy tạo một kịch bản Podcast Audio Overview đối thoại 2 người cực kỳ hấp dẫn, tự nhiên, thông minh và hóm hỉnh dựa trên các nguồn tài liệu pháp lý sau:
+${sourcesText}
+
+HAI NHÂN VẬT HOST PODCAST:
+1. Host 1: "Minh Thảo" (Giọng nữ, Chuyên gia Khảo thí BTI 2026): Am hiểu đề thi, sư phạm, giàu năng lượng, đặt câu hỏi gợi mở, liên hệ với tình huống học sinh/sinh viên.
+2. Host 2: "Quốc Hoàng" (Giọng nam, Luật sư Công nghệ & Chuyên gia An toàn số): Điềm đạm, sắc sảo, phân tích góc độ pháp lý, chỉ ra các lỗ hổng bảo mật và hệ lụy đời thực.
+
+QUY TẮC ĐỐI THOẠI NOTEBOOKLM:
+- Mở đầu bằng lời chào vui vẻ, giới thiệu chủ đề tập podcast ngắn gọn.
+- Luân phiên đối đáp qua lại tự nhiên (khoảng 8 đến 14 lượt thoại xen kẽ).
+- Mỗi lượt thoại có độ dài vừa phải (2-4 câu), ngôn từ trong sáng, hiện đại, dễ hiểu, tránh đọc luật khô khan.
+- Dẫn chứng các tình huống thực tế năm 2026 (lộ ảnh CCCD, chat AI lộ bí mật, deepfake lừa tiền, mua bán tài khoản ngân hàng...).
+- Kết thúc bằng lời khuyên bổ ích và chúc các thí sinh BTI 2026 tự tin thi đấu!`;
+
+        const response = await generateWithFallback(ai, {
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                episodeTitle: { type: Type.STRING, description: "Tiêu đề tập podcast cuốn hút" },
+                episodeSubtitle: { type: Type.STRING, description: "Phụ đề tóm lược nội dung" },
+                durationMinutes: { type: Type.NUMBER, description: "Thời lượng ước tính (phút, vd: 4)" },
+                summary: { type: Type.STRING, description: "Tóm tắt ngắn 1 đoạn về tập podcast" },
+                dialogue: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      speaker: { type: Type.STRING, description: "Minh Thảo | Quốc Hoàng" },
+                      role: { type: Type.STRING, description: "Chuyên gia Khảo thí | Luật sư Công nghệ" },
+                      text: { type: Type.STRING, description: "Lời thoại chi tiết" },
+                      emphasis: { type: Type.STRING, description: "Từ khóa nhấn mạnh" }
+                    },
+                    required: ["speaker", "role", "text"]
+                  }
+                },
+                keyHighlights: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3-4 điểm nhấn đáng nhớ nhất" }
+              },
+              required: ["episodeTitle", "episodeSubtitle", "durationMinutes", "summary", "dialogue", "keyHighlights"]
+            }
+          }
+        });
+
+        if (!response.text) throw new Error("AI không trả về kết quả Audio Overview.");
+        return res.json({ success: true, result: JSON.parse(response.text.trim()) });
+      }
+
+      if (action === 'GENERATE_QUESTIONS') {
+        const prompt = `Bạn là Chuyên gia Khảo thí Cấp cao BTI 2026.
+Hãy tạo ${questionCount} câu hỏi thi học thuật xuất sắc cho Cuộc thi BTI 2026 dựa CHÍNH XÁC trên các căn cứ pháp lý sau:
+${sourcesText}
+
+${focusArticle ? `ƯU TIÊN BIÊN SOẠN BÁM SÁT VÀO ĐIỀU KHOẢN NÀY: ${JSON.stringify(focusArticle)}` : ''}
+
+YÊU CẦU:
+1. Đa dạng hóa định dạng: Trắc nghiệm 4 lựa chọn (MULTIPLE_CHOICE), hoặc Đúng/Sai 4 ý (TRUE_FALSE_4), hoặc Trả lời ngắn (SHORT_ANSWER).
+2. Câu hỏi gắn liền tình huống số thực tiễn năm 2026.
+3. BẮT BUỘC có legalReference viện dẫn chính xác số hiệu và điều khoản của tài liệu.
+4. Lời giải thích sâu sắc, chuẩn mực.`;
+
+        const response = await generateWithFallback(ai, {
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                questions: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      questionText: { type: Type.STRING },
+                      roundType: { type: Type.STRING, description: "MULTIPLE_CHOICE | SHORT_ANSWER | TRUE_FALSE_4" },
+                      options: {
+                        type: Type.OBJECT,
+                        properties: {
+                          A: { type: Type.STRING },
+                          B: { type: Type.STRING },
+                          C: { type: Type.STRING },
+                          D: { type: Type.STRING }
+                        }
+                      },
+                      correctKey: { type: Type.STRING },
+                      explanation: { type: Type.STRING },
+                      legalReference: { type: Type.STRING },
+                      cognitiveLevel: { type: Type.STRING, description: "NHAN_BIET | THONG_HIEU | VAN_DUNG | VAN_DUNG_CAO" },
+                      digitalCompetencyDomain: { type: Type.STRING, description: "MIEN_1 | MIEN_2 | MIEN_3 | MIEN_4 | MIEN_5 | MIEN_6" },
+                      timeLimit: { type: Type.INTEGER },
+                      points: { type: Type.INTEGER }
+                    },
+                    required: ["questionText", "roundType", "correctKey", "explanation", "legalReference"]
+                  }
+                }
+              },
+              required: ["questions"]
+            }
+          }
+        });
+
+        if (!response.text) throw new Error("AI không trả về câu hỏi thi.");
+        return res.json({ success: true, result: JSON.parse(response.text.trim()) });
+      }
+
+      return res.status(400).json({ error: `Hành động không hợp lệ: ${action}` });
+    } catch (error: any) {
+      console.error("NotebookLM Legal Agent Error:", error);
+      res.status(500).json({ error: error.message || "Lỗi xử lý NotebookLM Agent." });
+    }
+  });
+
+  // =========================================================================
+  // AI ROUTE: HIGH-ACCURACY LEGAL DOCUMENT OCR & ARTICLE PARSER
+  // Accepts: fileBase64 (PDF, Image, Text) or rawText
+  // =========================================================================
+  app.post("/api/ai/parse-legal-document", async (req, res) => {
+    try {
+      const { fileBase64, mimeType = "application/pdf", fileName = "", rawText = "" } = req.body;
+      const apiKey = getEffectiveApiKey(req);
+      if (!apiKey) return res.status(500).json({ error: "Chưa cấu hình GEMINI_API_KEY trên máy chủ." });
+
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      const contentsParts: any[] = [];
+
+      if (fileBase64) {
+        let cleanBase64 = fileBase64;
+        let resolvedMime = mimeType;
+        if (cleanBase64.includes(',')) {
+          const split = cleanBase64.split(',');
+          const match = split[0].match(/:(.*?);/);
+          if (match) resolvedMime = match[1];
+          cleanBase64 = split[1];
+        }
+
+        contentsParts.push({
+          inlineData: {
+            mimeType: resolvedMime,
+            data: cleanBase64
+          }
+        });
+      }
+
+      const promptText = `Bạn là Chuyên gia Số hóa & Nhận diện Văn bản Pháp luật (Legal OCR & Document AI) của Cuộc thi "Beyond The Internet 2026" (BTI 2026).
+Nhiệm vụ: Phân tích toàn bộ tài liệu đính kèm (tệp PDF, ảnh chụp, tài liệu văn bản) có tên "${fileName}".
+
+${rawText && rawText.trim() ? `NỘI DUNG VĂN BẢN THÔ:\n"""\n${rawText.slice(0, 12000)}\n"""\n` : ''}
+
+HÃY BÓC TÁCH VÀ NHẬN DIỆN CHÍNH XÁC:
+1. 'title': Tên đầy đủ, chuẩn xác của văn bản (Ví dụ: "Thông tư quy định Khung năng lực số cho người học", "Nghị định quy định về bảo vệ dữ liệu cá nhân", "Luật An ninh mạng").
+2. 'documentNumber': Số hiệu văn bản CHÍNH XÁC (Ví dụ: "02/2025/TT-BGDĐT", "13/2023/NĐ-CP", "24/2018/QH14", "20/2023/QH15"). Nếu không có, dự đoán số hiệu hợp lý dựa trên loại văn bản.
+3. 'issuingAuthority': Cơ quan ban hành (Ví dụ: "Bộ Giáo dục và Đào tạo", "Chính phủ", "Quốc hội", "Thủ tướng Chính phủ").
+4. 'issuedDate': Ngày ban hành (định dạng YYYY-MM-DD, ví dụ: "2025-01-24").
+5. 'effectiveDate': Ngày có hiệu lực thi hành (định dạng YYYY-MM-DD, ví dụ: "2025-03-10").
+6. 'type': Loại văn bản: "THONG_TU" | "NGHI_DINH" | "LUAT" | "QUYET_DINH" | "QUY_DINH_KHAC".
+7. 'domain': Miền năng lực số liên quan chính: "Khung năng lực số quốc gia" | "Bảo vệ dữ liệu cá nhân & An ninh mạng" | "An ninh mạng & Phòng chống tội phạm công nghệ cao" | "Chữ ký số & Hợp đồng điện tử" | "An toàn thông tin".
+8. 'summary': Tóm tắt cô đọng 2-3 câu về phạm vi điều chỉnh và tinh thần cốt lõi của văn bản.
+9. 'keyArticles': Bóc tách chi tiết các Điều/Khoản trọng tâm (Tối thiểu 3-10 điều khoản quan trọng nhất liên quan đến an toàn số, công nghệ, quyền, nghĩa vụ, chế tài xử lý). Mỗi mục gồm 'article' (Tên điều, ví dụ: "Điều 9 - Quyền của chủ thể dữ liệu") và 'content' (Nội dung súc tích, đầy đủ ý chính).
+10. 'relatedDomains': Danh sách mã miền năng lực số liên quan theo TT 02/2025 (ví dụ: ["MIEN_4", "MIEN_6"]).
+11. 'extractedTextSnippet': Trích đoạn văn bản đại diện sạch sẽ (khoảng 300-500 chữ).`;
+
+      contentsParts.push({ text: promptText });
+
+      const response = await generateWithFallback(ai, {
+        contents: contentsParts,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              documentNumber: { type: Type.STRING },
+              issuingAuthority: { type: Type.STRING },
+              issuedDate: { type: Type.STRING },
+              effectiveDate: { type: Type.STRING },
+              type: { type: Type.STRING },
+              domain: { type: Type.STRING },
+              summary: { type: Type.STRING },
+              keyArticles: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    article: { type: Type.STRING },
+                    content: { type: Type.STRING }
+                  },
+                  required: ["article", "content"]
+                }
+              },
+              relatedDomains: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING }
+              },
+              extractedTextSnippet: { type: Type.STRING }
+            },
+            required: ["title", "documentNumber", "issuingAuthority", "summary", "keyArticles"]
+          }
+        }
+      });
+
+      if (!response.text) throw new Error("AI không nhận diện được văn bản.");
+      const parsedData = JSON.parse(response.text.trim());
+      res.json({ success: true, document: parsedData });
+    } catch (error: any) {
+      console.error("Parse Legal Document Error:", error);
+      res.status(500).json({ error: error.message || "Lỗi khi nhận diện văn bản bằng AI." });
+    }
+  });
+
   // AI Route: Parse raw text / unstructured exam into BTI 2026 format
   app.post("/api/ai/parse-excel-text", async (req, res) => {
     try {
@@ -2015,6 +2628,98 @@ Hãy bóc tách thành danh sách các câu hỏi theo cấu trúc Ngân hàng �
     } catch (error: any) {
       console.error("AI Parse Text Error:", error);
       res.status(500).json({ error: error.message || "Lỗi bóc tách đề thi." });
+    }
+  });
+
+  // AI Route: Analyze uploaded custom Excel template structure
+  app.post("/api/ai/analyze-excel-template", async (req, res) => {
+    try {
+      const { fileName, sheets } = req.body;
+      const apiKey = getEffectiveApiKey(req);
+      if (!apiKey) return res.status(500).json({ error: "Chưa cấu hình GEMINI_API_KEY." });
+
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      const sheetsSummary = (sheets || []).map((s: any) => {
+        const previewRows = (s.rows || []).slice(0, 10).map((r: any[]) => r.slice(0, 15));
+        return `Sheet: "${s.sheetName}"\nPreview 10 dòng đầu:\n${JSON.stringify(previewRows, null, 2)}`;
+      }).join('\n\n');
+
+      const prompt = `Bạn là chuyên gia phân tích cấu trúc bảng tính đề thi Excel của các hệ thống khảo thí trực tuyến (như Azota, K12Online, OLM, Shub Classroom, Quizizz, Canvas, Moodle, Google Form, hoặc mẫu phần mềm điều khiển trận đấu BTI 2026 "Đề thi.xlsx", mẫu Bộ GD&ĐT).
+Tệp tải lên: "${fileName || 'Đề thi.xlsx'}"
+
+Nội dung dữ liệu các trang tính (sheet):
+${sheetsSummary.slice(0, 7000)}
+
+Nhiệm vụ của bạn:
+1. Xác định tên hệ thống khảo thí hoặc nguồn gốc mẫu đề:
+   - Nếu tệp chứa các vòng "KHỞI ĐỘNG" (lượt riêng thí sinh 1-4, lượt chung), "VƯỢT CHƯỚNG NGẠI VẬT" (hàng ngang 1-4, trung tâm, ô B3/C3/D3), "TĂNG TỐC" (kèm LINK DỮ LIỆU TĂNG TỐC), "VỀ ĐÍCH" (lượt 1-4, gói 20/30 điểm, cột Chú thích), "CÂU HỎI PHỤ", hoặc tên file là "Đề thi.xlsx":
+     -> Hãy xác định rõ systemName là "Phần mềm BTI (Đề thi.xlsx)"!
+     -> Trong aiSummary: Nêu rõ cấu trúc 5 vòng thi chuẩn BTI, quy định đặt tên file bắt buộc là "Đề thi.xlsx" và cấu trúc thư mục Media quy chuẩn (Media/Starting cho Khởi động, Media/Obstacle cho VCNV, Media/Acceleration/AC1-AC4 cho Tăng tốc, Media/Finish cho Về đích, StudentImage cho ảnh thí sinh).
+   - Nếu là các hệ thống khác (Azota, K12Online, OLM, Quizizz, Bộ GD&ĐT, Subiz...): Xác định đúng tên hệ thống.
+2. Tóm tắt cấu trúc biểu mẫu bằng tiếng Việt (vị trí dòng tiêu đề, các dòng banner hướng dẫn phía trên, số lượng cột, quy ước đáp án).
+3. Cho sheet chính chứa câu hỏi trắc nghiệm/tự luận, xác định headerRowIndex (chỉ số dòng chứa tên các cột, bắt đầu từ 0).
+4. Khớp nối từng cột với các trường chuẩn của Ngân hàng Đề thi BTI 2026:
+   - Các giá trị trường hợp lệ:
+     "id" (Mã câu / STT)
+     "question_text" (Nội dung câu hỏi)
+     "option_a" (Phương án A / Ý a)
+     "option_b" (Phương án B / Ý b)
+     "option_c" (Phương án C / Ý c)
+     "option_d" (Phương án D / Ý d)
+     "option_e" (Phương án E)
+     "correct_key" (Đáp án đúng)
+     "explanation" (Lời giải chi tiết / Hướng dẫn giải / Chú thích MC)
+     "cognitive_level" (Mức độ nhận thức / Độ khó)
+     "digital_competency_domain" (Miền năng lực số / Chủ đề)
+     "points" (Điểm số)
+     "time_limit" (Thời gian làm bài)
+     "legal_reference" (Căn cứ pháp lý)
+     "round_name" (Vòng thi / Phần thi)
+     "media_url" (Ảnh / Video đính kèm)
+     "audio_url" (File âm thanh)
+     "unmapped" (Cột không dùng / bỏ trống)
+5. Trả về JSON theo đúng định dạng được yêu cầu.`;
+
+      const response = await generateWithFallback(ai, {
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              systemName: { type: Type.STRING },
+              aiSummary: { type: Type.STRING },
+              targetSheetName: { type: Type.STRING },
+              headerRowIndex: { type: Type.INTEGER },
+              columnMappings: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    colIndex: { type: Type.INTEGER },
+                    originalHeader: { type: Type.STRING },
+                    mappedField: { type: Type.STRING },
+                    reason: { type: Type.STRING }
+                  },
+                  required: ["colIndex", "originalHeader", "mappedField"]
+                }
+              }
+            },
+            required: ["systemName", "aiSummary", "headerRowIndex", "columnMappings"]
+          }
+        }
+      });
+
+      if (!response.text) throw new Error("AI không phản hồi phân tích mẫu đề.");
+      const parsed = JSON.parse(response.text.trim());
+      res.json({ success: true, analysis: parsed });
+    } catch (error: any) {
+      console.error("AI Analyze Template Error:", error);
+      res.status(500).json({ error: error.message || "Lỗi khi phân tích mẫu đề thi bằng AI." });
     }
   });
 
@@ -2105,13 +2810,20 @@ Hãy bóc tách thành danh sách các câu hỏi theo cấu trúc Ngân hàng �
       let usedModel = requestedModel;
       let lastError: any = null;
 
+      const chatSystemInstruction = `${systemInstruction || 'Bạn là Trợ lý AI Cấp cao của Ban Tổ Chức Cuộc thi "Beyond The Internet 2026" (BTI 2026).'}
+
+BỘ QUY CHẾ VÀ LUẬT THI ĐẤU CHÍNH THỨC CUỘC THI BTI 2026 (TRI THỨC BẮT BUỘC):
+${BTI_2026_OFFICIAL_RULES_PROMPT}
+
+HƯỚNG DẪN ĐỊNH DẠNG: Khi trình bày công thức toán học, thuật toán, hàm điều kiện hoặc tính điểm số, hãy sử dụng cú pháp LaTeX chuẩn được bao bởi $$ cho khối (block math) hoặc $ cho inline. Trong các môi trường \\begin{cases}...\\end{cases} hoặc ma trận/hệ phương trình, luôn sử dụng dấu xuống dòng hai gạch chéo '\\\\' rõ ràng giữa các nhánh.`;
+
       for (const m of fallbackList) {
         try {
           const response = await ai.models.generateContent({
             model: m,
             contents,
             config: {
-              systemInstruction: (systemInstruction ? systemInstruction + "\n\n" : "") + "HƯỚNG DẪN ĐỊNH DẠNG: Khi trình bày công thức toán học, thuật toán, hàm điều kiện hoặc tính điểm số, hãy sử dụng cú pháp LaTeX chuẩn được bao bởi $$ cho khối (block math) hoặc $ cho inline. Trong các môi trường \\begin{cases}...\\end{cases} hoặc ma trận/hệ phương trình, luôn sử dụng dấu xuống dòng hai gạch chéo '\\\\' rõ ràng giữa các nhánh.",
+              systemInstruction: chatSystemInstruction,
             }
           });
           if (response.text) {

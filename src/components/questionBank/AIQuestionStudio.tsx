@@ -49,6 +49,7 @@ import {
 import { questionBankManager } from '../../services/questionBankManager';
 import { soundFx } from '../../services/audioEffects';
 import { vibrateTap, vibrateSuccess } from '../../utils/hapticUtils';
+import { NotebookLMChatView } from './NotebookLMChatView';
 
 interface AIQuestionStudioProps {
   onQuestionCreated?: () => void;
@@ -118,6 +119,7 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
   const [groundingSources, setGroundingSources] = useState<{ title: string; uri: string }[]>([]);
   const [searchQueries, setSearchQueries] = useState<string[]>([]);
   const [showRuleDetails, setShowRuleDetails] = useState<boolean>(false);
+  const [studioMode, setStudioMode] = useState<'GENERATOR' | 'CHAT'>('GENERATOR');
 
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generatedQuestions, setGeneratedQuestions] = useState<any[]>([]);
@@ -212,6 +214,23 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
     } finally {
       setAuditingIdx(null);
     }
+  };
+
+  const handleUseNotebookLMContext = (params: {
+    topic: string;
+    legalReference?: string;
+    docId?: string;
+    contextText?: string;
+  }) => {
+    if (params.topic) {
+      setTopicPrompt(params.topic);
+    }
+    if (params.docId) {
+      setSelectedDocId(params.docId);
+    }
+    setStudioMode('GENERATOR');
+    soundFx.playCorrect();
+    vibrateSuccess();
   };
 
   const createQuestionItemFromAI = (q: any, idx: number): QuestionItem => {
@@ -313,7 +332,7 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
 
   return (
     <div className="space-y-4 animate-fadeIn">
-      {/* 1. COMPACT TOP HEADER STRIP */}
+      {/* 1. COMPACT TOP HEADER STRIP & MODE TOGGLE */}
       <div className="fluent-card px-4 py-3 bg-gradient-to-r from-[#190839] via-[#241148] to-[#190839] border border-theme-accent/25 rounded-[6px] shadow-md flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-[4px] bg-theme-accent/15 border border-theme-accent/30 flex items-center justify-center text-theme-accent shrink-0">
@@ -322,56 +341,105 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-bold text-white tracking-wide">
-                Trợ Lý AI Soạn Thảo Đề Thi BTI 2026
+                Trợ Lý AI Soạn Thảo & Khảo Thí BTI 2026
               </h2>
               <span className="text-[10px] px-2 py-0.2 rounded bg-purple-500/20 text-purple-300 font-mono font-semibold border border-purple-400/30">
                 TT 02/2025/TT-BGDĐT
               </span>
             </div>
             <p className="text-[11px] text-[#B6A6D8] font-mono">
-              Sinh câu hỏi phân hóa cao theo ma trận 6 miền năng lực số và căn cứ pháp lý hiện hành
+              Biên soạn câu hỏi phân hóa cao & Trò chuyện cố vấn chuyên sâu cùng Trợ lý AI BTI
             </p>
           </div>
         </div>
 
-        {/* Gemini AI Studio Quick Shortcuts */}
-        {onOpenGeminiStudio && (
-          <div className="flex items-center gap-1.5 flex-wrap">
+        {/* Tab Mode Switcher: Studio Generator vs Chat NotebookLM Grounded */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center bg-black/50 p-1 rounded-[6px] border border-white/15">
             <button
               type="button"
-              onClick={() => onOpenGeminiStudio('CHAT')}
-              className="px-2.5 py-1 rounded-[4px] bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[11px] font-mono font-medium flex items-center gap-1.5 transition cursor-pointer"
-              title="Chatbot Gemini Cố vấn khảo thí"
+              onClick={() => {
+                vibrateTap();
+                soundFx.playClick();
+                setStudioMode('GENERATOR');
+              }}
+              className={`px-3 py-1.5 rounded-[4px] text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                studioMode === 'GENERATOR'
+                  ? 'bg-purple-600 text-white shadow-md'
+                  : 'text-white/60 hover:text-white hover:bg-white/10'
+              }`}
             >
-              <MessageSquare className="w-3 h-3 text-purple-300" />
-              <span>Cố vấn</span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>Soạn Thảo Đề Thi AI</span>
             </button>
 
             <button
               type="button"
-              onClick={() => onOpenGeminiStudio('IMAGE')}
-              className="px-2.5 py-1 rounded-[4px] bg-theme-accent/15 hover:bg-theme-accent/25 border border-theme-accent/30 text-theme-accent text-[11px] font-mono font-medium flex items-center gap-1.5 transition cursor-pointer"
-              title="Tạo ảnh minh họa câu hỏi với Gemini Flash Image"
+              onClick={() => {
+                vibrateTap();
+                soundFx.playClick();
+                setStudioMode('CHAT');
+              }}
+              className={`px-3 py-1.5 rounded-[4px] text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                studioMode === 'CHAT'
+                  ? 'bg-purple-600 text-white shadow-md'
+                  : 'text-white/60 hover:text-white hover:bg-white/10'
+              }`}
             >
-              <ImageIcon className="w-3 h-3 text-theme-accent" />
-              <span>Tạo Ảnh</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onOpenGeminiStudio('VIDEO')}
-              className="px-2.5 py-1 rounded-[4px] bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/30 text-cyan-300 text-[11px] font-mono font-medium flex items-center gap-1.5 transition cursor-pointer"
-              title="Tạo video minh họa với Veo 3.1"
-            >
-              <Film className="w-3 h-3 text-cyan-300" />
-              <span>Video Veo</span>
+              <BookOpen className="w-3.5 h-3.5 text-amber-300" />
+              <span>Chat NotebookLM (Nguồn Luật)</span>
             </button>
           </div>
-        )}
+
+          {/* Gemini AI Studio Quick Shortcuts (Image / Video) */}
+          {onOpenGeminiStudio && (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateTap();
+                  soundFx.playClick();
+                  setStudioMode('CHAT');
+                }}
+                className="px-2.5 py-1.5 rounded-[4px] bg-purple-500/15 hover:bg-purple-500/25 border border-purple-400/30 text-purple-300 text-[11px] font-mono font-medium flex items-center gap-1.5 transition cursor-pointer"
+                title="Mở Chat NotebookLM tra cứu căn cứ pháp lý & trích dẫn điều khoản"
+              >
+                <BookOpen className="w-3 h-3 text-amber-300" />
+                <span className="hidden sm:inline">NotebookLM</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onOpenGeminiStudio('IMAGE')}
+                className="px-2.5 py-1.5 rounded-[4px] bg-theme-accent/15 hover:bg-theme-accent/25 border border-theme-accent/30 text-theme-accent text-[11px] font-mono font-medium flex items-center gap-1.5 transition cursor-pointer"
+                title="Tạo ảnh minh họa câu hỏi với Gemini Flash Image"
+              >
+                <ImageIcon className="w-3 h-3 text-theme-accent" />
+                <span className="hidden sm:inline">Tạo Ảnh</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onOpenGeminiStudio('VIDEO')}
+                className="px-2.5 py-1.5 rounded-[4px] bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/30 text-cyan-300 text-[11px] font-mono font-medium flex items-center gap-1.5 transition cursor-pointer"
+                title="Tạo video minh họa với Veo 3.1"
+              >
+                <Film className="w-3 h-3 text-cyan-300" />
+                <span className="hidden sm:inline">Video Veo</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* 2. MAIN 2-COLUMN WORKSPACE GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+      {/* 2. NOTEBOOKLM CHAT MODE OR GENERATOR MODE */}
+      {studioMode === 'CHAT' ? (
+        <div className="fluent-card p-4 sm:p-5 rounded-[6px] bg-[#1a073a]/90 border border-theme-accent/25 shadow-xl animate-fadeIn min-h-[620px]">
+          <NotebookLMChatView onUseForExamQuestion={handleUseNotebookLMContext} />
+        </div>
+      ) : (
+        /* MAIN 2-COLUMN WORKSPACE GRID (GENERATOR) */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         {/* LEFT COLUMN (5 COLS): STREAMLINED CONFIGURATION PANEL */}
         <div className="lg:col-span-5 space-y-3">
           <div className="fluent-card p-3.5 sm:p-4 rounded-[6px] bg-[#1a073a]/90 border border-theme-accent/25 space-y-3">
@@ -942,6 +1010,7 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
           })}
         </div>
       </div>
+      )}
     </div>
   );
 };
