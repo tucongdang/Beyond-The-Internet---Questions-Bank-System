@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Copy,
@@ -38,6 +39,7 @@ import {
   DuplicateType
 } from '../../services/duplicateDetectionService';
 import { soundFx } from '../../services/audioEffects';
+import { useLockBodyScroll } from '../../hooks/useLockBodyScroll';
 import { vibrateTap, vibrateSuccess, vibrateError, vibrateWarning } from '../../utils/hapticUtils';
 import { DIGITAL_COMPETENCY_DOMAINS } from '../../data/digitalCompetencyData';
 
@@ -56,6 +58,8 @@ export const DuplicateCheckerModal: React.FC<DuplicateCheckerModalProps> = ({
   questions = [],
   onEditQuestion
 }) => {
+  useLockBodyScroll(isOpen);
+
   const [threshold, setThreshold] = useState<number>(65);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [scanStatusMessage, setScanStatusMessage] = useState<string>('');
@@ -314,10 +318,26 @@ export const DuplicateCheckerModal: React.FC<DuplicateCheckerModalProps> = ({
   }, [pairs, activeTab, searchQuery]);
 
   if (!isOpen) return null;
+  if (typeof document === 'undefined') return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-fadeIn font-mono">
-      <div className="fluent-modal w-full max-w-6xl max-h-[92vh] bg-[#120626] border border-rose-500/40 rounded-[6px] shadow-2xl flex flex-col overflow-hidden text-slate-100">
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[9999999] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-xl animate-fadeIn overflow-hidden modal-backdrop-isolated select-none font-mono"
+      role="dialog"
+      aria-modal="true"
+      aria-label="AI Phát Hiện & Xử Lý Trùng Lặp"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isScanning) {
+          onClose();
+          vibrateTap();
+          soundFx.playClick();
+        }
+      }}
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-6xl h-[92vh] max-h-[940px] bg-[#140827]/98 fluent-acrylic-surface border border-rose-500/40 rounded-[8px] shadow-[0_24px_64px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden text-slate-100"
+      >
         
         {/* Modal Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-rose-500/30 bg-[#1B0838]/95 backdrop-blur-md">
@@ -837,6 +857,7 @@ export const DuplicateCheckerModal: React.FC<DuplicateCheckerModalProps> = ({
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

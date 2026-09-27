@@ -14,6 +14,7 @@ import {
   Filter,
   Flame,
   X,
+  Pin,
   AlertCircle,
   HelpCircle,
   Eye,
@@ -67,6 +68,7 @@ export const AudienceQAModal: React.FC<AudienceQAModalProps> = ({
   // Filter and Sort in Community Tab
   const [communityFilter, setCommunityFilter] = useState<string>('ALL');
   const [communitySort, setCommunitySort] = useState<'HOT' | 'NEW'>('HOT');
+  const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(false);
 
   // Subscribe to Q&A updates
   useEffect(() => {
@@ -170,9 +172,16 @@ export const AudienceQAModal: React.FC<AudienceQAModalProps> = ({
   if (!isOpen) return null;
 
   const content = (
-    <div className="fluent-dialog-overlay animate-fadeIn" onClick={onClose}>
+    <div
+      className={`fluent-dialog-overlay animate-fadeIn ${isAlwaysOnTop ? 'is-pinned always-on-top' : ''}`}
+      style={isAlwaysOnTop ? { zIndex: 2147483646 } : undefined}
+      onClick={onClose}
+    >
       <div
-        className="fluent-dialog w-full max-w-2xl"
+        className={`fluent-dialog w-full max-w-2xl ${isAlwaysOnTop ? 'is-pinned always-on-top z-[2147483647]' : ''}`}
+        style={isAlwaysOnTop ? { zIndex: 2147483647 } : undefined}
+        data-pinned={isAlwaysOnTop}
+        data-always-on-top={isAlwaysOnTop}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -203,16 +212,39 @@ export const AudienceQAModal: React.FC<AudienceQAModalProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={() => {
-              vibrateTap();
-              onClose();
-            }}
-            className="p-1.5 rounded-[4px] text-white/60 hover:text-white hover:bg-white/10 transition cursor-pointer"
-            title={t("qa_close", localLanguage)}
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="fluent-dialog-header-actions flex items-center gap-1.5 ml-auto">
+            <button
+              type="button"
+              onClick={() => {
+                vibrateTap();
+                setIsAlwaysOnTop(prev => !prev);
+              }}
+              className={`fluent-dialog-pin-btn p-1.5 rounded-[4px] transition cursor-pointer flex items-center justify-center ${
+                isAlwaysOnTop
+                  ? 'active text-theme-accent bg-theme-accent/20 border border-theme-accent/40 shadow-[0_0_10px_rgba(var(--bti-accent-rgb,247,202,201),0.35)]'
+                  : 'text-white/60 hover:text-white hover:bg-white/10 border border-transparent'
+              }`}
+              title={isAlwaysOnTop ? "Bỏ ghim / Tắt Always on Top" : "Ghim lên đầu / Always on Top"}
+              aria-label="Always on Top"
+              aria-pressed={isAlwaysOnTop}
+              data-role="always-on-top"
+            >
+              <Pin className={`w-4 h-4 transition-transform duration-200 ${isAlwaysOnTop ? 'rotate-45 fill-current text-theme-accent' : ''}`} />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                vibrateTap();
+                onClose();
+              }}
+              className="fluent-dialog-close-btn p-1.5 rounded-[4px] text-white/60 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/15 transition cursor-pointer flex items-center justify-center"
+              title={t("qa_close", localLanguage) || "Close"}
+              aria-label="Close"
+              data-role="close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Tab Navigation */}

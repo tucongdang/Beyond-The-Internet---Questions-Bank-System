@@ -521,13 +521,39 @@ export const POPULAR_SEARCH_PRESETS = [
 ];
 
 /**
+ * Converts a string into an accent-insensitive regex pattern for Vietnamese
+ */
+function createVietnamesePattern(term: string): string {
+  const map: Record<string, string> = {
+    a: '[aàáạảãâầấậẩẫăằắặẳẵAÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴ]',
+    e: '[eèéẹẻẽêềếệểễEÈÉẸẺẼÊỀẾỆỂỄ]',
+    i: '[iìíịỉĩIÌÍỊỈĨ]',
+    o: '[oòóọỏõôồốộổỗơờớợởỡOÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠ]',
+    u: '[uùúụủũưừứựửữUÙÚỤỦŨƯỪỨỰỬỮ]',
+    y: '[yỳýỵỷỹYỲÝỴỶỸ]',
+    d: '[dđDĐ]'
+  };
+
+  let pattern = '';
+  for (const char of term) {
+    const lower = char.toLowerCase();
+    if (map[lower]) {
+      pattern += map[lower];
+    } else {
+      pattern += char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+  }
+  return pattern;
+}
+
+/**
  * Text Highlighting Helper: Highlights query tokens and phrases inside any text string
  */
 export function HighlightedText({
   text,
   searchQuery,
   className = '',
-  highlightClassName = 'bg-amber-400/30 text-amber-200 px-0.5 rounded border-b border-amber-400/80 font-semibold'
+  highlightClassName = 'bg-amber-400/35 text-amber-200 px-1 py-0.5 rounded-[3px] font-bold ring-1 ring-amber-400/50 shadow-xs border-b border-amber-400'
 }: {
   text: string;
   searchQuery?: string;
@@ -562,27 +588,34 @@ export function HighlightedText({
     return <span className={className}>{text}</span>;
   }
 
-  // Create escaped regex for matching
-  const escapedTerms = searchTerms
-    .map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-    .sort((a, b) => b.length - a.length);
+  // Create escaped and accent-insensitive patterns
+  const patterns = searchTerms
+    .sort((a, b) => b.length - a.length)
+    .map(term => createVietnamesePattern(term));
 
-  const regex = new RegExp(`(${escapedTerms.join('|')})`, 'gi');
-  const parts = text.split(regex);
+  try {
+    const regex = new RegExp(`(${patterns.join('|')})`, 'gi');
+    const parts = text.split(regex);
 
-  return (
-    <span className={className}>
-      {parts.map((part, i) => {
-        const isMatch = escapedTerms.some(term => term.toLowerCase() === part.toLowerCase());
-        if (isMatch) {
-          return (
-            <mark key={i} className={highlightClassName}>
-              {part}
-            </mark>
-          );
-        }
-        return <React.Fragment key={i}>{part}</React.Fragment>;
-      })}
-    </span>
-  );
+    return (
+      <span className={className}>
+        {parts.map((part, i) => {
+          if (!part) return null;
+          // Check if this part matches any of our search term patterns
+          const isMatch = patterns.some(p => new RegExp(`^${p}$`, 'i').test(part));
+          if (isMatch) {
+            return (
+              <mark key={i} className={highlightClassName}>
+                {part}
+              </mark>
+            );
+          }
+          return <React.Fragment key={i}>{part}</React.Fragment>;
+        })}
+      </span>
+    );
+  } catch (err) {
+    // Fallback simple exact matching
+    return <span className={className}>{text}</span>;
+  }
 }

@@ -39,6 +39,11 @@ import { confetti } from '../../utils/confetti';
 import { DIGITAL_COMPETENCY_DOMAINS, COGNITIVE_LEVELS } from '../../data/digitalCompetencyData';
 import { DifficultyBadgeAndMeter } from './DifficultyBadgeAndMeter';
 import { QuestionHistoryPdfReportModal } from './QuestionHistoryPdfReportModal';
+import { QuestionVariantsModal } from './QuestionVariantsModal';
+import { PsychometricItemAnalysisModal } from './PsychometricItemAnalysisModal';
+import { AiVoiceReaderModal } from './AiVoiceReaderModal';
+import { MultiTierApprovalWorkflowModal } from './MultiTierApprovalWorkflowModal';
+import { Shuffle, Activity, Radio, Stamp } from 'lucide-react';
 
 interface QuestionQuickPreviewModalProps {
   isOpen: boolean;
@@ -59,6 +64,10 @@ export const QuestionQuickPreviewModal: React.FC<QuestionQuickPreviewModalProps>
 
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [showPdfReportModal, setShowPdfReportModal] = useState<boolean>(false);
+  const [showVariantsModal, setShowVariantsModal] = useState<boolean>(false);
+  const [showPsychometricsModal, setShowPsychometricsModal] = useState<boolean>(false);
+  const [showVoiceModal, setShowVoiceModal] = useState<boolean>(false);
+  const [showApprovalModal, setShowApprovalModal] = useState<boolean>(false);
   
   // Inspector panel toggle (default to open on desktop)
   const [showInspector, setShowInspector] = useState<boolean>(() => {
@@ -396,6 +405,66 @@ export const QuestionQuickPreviewModal: React.FC<QuestionQuickPreviewModalProps>
             >
               <Scale className="w-3.5 h-3.5" />
               <span>Hồ sơ thẩm định</span>
+            </button>
+
+            {/* AI MC Voice Reader */}
+            <button
+              type="button"
+              onClick={() => {
+                vibrateTap();
+                soundFx.playClick();
+                setShowVoiceModal(true);
+              }}
+              className="px-2.5 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 font-mono text-xs flex items-center gap-1.5 cursor-pointer transition active:scale-95 font-bold"
+              title="Phát giọng đọc MC đề thi AI"
+            >
+              <Radio className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden sm:inline">Đọc Đề AI</span>
+            </button>
+
+            {/* AI Variants Generator */}
+            <button
+              type="button"
+              onClick={() => {
+                vibrateTap();
+                soundFx.playClick();
+                setShowVariantsModal(true);
+              }}
+              className="px-2.5 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 font-mono text-xs flex items-center gap-1.5 cursor-pointer transition active:scale-95 font-bold"
+              title="Sinh biến thể mã đề & phân tích phương án nhiễu"
+            >
+              <Shuffle className="w-3.5 h-3.5 text-purple-400" />
+              <span className="hidden sm:inline">Biến Thể</span>
+            </button>
+
+            {/* Psychometrics & IRT Analysis */}
+            <button
+              type="button"
+              onClick={() => {
+                vibrateTap();
+                soundFx.playClick();
+                setShowPsychometricsModal(true);
+              }}
+              className="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-mono text-xs flex items-center gap-1.5 cursor-pointer transition active:scale-95 font-bold"
+              title="Phân tích chỉ số P-value, D-index & IRT"
+            >
+              <Activity className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Khảo Thí IRT</span>
+            </button>
+
+            {/* Multi-Tier Approval Workflow */}
+            <button
+              type="button"
+              onClick={() => {
+                vibrateTap();
+                soundFx.playClick();
+                setShowApprovalModal(true);
+              }}
+              className="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-mono text-xs flex items-center gap-1.5 cursor-pointer transition active:scale-95 font-bold"
+              title="Quy trình phản biện & Ký số Hội đồng"
+            >
+              <Stamp className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">Ký Số</span>
             </button>
 
             {/* Export PDF History Report Button */}
@@ -1104,6 +1173,42 @@ export const QuestionQuickPreviewModal: React.FC<QuestionQuickPreviewModalProps>
           onClose={() => setShowPdfReportModal(false)}
           question={question}
         />
+
+        {/* AI Variants Generator Modal */}
+        {showVariantsModal && (
+          <QuestionVariantsModal
+            isOpen={showVariantsModal}
+            question={question}
+            onClose={() => setShowVariantsModal(false)}
+          />
+        )}
+
+        {/* Psychometrics & IRT Modal */}
+        {showPsychometricsModal && (
+          <PsychometricItemAnalysisModal
+            isOpen={showPsychometricsModal}
+            question={question}
+            onClose={() => setShowPsychometricsModal(false)}
+          />
+        )}
+
+        {/* AI MC Voice Reader Modal */}
+        {showVoiceModal && (
+          <AiVoiceReaderModal
+            isOpen={showVoiceModal}
+            question={question}
+            onClose={() => setShowVoiceModal(false)}
+          />
+        )}
+
+        {/* Multi-Tier Approval Workflow Modal */}
+        {showApprovalModal && (
+          <MultiTierApprovalWorkflowModal
+            isOpen={showApprovalModal}
+            question={question}
+            onClose={() => setShowApprovalModal(false)}
+          />
+        )}
       </div>
     </div>,
     document.body

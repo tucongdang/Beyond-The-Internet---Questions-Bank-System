@@ -83,6 +83,13 @@ import { RandomExamGeneratorModal } from './RandomExamGeneratorModal';
 import { AiMockQuizGeneratorModal } from './AiMockQuizGeneratorModal';
 import { QuestionEditorModal } from './QuestionEditorModal';
 import { BulkQuestionImportModal } from './BulkQuestionImportModal';
+import { BulkQuestionGeneratorModal } from './BulkQuestionGeneratorModal';
+import { QuestionVariantsModal } from './QuestionVariantsModal';
+import { PsychometricItemAnalysisModal } from './PsychometricItemAnalysisModal';
+import { InteractiveScenarioSimulatorModal } from './InteractiveScenarioSimulatorModal';
+import { AiVoiceReaderModal } from './AiVoiceReaderModal';
+import { MultiTierApprovalWorkflowModal } from './MultiTierApprovalWorkflowModal';
+import { BtiDigitalCertificateModal } from './BtiDigitalCertificateModal';
 import { BulkActionToolbar } from './BulkActionToolbar';
 import { BulkCategoryChangeModal } from './BulkCategoryChangeModal';
 import { BulkDeleteConfirmModal } from './BulkDeleteConfirmModal';
@@ -95,6 +102,10 @@ import { PrintPreviewModal } from './PrintPreviewModal';
 import { QuestionExportModal } from './QuestionExportModal';
 import { QuestionQuickPreviewModal } from './QuestionQuickPreviewModal';
 import { QuestionQuickReviewModal } from './QuestionQuickReviewModal';
+import { QuestionQualityReviewModal } from './QuestionQualityReviewModal';
+import { InteractiveQuizPreviewModal } from './InteractiveQuizPreviewModal';
+import { SmartTaggingModal } from './SmartTaggingModal';
+import { AllInOneAuthoringSuiteModal } from './AllInOneAuthoringSuiteModal';
 import { questionReviewService, getStatusInfo } from '../../services/questionReviewService';
 import { BtiCompetencyMatrixQuickPopup } from './BtiCompetencyMatrixQuickPopup';
 import { GeminiCameraDocumentScannerModal } from './GeminiCameraDocumentScannerModal';
@@ -104,7 +115,7 @@ import { driveImportProcessorService } from '../../services/driveImportProcessor
 import { MatrixStatusFilterType } from './BtiCompetencyMatrixFilterBar';
 import { ShortcutMappingModal } from '../ShortcutMappingModal';
 import { shortcutService } from '../../services/shortcutService';
-import { Printer } from 'lucide-react';
+import { Printer, Award } from 'lucide-react';
 import { QuestionBankEmptyState } from './QuestionBankEmptyState';
 import { QuestionBankFilterBar } from './QuestionBankFilterBar';
 import { QuestionBankStatsWidget } from './QuestionBankStatsWidget';
@@ -133,13 +144,15 @@ import { PracticeExamView } from './PracticeExamView';
 type MainTab = 'OVERVIEW' | 'QUESTIONS' | 'MODERATION' | 'AI_STUDIO' | 'EXCEL_HUB' | 'SCENARIOS' | 'LEGAL_DOCS' | 'MATRIX' | 'STATS' | 'PRACTICE';
 
 interface QuestionBankDashboardProps {
-  onOpenGeminiStudio?: (tab?: 'CHAT' | 'IMAGE' | 'VIDEO') => void;
+  onOpenGeminiStudio?: (tab?: 'CHAT' | 'AUTOPILOT' | 'ANTIGRAVITY' | 'DEEP_RESEARCH' | 'IMAGE' | 'VIDEO') => void;
+  onOpenAuthoringSuite?: () => void;
   isFocusMode?: boolean;
   onToggleFocusMode?: () => void;
 }
 
 export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({ 
   onOpenGeminiStudio,
+  onOpenAuthoringSuite,
   isFocusMode: propIsFocusMode,
   onToggleFocusMode
 }) => {
@@ -233,6 +246,17 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
   const [editorInitialRound, setEditorInitialRound] = useState<BtiRoundGroupKey | undefined>(undefined);
   const [editorInitialDomain, setEditorInitialDomain] = useState<string | undefined>(undefined);
   const [showBulkImportModal, setShowBulkImportModal] = useState<boolean>(false);
+  const [showBulkGeneratorModal, setShowBulkGeneratorModal] = useState<boolean>(false);
+  const [showSimulatorModal, setShowSimulatorModal] = useState<boolean>(false);
+  const [showCertificateModal, setShowCertificateModal] = useState<boolean>(false);
+  const [showVariantModal, setShowVariantModal] = useState<boolean>(false);
+  const [selectedVariantQuestion, setSelectedVariantQuestion] = useState<QuestionItem | null>(null);
+  const [showPsychometricModal, setShowPsychometricModal] = useState<boolean>(false);
+  const [selectedPsychometricQuestion, setSelectedPsychometricQuestion] = useState<QuestionItem | null>(null);
+  const [showVoiceReaderModal, setShowVoiceReaderModal] = useState<boolean>(false);
+  const [selectedVoiceQuestion, setSelectedVoiceQuestion] = useState<QuestionItem | null>(null);
+  const [showApprovalModal, setShowApprovalModal] = useState<boolean>(false);
+  const [selectedApprovalQuestion, setSelectedApprovalQuestion] = useState<QuestionItem | null>(null);
   const [showGooglePickerModal, setShowGooglePickerModal] = useState<boolean>(false);
   const [selectedDriveFile, setSelectedDriveFile] = useState<PickedDriveFile | null>(null);
   const [isDrivePickerLoading, setIsDrivePickerLoading] = useState<boolean>(false);
@@ -377,6 +401,14 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
   const [historyQuestion, setHistoryQuestion] = useState<QuestionItem | null>(null);
   const [previewQuestion, setPreviewQuestion] = useState<QuestionItem | null>(null);
   const [quickReviewQuestion, setQuickReviewQuestion] = useState<QuestionItem | null>(null);
+  const [showQualityReviewModal, setShowQualityReviewModal] = useState<boolean>(false);
+  const [selectedQualityReviewQuestion, setSelectedQualityReviewQuestion] = useState<QuestionItem | null>(null);
+  const [showInteractiveQuizModal, setShowInteractiveQuizModal] = useState<boolean>(false);
+  const [interactiveQuizQuestions, setInteractiveQuizQuestions] = useState<QuestionItem[]>([]);
+  const [showSmartTaggingModal, setShowSmartTaggingModal] = useState<boolean>(false);
+  const [smartTaggingTargetQuestion, setSmartTaggingTargetQuestion] = useState<QuestionItem | null>(null);
+  const [smartTaggingSelectedQuestions, setSmartTaggingSelectedQuestions] = useState<QuestionItem[]>([]);
+  const [showAllInOneModal, setShowAllInOneModal] = useState<boolean>(false);
 
   // Hero Command Bar Dropdowns State
   const [activeHeaderMenu, setActiveHeaderMenu] = useState<'import' | 'export' | 'ai' | 'more' | null>(null);
@@ -598,6 +630,16 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
     });
     return () => unsub();
   }, []);
+
+  // Filter Context summary label for print & quiz previews
+  const filterContextLabel = useMemo(() => {
+    return [
+      filterRoundGroup !== 'ALL' ? `Vòng ${filterRoundGroup}` : '',
+      filterDomain !== 'ALL' ? `Miền ${filterDomain}` : '',
+      filterLevel !== 'ALL' ? filterLevel : '',
+      searchQuery ? `"${searchQuery}"` : ''
+    ].filter(Boolean).join(' • ');
+  }, [filterRoundGroup, filterDomain, filterLevel, searchQuery]);
 
   // Filter & Search logic using fullTextSearchQuestions
   const filteredQuestions = useMemo(() => {
@@ -879,51 +921,17 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
     setShowBulkDeleteModal(true);
   };
 
-  const handleBatchAutoTag = async () => {
+  const handleBatchAutoTag = () => {
     if (selectedIds.size === 0) {
-      addToast('Chưa chọn câu hỏi', 'Vui lòng chọn ít nhất 1 câu hỏi để tự động gắn thẻ (Auto-Tag).', 'warning');
+      addToast('Chưa chọn câu hỏi', 'Vui lòng chọn ít nhất 1 câu hỏi để tự động gắn thẻ thông minh (Smart Tagging).', 'warning');
       return;
     }
-    const count = selectedIds.size;
     vibrateTap();
     soundFx.playClick();
-
-    addToast('Đang Auto-Tag AI...', `Đang phân tích và gắn thẻ Gemini AI cho ${count} câu hỏi...`, 'info');
-
-    let updatedCount = 0;
-    const selectedQuestions = questions.filter(q => selectedIds.has(q.id));
-
-    for (const q of selectedQuestions) {
-      try {
-        const res = await generateAutoTagsWithAI({
-          questionText: q.question_text || '',
-          options: q.options,
-          explanation: q.explanation,
-          legalReference: q.legal_reference,
-          domain: q.digital_competency_domain,
-          cognitiveLevel: q.cognitive_level,
-          existingTags: q.tags || []
-        });
-
-        if (res.suggestedTags && res.suggestedTags.length > 0) {
-          const mergedTags = mergeTagsList(q.tags || [], res.suggestedTags).split(',').map(t => t.trim()).filter(Boolean);
-          questionBankManager.updateQuestion(q.id, { tags: mergedTags });
-          updatedCount++;
-        }
-      } catch (e) {
-        console.warn(`Auto-tag error for question ${q.id}:`, e);
-      }
-    }
-
-    setQuestions(questionBankManager.getQuestions());
-    setStats(questionBankManager.getMatrixStats());
-    soundFx.playCorrect();
-    vibrateSuccess();
-    addToast(
-      '✨ Auto-Tag Hoàn Tất',
-      `Đã tự động bổ sung thẻ nhãn tìm kiếm bằng AI thành công cho ${updatedCount}/${count} câu hỏi.`,
-      'success'
-    );
+    const selectedList = questions.filter(q => selectedIds.has(q.id));
+    setSmartTaggingSelectedQuestions(selectedList);
+    setSmartTaggingTargetQuestion(selectedList[0] || null);
+    setShowSmartTaggingModal(true);
   };
 
   const handleConfirmBulkDelete = () => {
@@ -1407,6 +1415,26 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                           vibrateTap();
                           soundFx.playClick();
                           setActiveHeaderMenu(null);
+                          setShowBulkGeneratorModal(true);
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-sky-600/20 transition cursor-pointer"
+                      >
+                        <Zap className="w-4 h-4 text-sky-400" />
+                        <div>
+                          <div className="font-bold flex items-center gap-1.5">
+                            <span>Sinh Hàng Loạt (Antigravity)</span>
+                            <span className="text-[9px] bg-sky-400/20 text-sky-300 px-1 rounded font-mono">Sandbox AI</span>
+                          </div>
+                          <div className="text-[10px] text-[#B6A6D8]">Sinh nhiều câu hỏi cùng lúc theo chủ đề BTI</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
                           setShowBulkImportModal(true);
                         }}
                         className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-emerald-600/20 transition cursor-pointer"
@@ -1458,6 +1486,43 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* AutoPilot 1-Click Master Authoring Suite */}
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateTap();
+                  soundFx.playClick();
+                  setShowAllInOneModal(true);
+                }}
+                className="px-3.5 py-2 text-xs font-black flex items-center gap-1.5 cursor-pointer rounded-[4px] border border-amber-400/50 bg-gradient-to-r from-amber-400 via-orange-500 to-amber-500 hover:brightness-110 text-slate-950 transition shadow-md shadow-amber-500/20 active:scale-95"
+                title="Studio Soạn Đề Toàn Diện 1-Click: Ôm trọn 7 công đoạn soạn thảo, nhiễu, pháp lý, IRT và biến thể"
+              >
+                <Sparkles className="w-4 h-4 text-slate-950 animate-pulse" />
+                <span>⚡ Ôm Trọn Gói (AutoPilot)</span>
+              </button>
+
+              {/* Quick Interactive Quiz Preview */}
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateTap();
+                  soundFx.playClick();
+                  const selectedList = selectedIds.size > 0 
+                    ? questions.filter(q => selectedIds.has(q.id))
+                    : filteredQuestions.length > 0 ? filteredQuestions : questions;
+                  setInteractiveQuizQuestions(selectedList);
+                  setShowInteractiveQuizModal(true);
+                }}
+                className="px-3 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer rounded-[4px] border border-amber-400/40 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 transition shadow-sm"
+                title="Mô phỏng trải nghiệm thi thử tương tác với Progress Tracker & Phản hồi tức thì"
+              >
+                <Zap className="w-4 h-4 text-amber-400 animate-pulse" />
+                <span className="hidden sm:inline">Thử Nghiệm Quiz</span>
+                <span className="text-[10px] bg-amber-500/30 px-1 py-0.2 rounded font-mono font-bold">
+                  {selectedIds.size > 0 ? selectedIds.size : filteredQuestions.length}
+                </span>
+              </button>
 
               {/* Quick Print A4 */}
               <button
@@ -1564,6 +1629,26 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                           vibrateTap();
                           soundFx.playClick();
                           setActiveHeaderMenu(null);
+                          setShowAllInOneModal(true);
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-amber-600/30 transition cursor-pointer bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-transparent border-b border-amber-500/25"
+                      >
+                        <Zap className="w-4 h-4 text-amber-300 animate-pulse shrink-0" />
+                        <div>
+                          <div className="font-bold flex items-center gap-1 text-amber-200">
+                            <span>AutoPilot Master Suite (Ôm Trọn Gói)</span>
+                            <span className="text-[9px] bg-amber-400 text-slate-950 font-bold px-1 rounded font-mono">1-Click</span>
+                          </div>
+                          <div className="text-[10px] text-amber-300/80">Soạn ➜ Nhiễu ➜ TT 02/2025 ➜ NĐ 13 ➜ IRT ➜ 3 Biến thể</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
                           setShowExamModal(true);
                         }}
                         className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-amber-600/20 transition cursor-pointer"
@@ -1604,6 +1689,59 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                           vibrateTap();
                           soundFx.playClick();
                           setActiveHeaderMenu(null);
+                          const target = filteredQuestions[0] || questions[0];
+                          if (target) {
+                            setSmartTaggingTargetQuestion(target);
+                            setSmartTaggingSelectedQuestions(selectedIds.size > 0 ? questions.filter(q => selectedIds.has(q.id)) : [target]);
+                            setShowSmartTaggingModal(true);
+                          } else {
+                            addToast('Thông báo', 'Ngân hàng câu hỏi hiện đang trống.', 'info');
+                          }
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-purple-600/20 transition cursor-pointer"
+                      >
+                        <Tag className="w-4 h-4 text-purple-300 animate-pulse" />
+                        <div>
+                          <div className="font-bold flex items-center gap-1">
+                            <span>Smart Tagging System</span>
+                            <span className="text-[9px] bg-purple-500/20 text-purple-300 px-1 rounded font-mono">Agent Antigravity</span>
+                          </div>
+                          <div className="text-[10px] text-[#B6A6D8]">Tự động gắn thẻ tri thức & phân tầng ma trận BTI</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
+                          const target = filteredQuestions[0] || questions[0];
+                          if (target) {
+                            setSelectedQualityReviewQuestion(target);
+                            setShowQualityReviewModal(true);
+                          } else {
+                            addToast('Thông báo', 'Vui lòng chọn hoặc thêm câu hỏi để tiến hành thẩm định.', 'info');
+                          }
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-amber-600/20 transition cursor-pointer"
+                      >
+                        <Scale className="w-4 h-4 text-amber-300" />
+                        <div>
+                          <div className="font-bold flex items-center gap-1">
+                            <span>Question Quality Review</span>
+                            <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1 rounded font-mono">Deep Research Pro</span>
+                          </div>
+                          <div className="text-[10px] text-[#B6A6D8]">Đối soát văn bản pháp lý & phát hiện thông tin lỗi thời</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
                           setShowDifficultyBatchModal(true);
                         }}
                         className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-amber-600/20 transition cursor-pointer"
@@ -1615,6 +1753,46 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                             <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1 rounded font-mono">BTI Matrix</span>
                           </div>
                           <div className="text-[10px] text-[#B6A6D8]">Gợi ý & chuẩn hóa độ khó theo chuẩn TT 02/2025</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
+                          setShowSimulatorModal(true);
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-sky-600/20 transition cursor-pointer"
+                      >
+                        <ShieldAlert className="w-4 h-4 text-sky-400" />
+                        <div>
+                          <div className="font-bold flex items-center gap-1">
+                            <span>Giả Lập An Toàn Số Tương Tác</span>
+                            <span className="text-[9px] bg-sky-500/20 text-sky-300 px-1 rounded font-mono">Sandbox</span>
+                          </div>
+                          <div className="text-[10px] text-[#B6A6D8]">Mô phỏng Phishing & ứng phó sự cố NĐ 13/2023</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
+                          setShowCertificateModal(true);
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-amber-600/20 transition cursor-pointer"
+                      >
+                        <Award className="w-4 h-4 text-amber-400" />
+                        <div>
+                          <div className="font-bold flex items-center gap-1">
+                            <span>Chứng Nhận Năng Lực Số BTI</span>
+                            <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1 rounded font-mono">QR Seal</span>
+                          </div>
+                          <div className="text-[10px] text-[#B6A6D8]">Cấp chứng chỉ chuẩn TT 02/2025 kèm mã QR</div>
                         </div>
                       </button>
 
@@ -2108,11 +2286,20 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
           onOpenBulkImport={() => {
             setShowBulkImportModal(true);
           }}
+          onOpenBulkGenerator={() => {
+            setShowBulkGeneratorModal(true);
+          }}
           onOpenExamGenerator={() => {
             setShowExamModal(true);
           }}
           onOpenDuplicateChecker={() => {
             setShowDuplicateCheckerModal(true);
+          }}
+          onOpenSimulator={() => {
+            setShowSimulatorModal(true);
+          }}
+          onOpenCertificate={() => {
+            setShowCertificateModal(true);
           }}
         />
       )}
@@ -2197,11 +2384,19 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
               onBatchApprove={handleBatchApprove}
               onBatchRevert={handleBatchRevert}
               onBatchAutoTag={handleBatchAutoTag}
+              onBatchAutoPilot={() => setShowAllInOneModal(true)}
               onBatchDifficultySuggest={() => setShowDifficultyBatchModal(true)}
               onDetectDuplicates={() => setShowDuplicateCheckerModal(true)}
               onChangeStatus={handleBatchStatusChange}
               onExportSelected={handleExportSelected}
               onCompareSelected={() => setIsCompareModalOpen(true)}
+              onInteractiveQuizPreview={() => {
+                vibrateTap();
+                soundFx.playClick();
+                const selectedList = questions.filter(q => selectedIds.has(q.id));
+                setInteractiveQuizQuestions(selectedList);
+                setShowInteractiveQuizModal(true);
+              }}
               onPrintSelected={() => {
                 vibrateTap();
                 soundFx.playClick();
@@ -2656,6 +2851,33 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                             onClick={() => {
                               vibrateTap();
                               soundFx.playClick();
+                              setSmartTaggingTargetQuestion(q);
+                              setSmartTaggingSelectedQuestions([q]);
+                              setShowSmartTaggingModal(true);
+                            }}
+                            className="p-1 text-slate-400 hover:text-purple-300 hover:bg-purple-950/40 rounded transition cursor-pointer"
+                            title="Smart Tagging AI (Agent Antigravity): Gợi ý thẻ tri thức & ma trận TT 02/2025"
+                          >
+                            <Tag className="w-3.5 h-3.5 text-purple-400" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              vibrateTap();
+                              soundFx.playClick();
+                              setSelectedQualityReviewQuestion(q);
+                              setShowQualityReviewModal(true);
+                            }}
+                            className="p-1 text-slate-400 hover:text-amber-300 hover:bg-amber-950/40 rounded transition cursor-pointer"
+                            title="Thẩm định Deep Research Pro: Đối soát văn bản pháp quy & phát hiện lỗi thời"
+                          >
+                            <Scale className="w-3.5 h-3.5 text-amber-400" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              vibrateTap();
+                              soundFx.playClick();
                               setQuickReviewQuestion(q);
                             }}
                             className="p-1 text-slate-400 hover:text-amber-300 hover:bg-amber-950/40 rounded transition cursor-pointer"
@@ -2755,6 +2977,21 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                             </div>
 
                             <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  vibrateTap();
+                                  soundFx.playClick();
+                                  setSelectedQualityReviewQuestion(q);
+                                  setShowQualityReviewModal(true);
+                                }}
+                                className="px-2.5 py-1.5 rounded-[4px] bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-200 border border-amber-500/40 text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                                title="Thẩm định chất lượng & Đối soát pháp quy với Deep Research Pro"
+                              >
+                                <Scale className="w-3.5 h-3.5 text-amber-300" />
+                                <span>Thẩm định Deep Research</span>
+                              </button>
+
                               <button
                                 type="button"
                                 onClick={() => {
@@ -2946,7 +3183,9 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                                       }`}>
                                         {k}
                                       </span>
-                                      <span className="leading-relaxed mt-0.5 break-words">{String(v)}</span>
+                                      <span className="leading-relaxed mt-0.5 break-words">
+                                    <HighlightedText text={String(v)} searchQuery={searchQuery} />
+                                  </span>
                                     </div>
                                   );
                                 })}
@@ -2962,7 +3201,7 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                               </span>
                               {q.explanation && (
                                 <span className="text-slate-300 font-sans">
-                                  — {q.explanation}
+                                  — <HighlightedText text={q.explanation} searchQuery={searchQuery} />
                                 </span>
                               )}
                             </div>
@@ -2970,7 +3209,7 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                             {q.legal_reference && (
                               <div className="inline-flex items-start gap-1.5 bg-amber-500/10 text-amber-300/95 px-2.5 py-1 rounded-[4px] border border-amber-500/25 text-[11px] font-mono leading-relaxed break-words">
                                 <Scale className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-                                <span>{q.legal_reference}</span>
+                                <span><HighlightedText text={q.legal_reference} searchQuery={searchQuery} /></span>
                               </div>
                             )}
                           </div>
@@ -3087,6 +3326,39 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                             e.stopPropagation();
                             vibrateTap();
                             soundFx.playClick();
+                            setSmartTaggingTargetQuestion(q);
+                            setSmartTaggingSelectedQuestions([q]);
+                            setShowSmartTaggingModal(true);
+                          }}
+                          className="px-2.5 py-1 rounded-[4px] bg-purple-900/40 hover:bg-purple-800/60 text-purple-200 border border-purple-500/40 text-[11px] font-mono font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                          title="Smart Tagging (Agent Antigravity): Gắn thẻ tri thức & phân tầng năng lực số"
+                        >
+                          <Tag className="w-3.5 h-3.5 text-purple-300" />
+                          <span>Smart Tag AI</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            vibrateTap();
+                            soundFx.playClick();
+                            setSelectedQualityReviewQuestion(q);
+                            setShowQualityReviewModal(true);
+                          }}
+                          className="px-2.5 py-1 rounded-[4px] bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-200 border border-amber-500/40 text-[11px] font-mono font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                          title="Thẩm định Deep Research Pro: Đối soát pháp quy & Phát hiện mâu thuẫn/lỗi thời"
+                        >
+                          <Scale className="w-3.5 h-3.5 text-amber-300" />
+                          <span>Thẩm định Deep Research</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            vibrateTap();
+                            soundFx.playClick();
                             setQuickReviewQuestion(q);
                           }}
                           className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-[4px] border cursor-pointer hover:brightness-125 transition ${getStatusInfo(q.approval_status).badgeClass}`}
@@ -3155,7 +3427,7 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
 
                     {/* Question text */}
                     <p className="text-sm font-semibold text-slate-100 leading-relaxed">
-                      {q.question_text}
+                      <HighlightedText text={q.question_text} searchQuery={searchQuery} />
                     </p>
 
                     {/* Question Smart Tag Chips */}
@@ -3402,7 +3674,9 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                                       <span className="font-mono font-bold text-sky-300 bg-sky-950/60 border border-sky-500/30 px-1.5 py-0.5 rounded text-[11px] shrink-0">
                                         {key})
                                       </span>
-                                      <span className="text-slate-200 leading-relaxed font-sans mt-0.5">{text}</span>
+                                      <span className="text-slate-200 leading-relaxed font-sans mt-0.5">
+                                        <HighlightedText text={text} searchQuery={searchQuery} />
+                                      </span>
                                     </div>
                                     <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 border ${
                                       isTrue
@@ -3491,7 +3765,7 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                         )}
                         {q.explanation && (
                           <span className="text-slate-300 font-sans">
-                            — {q.explanation}
+                            — <HighlightedText text={q.explanation} searchQuery={searchQuery} />
                           </span>
                         )}
                       </div>
@@ -3499,7 +3773,7 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                       {q.legal_reference && (
                         <div className="inline-flex items-start gap-1.5 bg-amber-500/10 text-amber-300/95 px-2.5 py-1 rounded-[4px] border border-amber-500/25 text-[11px] font-mono leading-relaxed break-words">
                           <Scale className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-                          <span>{q.legal_reference}</span>
+                          <span><HighlightedText text={q.legal_reference} searchQuery={searchQuery} /></span>
                         </div>
                       )}
 
@@ -3634,6 +3908,12 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
         onClose={() => setShowPrintPreviewModal(false)}
         questions={filteredQuestions}
         selectedQuestions={questions.filter(q => selectedIds.has(q.id))}
+        filterContextLabel={[
+          filterRoundGroup !== 'ALL' ? `Vòng ${filterRoundGroup}` : '',
+          filterDomain !== 'ALL' ? `Miền ${filterDomain}` : '',
+          filterLevel !== 'ALL' ? filterLevel : '',
+          searchQuery ? `"${searchQuery}"` : ''
+        ].filter(Boolean).join(' • ')}
       />
 
       {/* Question Export Modal (PDF & JSON) */}
@@ -3668,6 +3948,24 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             } else {
               addToast('Đã lưu câu hỏi thành công', 'Thông tin câu hỏi đã được đồng bộ vào ngân hàng đề.', 'success');
             }
+            setQuestions(questionBankManager.getQuestions());
+            setStats(questionBankManager.getMatrixStats());
+          }}
+        />
+      )}
+
+      {/* Bulk Question Generator Modal (Agent Antigravity) */}
+      {showBulkGeneratorModal && (
+        <BulkQuestionGeneratorModal
+          isOpen={showBulkGeneratorModal}
+          onClose={() => setShowBulkGeneratorModal(false)}
+          onQuestionsAdded={(newQuestions) => {
+            notifyBulkImport(newQuestions.length);
+            addToast(
+              '⚡ Agent Antigravity sinh thành công!',
+              `Đã thêm ${newQuestions.length} câu hỏi trắc nghiệm chất lượng cao vào ngân hàng câu hỏi.`,
+              'success'
+            );
             setQuestions(questionBankManager.getQuestions());
             setStats(questionBankManager.getMatrixStats());
           }}
@@ -3905,6 +4203,39 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
         />
       )}
 
+      {/* Feature: Question Quality Review with Deep Research Pro */}
+      {showQualityReviewModal && (
+        <QuestionQualityReviewModal
+          isOpen={showQualityReviewModal}
+          question={selectedQualityReviewQuestion}
+          onClose={() => {
+            setShowQualityReviewModal(false);
+            setSelectedQualityReviewQuestion(null);
+          }}
+          onQuestionUpdated={(updatedQ) => {
+            setQuestions(questionBankManager.getQuestions());
+            setStats(questionBankManager.getMatrixStats());
+          }}
+          onShowToast={(title, msg, type) => {
+            addToast(title, msg, type as any || 'success');
+          }}
+        />
+      )}
+
+      {/* Feature: Interactive Quiz Preview Simulator Modal */}
+      {showInteractiveQuizModal && (
+        <InteractiveQuizPreviewModal
+          isOpen={showInteractiveQuizModal}
+          initialQuestions={interactiveQuizQuestions}
+          allAvailableQuestions={filteredQuestions}
+          filterContextLabel={filterContextLabel}
+          onClose={() => {
+            setShowInteractiveQuizModal(false);
+            setInteractiveQuizQuestions([]);
+          }}
+        />
+      )}
+
       {/* Difficulty Batch Suggestion Advisor Modal */}
       {showDifficultyBatchModal && (
         <DifficultyBatchSuggestionModal
@@ -3920,6 +4251,114 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
               'success'
             );
           }}
+        />
+      )}
+
+      {/* Feature 2: Question Variants & Distractor Generator Modal */}
+      {showVariantModal && (
+        <QuestionVariantsModal
+          isOpen={showVariantModal}
+          question={selectedVariantQuestion}
+          onClose={() => {
+            setShowVariantModal(false);
+            setSelectedVariantQuestion(null);
+          }}
+          onVariantsAdded={(count) => {
+            setQuestions(questionBankManager.getQuestions());
+            setStats(questionBankManager.getMatrixStats());
+            addToast('Sinh biến thể thành công!', `Đã tạo và thêm ${count} mã đề biến thể vào ngân hàng đề thi.`, 'success');
+          }}
+        />
+      )}
+
+      {/* Feature 2: Psychometric Item Analysis & IRT Diagnostics Modal */}
+      {showPsychometricModal && (
+        <PsychometricItemAnalysisModal
+          isOpen={showPsychometricModal}
+          question={selectedPsychometricQuestion}
+          onClose={() => {
+            setShowPsychometricModal(false);
+            setSelectedPsychometricQuestion(null);
+          }}
+        />
+      )}
+
+      {/* Feature 3: Interactive Cyber Safety Simulator Modal */}
+      {showSimulatorModal && (
+        <InteractiveScenarioSimulatorModal
+          isOpen={showSimulatorModal}
+          onClose={() => setShowSimulatorModal(false)}
+        />
+      )}
+
+      {/* Feature 3: AI MC Voice Reader Modal */}
+      {showVoiceReaderModal && (
+        <AiVoiceReaderModal
+          isOpen={showVoiceReaderModal}
+          question={selectedVoiceQuestion}
+          onClose={() => {
+            setShowVoiceReaderModal(false);
+            setSelectedVoiceQuestion(null);
+          }}
+        />
+      )}
+
+      {/* Feature 4: Multi-Tier Approval & Digital Signature Modal */}
+      {showApprovalModal && (
+        <MultiTierApprovalWorkflowModal
+          isOpen={showApprovalModal}
+          question={selectedApprovalQuestion}
+          onClose={() => {
+            setShowApprovalModal(false);
+            setSelectedApprovalQuestion(null);
+          }}
+          onUpdated={() => {
+            setQuestions(questionBankManager.getQuestions());
+            setStats(questionBankManager.getMatrixStats());
+            addToast('Phê duyệt thành công', 'Câu hỏi đã được ký số và phê duyệt vào ngân hàng đề.', 'success');
+          }}
+        />
+      )}
+
+      {/* Feature 4: BTI Digital Certificate Modal */}
+      {showCertificateModal && (
+        <BtiDigitalCertificateModal
+          isOpen={showCertificateModal}
+          onClose={() => setShowCertificateModal(false)}
+        />
+      )}
+
+      {/* Smart Tagging System (Agent Antigravity) Modal */}
+      {showSmartTaggingModal && (
+        <SmartTaggingModal
+          isOpen={showSmartTaggingModal}
+          onClose={() => {
+            setShowSmartTaggingModal(false);
+            setSmartTaggingTargetQuestion(null);
+            setSmartTaggingSelectedQuestions([]);
+          }}
+          targetQuestion={smartTaggingTargetQuestion}
+          selectedQuestions={smartTaggingSelectedQuestions}
+          allQuestions={questions}
+          onShowToast={(title, msg, type) => addToast(title, msg, type)}
+          onQuestionUpdated={(updatedQ) => {
+            setQuestions(questionBankManager.getQuestions());
+            setStats(questionBankManager.getMatrixStats());
+          }}
+        />
+      )}
+
+      {/* All-in-One 1-Click Master Authoring Suite Modal */}
+      {showAllInOneModal && (
+        <AllInOneAuthoringSuiteModal
+          isOpen={showAllInOneModal}
+          onClose={() => setShowAllInOneModal(false)}
+          onSuccessAdded={(count) => {
+            setQuestions(questionBankManager.getQuestions());
+            setStats(questionBankManager.getMatrixStats());
+            addToast('Hoàn tất thêm đề thi', `Đã thêm thành công ${count} câu hỏi vào ngân hàng đề BTI 2026.`, 'success');
+          }}
+          onShowToast={(title, msg, type) => addToast(title, msg, type)}
         />
       )}
 

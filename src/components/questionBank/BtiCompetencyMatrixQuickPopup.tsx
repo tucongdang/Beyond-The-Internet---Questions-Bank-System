@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Target,
@@ -17,6 +18,7 @@ import { QuestionItem, DigitalCompetencyDomainKey, CognitiveLevel } from '../../
 import { DIGITAL_COMPETENCY_DOMAINS } from '../../data/digitalCompetencyData';
 import { soundFx } from '../../services/audioEffects';
 import { vibrateTap, vibrateSuccess } from '../../utils/hapticUtils';
+import { useLockBodyScroll } from '../../hooks/useLockBodyScroll';
 
 interface BtiCompetencyMatrixQuickPopupProps {
   isOpen: boolean;
@@ -35,7 +37,10 @@ export const BtiCompetencyMatrixQuickPopup: React.FC<BtiCompetencyMatrixQuickPop
   onFilterQuestions,
   onNavigateToFullMatrix
 }) => {
+  useLockBodyScroll(isOpen);
+
   if (!isOpen) return null;
+  if (typeof document === 'undefined') return null;
 
   const [activeTab, setActiveTab] = useState<'GRID' | 'GAPS' | '24_SUB'>('GRID');
   const [targetPerCell, setTargetPerCell] = useState<number>(3);
@@ -124,10 +129,24 @@ export const BtiCompetencyMatrixQuickPopup: React.FC<BtiCompetencyMatrixQuickPop
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-fadeIn font-mono">
-      <div className="fluent-card w-full max-w-3xl bg-[#180933] border border-amber-400/50 rounded-[6px] shadow-2xl p-4 sm:p-5 text-slate-100 relative space-y-4 max-h-[90vh] flex flex-col">
-        
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[9999999] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-xl animate-fadeIn overflow-hidden modal-backdrop-isolated select-none font-mono"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Tra Cứu Nhanh Ma Trận BTI 2026"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+          vibrateTap();
+          soundFx.playClick();
+        }
+      }}
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-4xl h-[92vh] max-h-[940px] bg-[#140827]/98 fluent-acrylic-surface border border-amber-400/50 rounded-[8px] shadow-[0_24px_64px_rgba(0,0,0,0.85)] p-4 sm:p-5 text-slate-100 relative space-y-4 flex flex-col overflow-hidden"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-purple-500/30 pb-3 shrink-0">
           <div className="flex items-center gap-2.5">
@@ -373,6 +392,7 @@ export const BtiCompetencyMatrixQuickPopup: React.FC<BtiCompetencyMatrixQuickPop
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

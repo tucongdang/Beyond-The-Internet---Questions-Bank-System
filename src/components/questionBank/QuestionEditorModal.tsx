@@ -39,7 +39,10 @@ import {
   HardDrive,
   Database,
   Check,
-  RotateCcw
+  RotateCcw,
+  ShieldCheck,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { 
   QuestionItem, 
@@ -71,6 +74,14 @@ import { generateAutoTagsWithAI, mergeTagsList, AutoTagResult, extractLocalRuleC
 import { difficultySuggestionService, DifficultySuggestionResult } from '../../services/difficultySuggestionService';
 import { GooglePickerTriggerButton } from '../common/GooglePickerTriggerButton';
 import { googlePickerService } from '../../services/googlePickerService';
+import { 
+  authoringAssistantService, 
+  DistractorResult, 
+  SmartRubricResult, 
+  LegalGroundingResult, 
+  BalanceAuditResult, 
+  TwinVariantItem 
+} from '../../services/authoringAssistantService';
 
 const SUGGESTED_AI_TOPICS = [
   'Deepfake & Giả mạo giọng nói AI',
@@ -129,6 +140,7 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
   // Question content
   const [questionText, setQuestionText] = useState<string>('');
   const [explanation, setExplanation] = useState<string>('');
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   // Media
   const [mediaType, setMediaType] = useState<'NONE' | 'IMAGE' | 'VIDEO' | 'AUDIO'>('NONE');
@@ -340,6 +352,237 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
     if (!currentTags.includes(cleanTag)) {
       setTagsInput(currentTags.length > 0 ? `${currentTags.join(', ')}, ${cleanTag}` : cleanTag);
     }
+  };
+
+  // ==========================================
+  // AUTHORING ASSISTANT ENGINES (DISTRACTORS, RUBRIC, LEGAL, AUDIT, TWINS)
+  // ==========================================
+  const [isGeneratingDistractors, setIsGeneratingDistractors] = useState<boolean>(false);
+  const [distractorResult, setDistractorResult] = useState<DistractorResult | null>(null);
+
+  const [isExpandingExplanation, setIsExpandingExplanation] = useState<boolean>(false);
+  const [smartRubricResult, setSmartRubricResult] = useState<SmartRubricResult | null>(null);
+
+  const [isGroundingLegal, setIsGroundingLegal] = useState<boolean>(false);
+  const [legalGroundingResult, setLegalGroundingResult] = useState<LegalGroundingResult | null>(null);
+
+  const [isAuditingBalance, setIsAuditingBalance] = useState<boolean>(false);
+  const [balanceAuditResult, setBalanceAuditResult] = useState<BalanceAuditResult | null>(null);
+  const [showBalanceModal, setShowBalanceModal] = useState<boolean>(false);
+
+  const [isGeneratingTwins, setIsGeneratingTwins] = useState<boolean>(false);
+  const [twinVariantsList, setTwinVariantsList] = useState<TwinVariantItem[]>([]);
+  const [showTwinModal, setShowTwinModal] = useState<boolean>(false);
+
+  // 1. Sinh phương án nhiễu thông minh
+  const handleGenerateDistractorsAI = async () => {
+    if (!questionText.trim()) {
+      alert('Vui lòng nhập nội dung câu hỏi trước.');
+      return;
+    }
+    const correctVal = correctKey === 'A' ? optionA : correctKey === 'B' ? optionB : correctKey === 'C' ? optionC : optionD;
+    if (!correctVal?.trim()) {
+      alert(`Vui lòng nhập nội dung đáp án đúng (Phương án ${correctKey}) trước để AI làm cơ sở tạo phương án nhiễu.`);
+      return;
+    }
+
+    setIsGeneratingDistractors(true);
+    vibrateTap();
+    soundFx.playClick();
+
+    try {
+      const res = await authoringAssistantService.generateDistractors({
+        questionText,
+        correctKey,
+        correctText: correctVal,
+        existingOptions: { A: optionA, B: optionB, C: optionC, D: optionD },
+        domain,
+        cognitiveLevel
+      });
+
+      setDistractorResult(res);
+      // Auto-fill empty or distractor options
+      res.distractors.forEach(d => {
+        if (d.key === 'A' && correctKey !== 'A') setOptionA(d.text);
+        if (d.key === 'B' && correctKey !== 'B') setOptionB(d.text);
+        if (d.key === 'C' && correctKey !== 'C') setOptionC(d.text);
+        if (d.key === 'D' && correctKey !== 'D') setOptionD(d.text);
+      });
+
+      vibrateSuccess();
+      soundFx.playSuccess();
+    } catch (err: any) {
+      console.error('Distractor error:', err);
+      soundFx.playError();
+      vibrateError();
+    } finally {
+      setIsGeneratingDistractors(false);
+    }
+  };
+
+  // 2. Mở rộng lời giải thích chuẩn Rubric
+  const handleExpandExplanationAI = async () => {
+    if (!questionText.trim()) {
+      alert('Vui lòng nhập nội dung câu hỏi trước khi mở rộng giải thích.');
+      return;
+    }
+
+    setIsExpandingExplanation(true);
+    vibrateTap();
+    soundFx.playClick();
+
+    try {
+      const res = await authoringAssistantService.expandExplanation({
+        questionText,
+        options: { A: optionA, B: optionB, C: optionC, D: optionD },
+        correctKey,
+        currentExplanation: explanation,
+        legalReference,
+        domain
+      });
+
+      setSmartRubricResult(res);
+      setExplanation(res.formattedExplanation);
+      if (res.suggestedLegalArticle && !legalReference) {
+        setLegalReference(res.suggestedLegalArticle);
+      }
+      vibrateSuccess();
+      soundFx.playSuccess();
+    } catch (err: any) {
+      console.error('Explanation error:', err);
+      soundFx.playError();
+      vibrateError();
+    } finally {
+      setIsExpandingExplanation(false);
+    }
+  };
+
+  // 3. Đối soát & gợi ý căn cứ pháp lý
+  const handleLegalGroundingAI = async () => {
+    if (!questionText.trim()) {
+      alert('Vui lòng nhập nội dung câu hỏi trước khi đối soát pháp lý.');
+      return;
+    }
+
+    setIsGroundingLegal(true);
+    vibrateTap();
+    soundFx.playClick();
+
+    try {
+      const res = await authoringAssistantService.groundLegalContext({
+        questionText,
+        currentReference: legalReference,
+        domain
+      });
+
+      setLegalGroundingResult(res);
+      if (res.recommendedReferenceString) {
+        setLegalReference(res.recommendedReferenceString);
+      }
+      vibrateSuccess();
+      soundFx.playSuccess();
+    } catch (err: any) {
+      console.error('Legal grounding error:', err);
+      soundFx.playError();
+      vibrateError();
+    } finally {
+      setIsGroundingLegal(false);
+    }
+  };
+
+  // 4. Kiểm toán cân bằng và cạm bẫy thiên kiến
+  const handleAuditBalanceAI = async () => {
+    setIsAuditingBalance(true);
+    vibrateTap();
+    soundFx.playClick();
+
+    try {
+      const res = await authoringAssistantService.auditBalanceAndBias({
+        questionText,
+        options: { A: optionA, B: optionB, C: optionC, D: optionD },
+        correctKey,
+        cognitiveLevel
+      });
+
+      setBalanceAuditResult(res);
+      setShowBalanceModal(true);
+      vibrateSuccess();
+      soundFx.playSuccess();
+    } catch (err: any) {
+      console.error('Balance audit error:', err);
+      soundFx.playError();
+      vibrateError();
+    } finally {
+      setIsAuditingBalance(false);
+    }
+  };
+
+  // 5. Sinh biến thể đề song sinh
+  const handleGenerateTwinsAI = async () => {
+    if (!questionText.trim()) {
+      alert('Vui lòng hoàn thiện nội dung câu hỏi gốc trước khi sinh đề song sinh.');
+      return;
+    }
+
+    setIsGeneratingTwins(true);
+    vibrateTap();
+    soundFx.playClick();
+
+    try {
+      const res = await authoringAssistantService.generateTwinVariants({
+        question: {
+          question_text: questionText,
+          options: { A: optionA, B: optionB, C: optionC, D: optionD },
+          correct_key: correctKey,
+          explanation,
+          domain,
+          subCompetency,
+          cognitiveLevel
+        },
+        variantCount: 2
+      });
+
+      setTwinVariantsList(res);
+      setShowTwinModal(true);
+      vibrateSuccess();
+      soundFx.playSuccess();
+    } catch (err: any) {
+      console.error('Twin variants error:', err);
+      soundFx.playError();
+      vibrateError();
+    } finally {
+      setIsGeneratingTwins(false);
+    }
+  };
+
+  // Lưu biến thể song sinh vào ngân hàng đề
+  const handleSaveTwinToBank = (twin: TwinVariantItem) => {
+    vibrateSuccess();
+    soundFx.playSuccess();
+
+    const newId = `Q-TWIN-${Date.now().toString(36).toUpperCase()}`;
+    questionBankManager.addQuestion({
+      id: newId,
+      question_text: twin.question_text,
+      options: twin.options,
+      correct_key: twin.correct_key,
+      explanation: twin.explanation,
+      digital_competency_domain: domain,
+      digital_sub_competency: subCompetency,
+      cognitive_level: cognitiveLevel,
+      stage,
+      round_group: roundGroup,
+      round_format: roundFormat,
+      round_name: roundName,
+      time_limit: timeLimit,
+      points,
+      legal_reference: legalReference || 'Nghị định 13/2023/NĐ-CP & TT 02/2025',
+      tags: tagsInput.split(',').map(t => t.trim()).filter(Boolean).concat(['bien_the_song_sinh', 'ma_de_102']),
+      category: customCategoryInput || 'Biến thể Song sinh',
+      is_custom: true
+    } as any);
+
+    alert(`Đã lưu câu hỏi song sinh (${newId}) vào ngân hàng đề thi thành công!`);
   };
 
   // ==========================================
@@ -581,6 +824,22 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
   const [aiSuccessMessage, setAiSuccessMessage] = useState<string | null>(null);
   const [isAiPanelOpen, setIsAiPanelOpen] = useState<boolean>(true);
   const aiTopicInputRef = useRef<HTMLInputElement>(null);
+
+  // Global ESC key listener for effortless closing matching Gemini AI Studio
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't close if a sub-modal or preview panel is active
+      if (showBalanceModal || showTwinModal || isAiPanelOpen) return;
+      if (e.key === 'Escape') {
+        onClose();
+        vibrateTap();
+        soundFx.playClick();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose, showBalanceModal, showTwinModal, isAiPanelOpen]);
 
   // Moderation & Review Notes States
   const [approvalStatus, setany] = useState<any>(
@@ -1596,11 +1855,23 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
   return createPortal(
     <div 
       id="question-editor-modal-overlay"
-      className="fixed inset-0 z-[9999999] flex items-center justify-center p-3 sm:p-5 md:p-6 bg-black/85 backdrop-blur-xl animate-fadeIn overflow-hidden modal-backdrop-isolated select-none"
+      className="fixed inset-0 z-[9999999] flex items-center justify-center p-1 sm:p-3 md:p-4 bg-black/85 backdrop-blur-md animate-fadeIn overflow-hidden modal-backdrop-isolated select-none"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !showBalanceModal && !showTwinModal && !isAiPanelOpen) {
+          onClose();
+          vibrateTap();
+          soundFx.playClick();
+        }
+      }}
     >
       <div 
         id="question-editor-modal-dialog"
-        className="max-w-4xl w-full h-[92vh] max-h-[92vh] rounded-[8px] border border-theme-accent/30 text-[#F5EFF9] shadow-2xl flex flex-col bg-[#190839] overflow-hidden overscroll-contain select-text"
+        onClick={(e) => e.stopPropagation()}
+        className={`w-full bg-[#160A2A]/95 fluent-acrylic-surface border border-theme-accent/30 rounded-[6px] shadow-[0_24px_64px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden transition-all duration-300 select-text ${
+          isFullscreen 
+            ? 'h-[98dvh] max-w-[99vw] m-1' 
+            : 'w-[96vw] lg:w-[92vw] xl:w-[88vw] max-w-6xl h-[90vh] min-h-[520px] max-h-[940px]'
+        }`}
       >
         
         {/* Header - Fixed */}
@@ -1684,6 +1955,28 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
 
             <button
               type="button"
+              onClick={handleGenerateTwinsAI}
+              disabled={isGeneratingTwins}
+              className="px-2.5 py-1.5 bg-gradient-to-r from-emerald-600/30 to-teal-500/30 hover:from-emerald-600/50 hover:to-teal-500/50 border border-emerald-400/50 text-emerald-300 hover:text-white rounded-[4px] text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+              title="Tự động sinh câu hỏi biến thể song sinh (Mã đề 102/103) cùng chuẩn ma trận"
+            >
+              <Layers className={`w-3.5 h-3.5 text-emerald-300 ${isGeneratingTwins ? 'animate-spin' : ''}`} />
+              <span className="hidden md:inline">{isGeneratingTwins ? 'Đang sinh...' : 'Đề Song Sinh'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleAuditBalanceAI}
+              disabled={isAuditingBalance}
+              className="px-2.5 py-1.5 bg-gradient-to-r from-blue-600/30 to-indigo-500/30 hover:from-blue-600/50 hover:to-indigo-500/50 border border-blue-400/50 text-blue-300 hover:text-white rounded-[4px] text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+              title="Kiểm toán độ cân bằng phương án, cạm bẫy lộ đáp án và thiên kiến sư phạm"
+            >
+              <Scale className={`w-3.5 h-3.5 text-blue-300 ${isAuditingBalance ? 'animate-spin' : ''}`} />
+              <span className="hidden md:inline">{isAuditingBalance ? 'Đang kiểm toán...' : 'Kiểm Toán Đề'}</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => {
                 vibrateTap();
                 setIsAiPanelOpen(true);
@@ -1696,16 +1989,34 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
               <span className="hidden sm:inline">Trợ lý AI Gemini</span>
             </button>
 
+            {/* Window Control Buttons - Fullscreen & Standard Close matching Gemini AI Studio */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsFullscreen(!isFullscreen);
+                vibrateTap();
+              }}
+              className="p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-[4px] transition-colors cursor-pointer hidden sm:flex items-center justify-center"
+              title={isFullscreen ? 'Thu nhỏ cửa sổ' : 'Toàn màn hình'}
+              aria-label={isFullscreen ? 'Thu nhỏ cửa sổ' : 'Toàn màn hình'}
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+
             <button
               type="button"
               onClick={() => {
                 vibrateTap();
+                soundFx.playClick();
                 onClose();
               }}
-              className="w-8 h-8 rounded-[4px] flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+              className="h-8 sm:h-9 px-2.5 sm:px-3.5 bg-rose-500/25 hover:bg-rose-600 text-rose-100 hover:text-white border border-rose-500/40 hover:border-transparent rounded-[4px] transition-all flex items-center gap-1.5 cursor-pointer font-bold text-xs shadow-sm active:scale-95"
               title="Đóng cửa sổ (Esc)"
+              aria-label="Đóng cửa sổ biên soạn"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 text-white" />
+              <span className="font-sans">Đóng</span>
+              <kbd className="hidden md:inline text-[9px] bg-black/40 px-1 py-0.2 rounded font-mono text-white/80">Esc</kbd>
             </button>
           </div>
         </div>
@@ -2620,7 +2931,19 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               <div>
-                <label className="block text-white/60 font-mono mb-1">Căn cứ pháp lý tham chiếu:</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-white/60 font-mono">Căn cứ pháp lý tham chiếu:</label>
+                  <button
+                    type="button"
+                    onClick={handleLegalGroundingAI}
+                    disabled={isGroundingLegal}
+                    className="flex items-center gap-1 px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[10px] font-mono font-bold rounded border border-amber-400/30 transition cursor-pointer"
+                    title="AI đối soát Thông tư 02, Nghị định 13 và các luật an toàn số hiện hành"
+                  >
+                    <Scale className={`w-3 h-3 text-amber-300 ${isGroundingLegal ? 'animate-spin' : ''}`} />
+                    <span>{isGroundingLegal ? 'Đang đối soát...' : '⚖️ AI Gợi Ý Căn Cứ & TT 02'}</span>
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={legalReference}
@@ -2628,6 +2951,17 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
                   placeholder="VD: Nghị định 13/2023/NĐ-CP Điều 9..."
                   className="w-full bg-black/60 border border-white/15 rounded-[4px] px-3 py-1.5 text-amber-300 font-mono"
                 />
+                {legalGroundingResult && (
+                  <div className="mt-1.5 p-2 rounded bg-amber-950/40 border border-amber-500/30 text-[11px] text-amber-200/90 space-y-1">
+                    <div className="font-bold flex items-center gap-1 text-amber-300">
+                      <span>✓ {legalGroundingResult.bestMatchDecree}</span>
+                      {legalGroundingResult.isOutdated && (
+                        <span className="px-1.5 py-0.2 rounded bg-rose-500 text-white font-mono text-[9px]">HẾT HIỆU LỰC</span>
+                      )}
+                    </div>
+                    <div className="text-white/70">{legalGroundingResult.complianceSummary}</div>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -3311,12 +3645,55 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
             ) : (
               /* CASE F: MULTIPLE CHOICE ABCD (Áp dụng cho Khởi động ABCD, Về đích AID 4 phương án, Vòng loại P1) */
               <div className="space-y-3">
-                <div className="flex items-center justify-between font-mono text-xs">
-                  <span className="text-white/60">Cấu hình 4 phương án lựa chọn:</span>
-                  <span className="text-amber-300 font-bold">
-                    {roundFormat === 'KD_TRAC_NGHIEM_ABCD' ? 'Khởi động trắc nghiệm ABCD' : roundFormat === 'VD_AID_4' ? 'Về Đích - Câu hỏi AID 4 phương án' : 'Trắc nghiệm chuẩn'}
-                  </span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-mono text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white/60">Cấu hình 4 phương án lựa chọn:</span>
+                    <span className="text-amber-300 font-bold">
+                      {roundFormat === 'KD_TRAC_NGHIEM_ABCD' ? 'Khởi động trắc nghiệm ABCD' : roundFormat === 'VD_AID_4' ? 'Về Đích - Câu hỏi AID 4 phương án' : 'Trắc nghiệm chuẩn'}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleGenerateDistractorsAI}
+                    disabled={isGeneratingDistractors}
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-orange-500/25 to-amber-500/25 hover:from-orange-500/40 hover:to-amber-500/40 text-amber-300 border border-amber-400/40 rounded text-xs font-bold transition cursor-pointer shadow-sm disabled:opacity-50"
+                    title="AI phân tích câu hỏi và phương án đúng để tự động tạo 3 phương án nhiễu có tính đánh lừa cao và bẫy ngộ nhận kỹ thuật"
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 text-amber-300 ${isGeneratingDistractors ? 'animate-spin' : ''}`} />
+                    <span>{isGeneratingDistractors ? 'Đang tạo phương án nhiễu...' : '⚡ AI Sinh Phương Án Nhiễu'}</span>
+                  </button>
                 </div>
+
+                {distractorResult && (
+                  <div className="p-3 bg-gradient-to-r from-amber-950/40 via-orange-950/20 to-purple-950/30 border border-amber-500/40 rounded-[4px] space-y-2 text-xs">
+                    <div className="flex items-center justify-between font-bold text-amber-300">
+                      <span className="flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Đã sinh {distractorResult.distractors.length} phương án nhiễu sư phạm & bẫy kỹ thuật
+                      </span>
+                      <span className="text-[10px] text-amber-200/70 font-mono">BTI 2026 Distractor Engine</span>
+                    </div>
+                    {distractorResult.authoringAdvice && (
+                      <p className="text-white/70 italic text-[11px] leading-relaxed">
+                        💡 {distractorResult.authoringAdvice}
+                      </p>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-1">
+                      {distractorResult.distractors.map(d => (
+                        <div key={d.key} className="p-2 rounded bg-black/40 border border-white/10 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono font-bold text-amber-300">Phương án {d.key}</span>
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono">
+                              Hợp lý {d.plausibilityScore}%
+                            </span>
+                          </div>
+                          <p className="text-white/60 text-[11px] line-clamp-2">{d.rationale}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
@@ -3390,16 +3767,41 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
 
           {/* SECTION 5: Giải Thích Chi Tiết & Bóc Tách Bẫy */}
           <div className="p-3.5 bg-white/5 rounded-[4px] border border-white/10 space-y-2">
-            <label className="block text-white/60 font-semibold">
-              Giải thích đáp án, bóc tách bẫy kỹ thuật & bài học thực tiễn:
-            </label>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <label className="block text-white/60 font-semibold">
+                Giải thích đáp án, bóc tách bẫy kỹ thuật & bài học thực tiễn:
+              </label>
+              <button
+                type="button"
+                onClick={handleExpandExplanationAI}
+                disabled={isExpandingExplanation}
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-amber-500/25 to-yellow-500/25 hover:from-amber-500/40 hover:to-yellow-500/40 text-amber-300 border border-amber-400/40 rounded text-xs font-bold transition cursor-pointer shadow-sm disabled:opacity-50"
+                title="Tự động bóc tách lý do đúng, lý do sai từng phương án và cạm bẫy học sinh"
+              >
+                <Sparkles className={`w-3.5 h-3.5 text-amber-300 ${isExpandingExplanation ? 'animate-spin' : ''}`} />
+                <span>{isExpandingExplanation ? 'Đang mở rộng Rubric...' : '✨ AI Mở Rộng Rubric Đa Chiều'}</span>
+              </button>
+            </div>
             <textarea
-              rows={2}
+              rows={4}
               value={explanation}
               onChange={e => setExplanation(e.target.value)}
               placeholder="Giải thích vì sao đáp án này đúng, căn cứ vào điều luật nào và dấu hiệu nhận biết..."
-              className="w-full bg-black/60 border border-white/15 rounded-[4px] px-3 py-2 text-white placeholder-white/40 focus:border-blue-400 focus:outline-none leading-relaxed"
+              className="w-full bg-black/60 border border-white/15 rounded-[4px] px-3 py-2 text-white placeholder-white/40 focus:border-blue-400 focus:outline-none leading-relaxed font-sans"
             />
+            {smartRubricResult && (
+              <div className="p-3 bg-purple-950/30 border border-purple-500/30 rounded-[4px] space-y-2 text-xs">
+                <div className="font-bold text-purple-300 flex items-center justify-between">
+                  <span>🎯 Tiêu chuẩn Đánh giá & Bóc tách (Rubric Breakdown):</span>
+                  <span className="text-[10px] text-purple-200/60 font-mono">BTI Pedagogy</span>
+                </div>
+                <div className="space-y-1 text-white/80">
+                  <div><strong className="text-emerald-300">Vì sao đúng:</strong> {smartRubricResult.rubric.whyCorrect}</div>
+                  <div><strong className="text-amber-300">Cạm bẫy thí sinh:</strong> {smartRubricResult.rubric.commonPitfalls}</div>
+                  <div><strong className="text-cyan-300">Bài học cốt lõi:</strong> {smartRubricResult.rubric.coreTakeaway}</div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* SECTION 6: Phê Duyệt & Ghi Chú Thẩm Định (Moderation Status & Review Notes) */}
@@ -3752,6 +4154,214 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
                   <span>✨ Khôi Phục Bản Nháp Này Ngay</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BALANCE & BIAS AUDIT MODAL */}
+      {showBalanceModal && balanceAuditResult && (
+        <div 
+          className="fixed inset-0 z-[10000000] bg-black/85 backdrop-blur-xl flex items-center justify-center p-3 sm:p-5 md:p-6 animate-fadeIn modal-backdrop-isolated select-none"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Kiểm Toán Cân Bằng Đề Thi"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowBalanceModal(false);
+              vibrateTap();
+            }
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#140827]/98 fluent-acrylic-surface border border-blue-500/40 rounded-[8px] max-w-lg w-full shadow-[0_24px_64px_rgba(0,0,0,0.85)] overflow-hidden font-sans space-y-4 p-5 text-xs text-white"
+          >
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded bg-blue-500/20 text-blue-300 flex items-center justify-center border border-blue-400/40">
+                  <Scale className="w-4 h-4 text-blue-300" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-white">Kiểm Toán Cân Bằng & Thiên Kiến Đề Thi</h3>
+                  <p className="text-[11px] text-[#B6A6D8]">BTI Psychometrics & Editorial Audit</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBalanceModal(false)}
+                className="w-7 h-7 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded bg-black/40 border border-white/10 space-y-1">
+                <span className="text-white/60 text-[11px]">Điểm chất lượng tổng thể:</span>
+                <div className="text-2xl font-black text-blue-300 font-mono">
+                  {balanceAuditResult.overallScore}<span className="text-sm text-white/50">/100</span>
+                </div>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                  balanceAuditResult.balanceRating === 'EXCELLENT' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+                }`}>
+                  {balanceAuditResult.balanceRating === 'EXCELLENT' ? 'CÂN BẰNG TỐT' : 'CẦN ĐIỀU CHỈNH'}
+                </span>
+              </div>
+
+              <div className="p-3 rounded bg-black/40 border border-white/10 space-y-1">
+                <span className="text-white/60 text-[11px]">Độ rõ ràng câu hỏi:</span>
+                <div className="text-2xl font-black text-emerald-300 font-mono">
+                  {balanceAuditResult.clarityScore}<span className="text-sm text-white/50">%</span>
+                </div>
+                <span className="text-[10px] text-white/60">Không mập mờ ngữ nghĩa</span>
+              </div>
+            </div>
+
+            <div className="p-3 rounded bg-black/40 border border-white/10 space-y-1.5">
+              <div className="font-bold text-white/90 flex items-center gap-1.5">
+                {balanceAuditResult.lengthBalanceIssue ? (
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                )}
+                <span>Độ cân đối chiều dài các phương án:</span>
+              </div>
+              <p className="text-white/70 leading-relaxed">{balanceAuditResult.lengthDetails}</p>
+            </div>
+
+            <div className="p-3 rounded bg-black/40 border border-white/10 space-y-1.5">
+              <div className="font-bold text-white/90 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-cyan-400" />
+                <span>Rủi ro thiên kiến (Bias Risk):</span>
+                <span className="text-cyan-300 uppercase font-mono text-[10px] bg-cyan-500/20 px-1.5 py-0.5 rounded">
+                  {balanceAuditResult.biasRisk}
+                </span>
+              </div>
+              <p className="text-white/70">{balanceAuditResult.biasNotes}</p>
+            </div>
+
+            {balanceAuditResult.recommendations && balanceAuditResult.recommendations.length > 0 && (
+              <div className="p-3 rounded bg-blue-950/30 border border-blue-500/30 space-y-1">
+                <span className="font-bold text-blue-300">💡 Gợi ý cải tiến:</span>
+                <ul className="list-disc pl-4 space-y-0.5 text-white/80">
+                  {balanceAuditResult.recommendations.map((rec, idx) => (
+                    <li key={idx}>{rec}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setShowBalanceModal(false)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded font-bold cursor-pointer transition shadow"
+              >
+                Đã hiểu & Quay lại soạn thảo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TWIN VARIANTS MODAL */}
+      {showTwinModal && twinVariantsList.length > 0 && (
+        <div 
+          className="fixed inset-0 z-[10000000] bg-black/85 backdrop-blur-xl flex items-center justify-center p-3 sm:p-5 md:p-6 animate-fadeIn modal-backdrop-isolated select-none"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Đề Thi Song Sinh"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowTwinModal(false);
+              vibrateTap();
+            }
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#140827]/98 fluent-acrylic-surface border border-emerald-500/40 rounded-[8px] max-w-2xl w-full shadow-[0_24px_64px_rgba(0,0,0,0.85)] overflow-hidden font-sans space-y-4 p-5 text-xs text-white max-h-[85vh] flex flex-col"
+          >
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded bg-emerald-500/20 text-emerald-300 flex items-center justify-center border border-emerald-400/40">
+                  <Layers className="w-4 h-4 text-emerald-300" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-white">Đề Thi Song Sinh (Parallel Twin Variants)</h3>
+                  <p className="text-[11px] text-[#B6A6D8]">Cùng chuẩn ma trận, khác kịch bản để tạo Mã đề 102/103</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTwinModal(false)}
+                className="w-7 h-7 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
+              {twinVariantsList.map((twin, idx) => (
+                <div key={idx} className="p-3.5 rounded bg-black/40 border border-emerald-500/30 space-y-2.5">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="font-bold text-emerald-300 font-mono">{twin.title || `Biến thể Song sinh #${idx + 1}`}</span>
+                    {twin.variationTechnique && (
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-200 px-2 py-0.5 rounded font-mono">
+                        {twin.variationTechnique}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-white text-xs font-medium leading-relaxed bg-white/5 p-2.5 rounded border border-white/10">
+                    {twin.question_text}
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                    {Object.entries(twin.options || {}).map(([k, val]) => (
+                      <div 
+                        key={k} 
+                        className={`p-2 rounded border flex items-center gap-2 ${
+                          k === twin.correct_key 
+                            ? 'bg-emerald-950/40 border-emerald-400 text-emerald-200 font-bold' 
+                            : 'bg-black/30 border-white/10 text-white/70'
+                        }`}
+                      >
+                        <span className="font-mono">{k}.</span>
+                        <span className="truncate">{val}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {twin.explanation && (
+                    <div className="text-[11px] text-white/60 bg-white/5 p-2 rounded">
+                      <strong className="text-white/80">Giải thích:</strong> {twin.explanation}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSaveTwinToBank(twin)}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-xs flex items-center gap-1.5 transition cursor-pointer shadow active:scale-95"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Thêm Biến Thể Này Vào Ngân Hàng</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-white/10 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowTwinModal(false)}
+                className="px-4 py-1.5 rounded bg-white/10 hover:bg-white/20 text-slate-300 text-xs transition cursor-pointer"
+              >
+                Đóng
+              </button>
             </div>
           </div>
         </div>

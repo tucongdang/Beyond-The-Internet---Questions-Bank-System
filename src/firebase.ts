@@ -1,19 +1,25 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, initializeFirestore } from 'firebase/firestore';
+import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import firebaseConfig from '../firebase-applet-config.json';
 
 export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-
-let firestoreDb;
-try {
-  firestoreDb = initializeFirestore(app, { experimentalForceLongPolling: true }, (firebaseConfig as any).firestoreDatabaseId || '(default)');
-} catch (e) {
-  firestoreDb = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId || '(default)');
-}
-
-export const db = firestoreDb;
+export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
 export const auth = getAuth(app);
+
+// Test Firestore connection on boot as mandated by Firebase integration guidelines
+if (typeof window !== 'undefined') {
+  async function testConnection() {
+    try {
+      await getDocFromServer(doc(db, 'test', 'connection'));
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('the client is offline')) {
+        console.warn('Firebase configuration notice: client is offline');
+      }
+    }
+  }
+  testConnection();
+}
 
 export function removeUndefined<T extends Record<string, any>>(obj: T): T {
   const result: any = {};
@@ -24,3 +30,4 @@ export function removeUndefined<T extends Record<string, any>>(obj: T): T {
   }
   return result;
 }
+

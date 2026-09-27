@@ -53,7 +53,9 @@ import { soundFx } from '../../services/audioEffects';
 import { vibrateTap, vibrateSuccess, vibrateWarning } from '../../utils/hapticUtils';
 import { exportQuestionsToPdf } from '../../utils/printExport';
 import { QuestionQuickReviewModal } from './QuestionQuickReviewModal';
+import { QuestionQualityReviewModal } from './QuestionQualityReviewModal';
 import { questionReviewService, getStatusInfo } from '../../services/questionReviewService';
+import { HighlightedText } from '../../services/fullTextSearchService';
 
 interface ModeratorReviewViewProps {
   onEditQuestion: (question: QuestionItem) => void;
@@ -121,6 +123,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
   } | null>(null);
   const [bulkNotes, setBulkNotes] = useState('');
   const [quickReviewQuestion, setQuickReviewQuestion] = useState<QuestionItem | null>(null);
+  const [qualityReviewQuestion, setQualityReviewQuestion] = useState<QuestionItem | null>(null);
 
   // Subscribe to QuestionBankManager updates
   useEffect(() => {
@@ -778,7 +781,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                   {/* Question Stem / Text */}
                   <div className="text-white text-sm leading-relaxed font-sans font-medium">
                     <span className="text-amber-400 font-mono font-bold mr-1.5">Câu hỏi:</span>
-                    {q.question_text}
+                    <HighlightedText text={q.question_text} searchQuery={searchQuery} />
                   </div>
 
                   {/* Formatted Answer / Structure Breakdown */}
@@ -802,7 +805,9 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                             }`}>
                               {key}
                             </span>
-                            <span className="flex-1 leading-snug">{optText}</span>
+                            <span className="flex-1 leading-snug">
+                              <HighlightedText text={optText} searchQuery={searchQuery} />
+                            </span>
                             {isCorrect && (
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                             )}
@@ -857,7 +862,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                         GIẢI THÍCH ĐÁP ÁN:
                       </span>
                       <p className="text-slate-300 text-[11px] leading-relaxed">
-                        {q.explanation || 'Chưa có nội dung giải thích chi tiết.'}
+                        {q.explanation ? <HighlightedText text={q.explanation} searchQuery={searchQuery} /> : 'Chưa có nội dung giải thích chi tiết.'}
                       </p>
                     </div>
 
@@ -867,7 +872,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                         CĂN CỨ PHÁP LÝ &amp; CHUẨN KHẢO THÍ:
                       </span>
                       <p className="text-amber-200 text-[11px] leading-relaxed">
-                        {q.legal_reference || 'Thông tư 02/2025/TT-BGDĐT & Nghị định 13/2023/NĐ-CP'}
+                        <HighlightedText text={q.legal_reference || 'Thông tư 02/2025/TT-BGDĐT & Nghị định 13/2023/NĐ-CP'} searchQuery={searchQuery} />
                       </p>
                     </div>
                   </div>
@@ -938,6 +943,20 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                   <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 font-mono text-xs">
                     {/* Left: AI Audit & Edit */}
                     <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setQualityReviewQuestion(q);
+                        }}
+                        className="px-3 py-1.5 rounded bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-200 border border-amber-400/40 flex items-center gap-1.5 transition cursor-pointer font-bold shadow-xs"
+                        title="Thẩm định chất lượng & Đối soát pháp quy chuyên sâu với Deep Research Pro"
+                      >
+                        <Scale className="w-3.5 h-3.5 text-amber-300" />
+                        <span>⚖️ Thẩm Định Deep Research</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => {
@@ -1288,6 +1307,22 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
           onReviewSaved={(updatedQ, status, notes) => {
             setQuestions([...questionBankManager.getQuestions()]);
             onShowToast(`Đã cập nhật câu hỏi #${updatedQ.id} sang [${getStatusInfo(status).label}] và lưu Firestore thành công!`);
+          }}
+        />
+      )}
+
+      {/* Deep Research Question Quality Review Modal */}
+      {qualityReviewQuestion && (
+        <QuestionQualityReviewModal
+          isOpen={Boolean(qualityReviewQuestion)}
+          question={qualityReviewQuestion}
+          onClose={() => setQualityReviewQuestion(null)}
+          onQuestionUpdated={(updatedQ) => {
+            setQuestions([...questionBankManager.getQuestions()]);
+            onShowToast(`Đã cập nhật câu hỏi #${updatedQ.id} sau thẩm định pháp quy.`);
+          }}
+          onShowToast={(title, msg) => {
+            onShowToast(`${title}: ${msg}`);
           }}
         />
       )}

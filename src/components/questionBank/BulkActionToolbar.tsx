@@ -38,9 +38,11 @@ interface BulkActionToolbarProps {
   onExportSelected: () => void;
   onCompareSelected?: () => void;
   onBatchAutoTag?: () => void;
+  onBatchAutoPilot?: () => void;
   onBatchDifficultySuggest?: () => void;
   onDetectDuplicates?: () => void;
   onPrintSelected?: () => void;
+  onInteractiveQuizPreview?: () => void;
   currentRoundName?: string;
   canApprove: boolean;
   canDelete: boolean;
@@ -65,9 +67,11 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
   onExportSelected,
   onCompareSelected,
   onBatchAutoTag,
+  onBatchAutoPilot,
   onBatchDifficultySuggest,
   onDetectDuplicates,
   onPrintSelected,
+  onInteractiveQuizPreview,
   currentRoundName,
   canApprove,
   canDelete,
@@ -224,6 +228,23 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
                 </div>
               )}
 
+              {/* Interactive Quiz Preview Button */}
+              {onInteractiveQuizPreview && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateTap();
+                    soundFx.playClick();
+                    onInteractiveQuizPreview();
+                  }}
+                  className="px-3 py-1.5 rounded-[4px] bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-bold font-mono text-xs flex items-center gap-1.5 transition cursor-pointer shadow-md hover:scale-[1.02] active:scale-[0.98]"
+                  title="Thử nghiệm tương tác: Mô phỏng bài thi với Progress Tracker & Phản hồi tức thì"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-slate-950" />
+                  <span>Thử Nghiệm ({selectedCount})</span>
+                </button>
+              )}
+
               {/* Compare Selected button */}
               {selectedCount === 2 && onCompareSelected && (
                 <button
@@ -270,6 +291,23 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
                   <span>Auto-Tag AI</span>
+                </button>
+              )}
+
+              {/* Batch AutoPilot All-in-One Authoring Studio button */}
+              {onBatchAutoPilot && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateTap();
+                    soundFx.playClick();
+                    onBatchAutoPilot();
+                  }}
+                  className="px-3 py-1.5 rounded-[4px] bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 hover:brightness-110 text-slate-950 border border-amber-300/50 text-xs font-black flex items-center gap-1.5 transition cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+                  title="Chuẩn hóa toàn diện 1-Click: Tự động phân tích phương án nhiễu, mở rộng rubric và đối soát chuẩn TT 02"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-slate-950 animate-pulse" />
+                  <span>⚡ AutoPilot Trọn Gói</span>
                 </button>
               )}
 
