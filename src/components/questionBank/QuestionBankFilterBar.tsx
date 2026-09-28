@@ -716,8 +716,13 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
             <option value="ALL" className="bg-[#190839] text-slate-300">🛡️ Trạng thái: Tất cả</option>
             <option value="APPROVED" className="bg-[#190839] text-emerald-400">✓ Đã Phê Duyệt</option>
             <option value="PENDING_REVIEW" className="bg-[#190839] text-amber-400">• Chờ Thẩm Định</option>
+            <option value="OFFICIAL" className="bg-[#190839] text-cyan-400">🏛️ Kho Đề Chính Thức</option>
+            <option value="RESERVE" className="bg-[#190839] text-indigo-400">📦 Kho Đề Dự Phòng</option>
+            <option value="QUARANTINED" className="bg-[#190839] text-rose-400">⛔ Đang Cách Ly Trận Đấu</option>
+            <option value="SEALED" className="bg-[#190839] text-teal-400">🔒 Đã Niêm Phong SHA-256</option>
             <option value="REJECTED" className="bg-[#190839] text-rose-400">✗ Từ Chối / Cần Sửa</option>
             <option value="DRAFT" className="bg-[#190839] text-slate-400">✎ Bản Thảo</option>
+            <option value="ARCHIVED" className="bg-[#190839] text-slate-400">📁 Đã Lưu Trữ</option>
           </select>
         </div>
       </div>
@@ -1175,6 +1180,14 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30'
                   : filterStatus === 'PENDING_REVIEW'
                   ? 'bg-amber-500/20 text-amber-300 border-amber-400/30'
+                  : filterStatus === 'QUARANTINED'
+                  ? 'bg-rose-500/25 text-rose-300 border-rose-400/40'
+                  : filterStatus === 'OFFICIAL'
+                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/30'
+                  : filterStatus === 'RESERVE'
+                  ? 'bg-indigo-500/20 text-indigo-300 border-indigo-400/30'
+                  : filterStatus === 'SEALED'
+                  ? 'bg-teal-500/20 text-teal-300 border-teal-400/30'
                   : filterStatus === 'REJECTED'
                   ? 'bg-rose-500/20 text-rose-300 border-rose-400/30'
                   : 'bg-slate-500/20 text-slate-300 border-slate-400/30'
@@ -1182,6 +1195,11 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
                 <span>
                   {filterStatus === 'APPROVED' ? 'Đã duyệt' : 
                    filterStatus === 'PENDING_REVIEW' ? 'Chờ duyệt' : 
+                   filterStatus === 'QUARANTINED' ? 'Cách ly' :
+                   filterStatus === 'OFFICIAL' ? 'Kho chính' :
+                   filterStatus === 'RESERVE' ? 'Kho dự phòng' :
+                   filterStatus === 'SEALED' ? 'Niêm phong SHA' :
+                   filterStatus === 'ARCHIVED' ? 'Lưu trữ' :
                    filterStatus === 'REJECTED' ? 'Từ chối' : 'Bản thảo'}
                 </span>
                 <button

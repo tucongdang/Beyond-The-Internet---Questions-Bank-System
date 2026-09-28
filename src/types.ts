@@ -164,6 +164,16 @@ export interface QuestionItem {
   // Version History & Activity Log
   versions?: QuestionVersion[];
   activity_logs?: QuestionActivityLog[];
+
+  // Professional Question Bank (NHCH) Core Extensions
+  lifecycle_status?: QuestionLifecycleStatus;
+  vault_partition?: VaultPartitionKey;
+  quarantine_info?: QuestionQuarantineInfo;
+  parent_question_id?: string; // Isomorphic variant parent link
+  variant_type?: 'ISOMORPHIC' | 'PARAMETRIC' | 'BACKUP_RESERVE';
+  is_sealed?: boolean;
+  seal_id?: string;
+  item_flaw_flags?: string[];
 }
 
 export interface CustomCategory {
@@ -247,6 +257,77 @@ export type QuestionRoundFormat =
   | 'CAU_HOI_PHU';         // 5. Câu hỏi phụ đấu loại trực tiếp (5 câu, 15s suy nghĩ, chuông nhanh);
 
 export type ApprovalStatus = 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'NEEDS_REVISION';
+
+// Question Bank Lifecycle Statuses (Chu trình vòng đời câu hỏi khảo thí)
+export type QuestionLifecycleStatus = 
+  | 'DRAFT'        // Bản thảo
+  | 'IN_REVIEW'    // Đang thẩm định
+  | 'APPROVED'     // Đã duyệt (Sẵn sàng trong ngân hàng)
+  | 'QUARANTINED'  // Đã thi đấu - Cách ly chống lặp
+  | 'ARCHIVED';    // Lưu trữ / Công khai ôn luyện
+
+// Question Bank Vault Partitions (Phân vùng kho lưu trữ)
+export type VaultPartitionKey = 
+  | 'OFFICIAL'     // Kho Đề Thi Đấu Chính Thức
+  | 'RESERVE'      // Kho Đề Dự Phòng / Khẩn Cấp
+  | 'PRACTICE'     // Kho Đề Luyện Tập Công Khai
+  | 'ARCHIVED';    // Kho Lưu Trữ / Đã Sử Dụng
+
+export interface QuestionQuarantineInfo {
+  matchName: string;
+  stage: CompetitionStage;
+  quarantinedAt: number;
+  quarantinedBy: string;
+  notes?: string;
+}
+
+export interface SealedExamPackage {
+  id: string;
+  name: string;
+  stage: CompetitionStage;
+  questionCount: number;
+  questionIds: string[];
+  sealedAt: number;
+  sealedBy: string;
+  sealerRole: string;
+  sha256Checksum: string;
+  isLocked: boolean;
+  notes?: string;
+  verificationLog: Array<{
+    verifiedAt: number;
+    verifiedBy: string;
+    isValid: boolean;
+    computedChecksum: string;
+    notes: string;
+  }>;
+}
+
+export interface BankGapAnalysisResult {
+  totalQuestions: number;
+  healthScore: number; // 0 - 100%
+  safetyRatio: number; // e.g. 1.5x (so với cơ số đề tối thiểu)
+  domainCoverage: Record<DigitalCompetencyDomainKey, { count: number; required: number; gap: number; healthPct: number }>;
+  levelCoverage: Record<CognitiveLevel, { count: number; required: number; gap: number; healthPct: number }>;
+  roundCoverage: Record<string, { count: number; required: number; gap: number; healthPct: number }>;
+  criticalGaps: Array<{
+    category: string;
+    description: string;
+    missingCount: number;
+    priority: 'CRITICAL' | 'HIGH' | 'MEDIUM';
+    domainKey?: DigitalCompetencyDomainKey;
+    levelKey?: CognitiveLevel;
+    roundGroup?: string;
+  }>;
+}
+
+export interface ItemFlawReport {
+  questionId: string;
+  questionText: string;
+  flawType: 'LENGTH_BIAS' | 'CLUE_LEAK' | 'DEAD_DISTRACTOR' | 'KEY_IMBALANCE' | 'DEPRECATED_LEGAL' | 'TERMINOLOGY_ISSUE';
+  severity: 'INFO' | 'WARNING' | 'CRITICAL';
+  details: string;
+  suggestedFix?: string;
+}
 
 export interface QuestionReviewRecord {
   question_id: string;

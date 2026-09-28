@@ -165,11 +165,12 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
       });
     });
 
-    // Lượt chung
+    // Lượt chung (45 câu chia 3 lượt: 10, 15, 20 câu)
     kd.luotChung.forEach((item, idx) => {
+      const subRound = idx < 10 ? 'Lượt 1 (10 câu)' : (idx < 25 ? 'Lượt 2 (15 câu)' : 'Lượt 3 (20 câu)');
       questions.push({
         id: `KD_CHUNG_${idx + 1}`,
-        round_name: 'Vòng 1: Khởi động (Lượt chung)',
+        round_name: `Vòng 1: Khởi động (Lượt chung - ${subRound})`,
         round_type: 'SHORT_ANSWER',
         round_format: 'KHOI_DONG_CHUNG',
         category: 'Khởi động BTI 2026',
@@ -179,9 +180,9 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
         media_type: item.img ? 'IMAGE' : (item.audio ? 'AUDIO' : 'NONE'),
         media_url: item.img || undefined,
         audio_url: item.audio || undefined,
-        time_limit: 15,
+        time_limit: 3,
         points: 10,
-        explanation: 'Khởi động chuông nhanh cả 4 thí sinh',
+        explanation: `Khởi động chuông nhanh cả 4 thí sinh (${subRound} - 3 giây suy nghĩ, đúng +10đ, sai -5đ)`,
         stage: 'BAN_KET_1',
         cognitive_level: 'THONG_HIEU',
         digital_competency_domain: 'MIEN_1',
@@ -207,7 +208,7 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
         audio_url: r.audio || undefined,
         explanation: vcnv.explanation,
         time_limit: 15,
-        points: isCenter ? 40 : 10,
+        points: isCenter ? 10 : 10,
         obstacle_info: {
           obstacleKey: vcnv.keyword,
           obstacleImage: vcnv.imageFile,
@@ -222,10 +223,38 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
       });
     });
 
+    // Ô MẠO HIỂM (Theo Mục 2.3: 120 điểm, 20s suy nghĩ, 30s trả lời CNV)
+    if (vcnv.riskSlot) {
+      questions.push({
+        id: 'VCNV_RISK',
+        round_name: `Vòng 2: VCNV (${vcnv.riskSlot.name})`,
+        round_type: 'VCNV',
+        round_format: 'VCNV_MAO_HIEM',
+        category: 'Vượt Chướng Ngại Vật BTI 2026',
+        question_text: vcnv.riskSlot.q,
+        options: {},
+        correct_key: vcnv.riskSlot.a,
+        explanation: vcnv.riskSlot.note,
+        time_limit: 20,
+        points: 120,
+        obstacle_info: {
+          obstacleKey: vcnv.keyword,
+          obstacleImage: vcnv.imageFile,
+          explanation: vcnv.explanation
+        },
+        stage: 'BAN_KET_1',
+        cognitive_level: 'VAN_DUNG_CAO',
+        digital_competency_domain: 'MIEN_2',
+        approval_status: 'APPROVED',
+        created_by: 'Mẫu Đề Thi Chuẩn PDF',
+        created_at: Date.now()
+      });
+    }
+
     // 3. Tăng Tốc
     const tt = SAMPLE_BTI_EXCEL_DATA.tangToc;
     tt.questions.forEach((q, idx) => {
-      const time = idx < 2 ? 20 : 30;
+      const time = q.time || (idx < 2 ? 20 : 30);
       questions.push({
         id: `TT_${idx + 1}`,
         round_name: `Vòng 3: Tăng tốc (${q.name})`,
@@ -241,7 +270,7 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
         media_type: q.mediaList[0]?.endsWith('.mp4') ? 'VIDEO' : 'IMAGE',
         time_limit: time,
         points: 40,
-        explanation: 'Thí sinh trả lời nhanh nhất nhận 40đ, 30đ, 20đ, 10đ',
+        explanation: `Dạng: ${q.type}. Thí sinh trả lời nhanh nhất nhận 40đ, 30đ, 20đ, 10đ`,
         stage: 'BAN_KET_1',
         cognitive_level: 'VAN_DUNG',
         digital_competency_domain: 'MIEN_3',
@@ -251,32 +280,32 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
       });
     });
 
-    // 4. Về Đích
+    // 4. Về Đích (3 mức điểm: 20, 30, 40 điểm)
     const vd = SAMPLE_BTI_EXCEL_DATA.veDich;
     const luotKeys = ['luot1', 'luot2', 'luot3', 'luot4'] as const;
     luotKeys.forEach((key, lIdx) => {
       const slot = lIdx + 1;
       vd[key].forEach((item, idx) => {
-        const pts = item.pts.includes('30') ? 30 : 20;
+        const pts = item.pts.includes('40') ? 40 : (item.pts.includes('30') ? 30 : 20);
         questions.push({
           id: `VD_L${slot}_${idx + 1}`,
           round_name: `Vòng 4: Về đích (Lượt ${slot} - ${pts} điểm)`,
           round_type: 'SHORT_ANSWER',
-          round_format: pts === 20 ? 'VE_DICH_20' : 'VE_DICH_30',
+          round_format: pts === 20 ? 'VE_DICH_20' : (pts === 30 ? 'VE_DICH_30' : 'VE_DICH_40'),
           category: 'Về đích BTI 2026',
           question_text: item.q,
           options: {},
           correct_key: item.a,
           host_notes: item.note || undefined,
-          explanation: item.note || 'MC chú ý đối chiếu đáp án',
+          explanation: item.note ? `${item.note} (${item.time})` : `Thời gian: ${item.time}`,
           media_type: item.media ? (item.media.endsWith('.mp4') ? 'VIDEO' : 'IMAGE') : (item.audio ? 'AUDIO' : 'NONE'),
           media_url: item.media || undefined,
           audio_url: item.audio || undefined,
-          time_limit: pts === 20 ? 15 : 20,
+          time_limit: pts === 20 ? 15 : (pts === 30 ? 20 : 30),
           points: pts,
           participant_slot: slot,
           stage: 'BAN_KET_1',
-          cognitive_level: pts === 30 ? 'VAN_DUNG_CAO' : 'VAN_DUNG',
+          cognitive_level: pts >= 30 ? 'VAN_DUNG_CAO' : 'VAN_DUNG',
           digital_competency_domain: 'MIEN_4',
           approval_status: 'APPROVED',
           created_by: 'Mẫu Đề Thi Chuẩn PDF',
@@ -285,20 +314,46 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
       });
     });
 
-    // 5. Câu Hỏi Phụ
+    // Lượt về đích bổ sung khi hòa điểm 4 thí sinh
+    vd.luotHoaDiem4Nguoi?.forEach((item, idx) => {
+      const pts = item.pts.includes('40') ? 40 : (item.pts.includes('30') ? 30 : 20);
+      questions.push({
+        id: `VD_HOA_4TS_${idx + 1}`,
+        round_name: `Vòng 4: Về đích bổ sung (Hòa điểm 4 người - ${pts} điểm)`,
+        round_type: 'SHORT_ANSWER',
+        round_format: pts === 20 ? 'VE_DICH_20' : (pts === 30 ? 'VE_DICH_30' : 'VE_DICH_40'),
+        category: 'Về đích BTI 2026',
+        question_text: item.q,
+        options: {},
+        correct_key: item.a,
+        host_notes: item.note,
+        explanation: 'Lượt về đích bổ sung khi 4 thí sinh cùng điểm (100 điểm khởi điểm)',
+        time_limit: pts === 20 ? 15 : (pts === 30 ? 20 : 30),
+        points: pts,
+        stage: 'BAN_KET_1',
+        cognitive_level: 'VAN_DUNG_CAO',
+        digital_competency_domain: 'MIEN_4',
+        approval_status: 'APPROVED',
+        created_by: 'Mẫu Đề Thi Chuẩn PDF',
+        created_at: Date.now()
+      });
+    });
+
+    // 5. Câu Hỏi Phụ (5 câu hỏi phụ + 1 câu hỏi tình huống phân định dự phòng)
     SAMPLE_BTI_EXCEL_DATA.cauHoiPhu.forEach((item, idx) => {
+      const isReserve = idx >= 5 || item.name.includes('tình huống') || item.name.includes('Dự phòng');
       questions.push({
         id: `CHP_${idx + 1}`,
-        round_name: 'Câu hỏi phụ (Tie-breaker)',
+        round_name: isReserve ? 'Câu hỏi phụ (Tình huống phân định dự phòng)' : `Câu hỏi phụ ${idx + 1} (15 giây)`,
         round_type: 'SHORT_ANSWER',
         round_format: 'CAU_HOI_PHU',
         category: 'Câu hỏi phụ BTI 2026',
         question_text: item.q,
         options: {},
         correct_key: item.a,
-        time_limit: 15,
+        time_limit: isReserve ? 60 : 15,
         points: 10,
-        explanation: 'Đấu loại trực tiếp khi có thí sinh hòa điểm',
+        explanation: isReserve ? 'Câu hỏi tình huống phân định nếu sau 5 câu chưa phân định được' : 'Đấu loại trực tiếp 15 giây khi có thí sinh hòa điểm',
         stage: 'BAN_KET_1',
         cognitive_level: 'THONG_HIEU',
         digital_competency_domain: 'MIEN_1',
@@ -560,7 +615,7 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
               Trung Tâm Nhập & Xuất Mẫu Excel Khảo Thí
             </h2>
             <p className="text-xs sm:text-sm text-white/60 mt-1 max-w-2xl">
-              Quy trình chuẩn hóa 5 vòng thi: Khởi động (Lượt riêng/Lượt chung), Vượt CNV (Hàng ngang/Ô trung tâm), Tăng tốc (Ảnh đáp án/Link media), Về đích (Gói 20/30đ, Chú thích MC) & Câu hỏi phụ.
+              Đồng bộ 7 trang tính: Luật thi đấu BTI 2026, Khởi động (48 câu riêng + 45 câu chung), Vượt CNV (4 góc + trung tâm + Ô Mạo Hiểm), Tăng tốc (AC1-AC4), Về đích (đầy đủ 20/30/40đ cho mỗi lượt), Câu hỏi phụ & Vòng loại Bộ GD&ĐT.
             </p>
           </div>
 
@@ -569,7 +624,7 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
               type="button"
               onClick={handleDownloadBlankTemplate}
               className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-[4px] text-xs font-bold font-mono tracking-wider flex items-center gap-1.5 border border-white/20 transition cursor-pointer"
-              title="Tải khung mẫu trắng 6 trang tính để điền đề thi mới"
+              title="Tải khung mẫu trắng 7 trang tính để điền đề thi mới"
             >
               <Download className="w-3.5 h-3.5 text-white/80" />
               <span>Tải Mẫu Trắng (.xlsx)</span>
@@ -697,10 +752,10 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
                 </span>
                 <Users className="w-4 h-4 text-sky-400" />
               </div>
-              <h4 className="text-sm font-bold text-white">Lượt Riêng & Lượt Chung</h4>
+              <h4 className="text-sm font-bold text-white">Lượt Riêng & 3 Lượt Chung</h4>
               <p className="text-xs text-white/60 leading-relaxed">
-                • <strong>Lượt riêng:</strong> 4 phần mục riêng cho Thí sinh 1, 2, 3, 4 (mỗi TS 6 câu hỏi / 60s).<br />
-                • <strong>Lượt chung:</strong> 12 câu bấm chuông phản xạ cho cả 4 thí sinh.<br />
+                • <strong>Lượt riêng:</strong> 12 câu hỏi / 60 giây / thí sinh (4 thí sinh = 48 câu). Đúng +10đ, sai không trừ điểm.<br />
+                • <strong>Lượt chung:</strong> 3 lượt thi chuông (10, 15, 20 câu = 45 câu chung). 3 giây suy nghĩ, đúng +10đ, sai -5đ và mất quyền câu sau.<br />
                 • <strong>Hỗ trợ media:</strong> Cột "Ảnh (nếu có)" và "Âm thanh (nếu có)" độc lập.
               </p>
             </div>
@@ -713,11 +768,11 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
                 </span>
                 <Target className="w-4 h-4 text-amber-400" />
               </div>
-              <h4 className="text-sm font-bold text-white">Chướng Ngại Vật & 5 Mảnh Ghép</h4>
+              <h4 className="text-sm font-bold text-white">4 Hàng Ngang, Ô Trung Tâm & Ô Mạo Hiểm</h4>
               <p className="text-xs text-white/60 leading-relaxed">
-                • <strong>Ô B3 & C3:</strong> Tên Chướng ngại vật (ví dụ: PHÁO ĐẤT) và file ảnh CNV (cnv.jpg).<br />
-                • <strong>4 Hàng ngang:</strong> Câu hỏi gợi ý lật mở từng góc ảnh kèm file âm thanh.<br />
-                • <strong>Ô trung tâm & Giải thích:</strong> Hàng ngang trung tâm và ô ghi chú dành riêng cho app MC.
+                • <strong>4 Hàng ngang góc:</strong> 15s suy nghĩ (+10đ, người chọn +15đ). Điểm CNV: 80đ, 60đ, 40đ, 20đ.<br />
+                • <strong>Ô trung tâm:</strong> Miếng ghép thứ 5 - gợi ý cuối cùng (+10đ, sau ô trung tâm đoán CNV: 10đ).<br />
+                • <strong>Ô MẠO HIỂM (Mục 2.3):</strong> Xuất hiện 10s trước lượt chọn; 20s suy nghĩ, 30s trả lời CNV. Đoán đúng nhận <strong>120 điểm</strong>, sai trừ 1/2 số điểm và bị loại.
               </p>
             </div>
 
@@ -729,10 +784,11 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
                 </span>
                 <Zap className="w-4 h-4 text-purple-400" />
               </div>
-              <h4 className="text-sm font-bold text-white">4 Câu Phản Xạ & Dữ Liệu Media</h4>
+              <h4 className="text-sm font-bold text-white">4 Câu Phản Xạ (20s - 20s - 30s - 30s)</h4>
               <p className="text-xs text-white/60 leading-relaxed">
-                • <strong>Bảng 1:</strong> Câu hỏi, đáp án chuẩn, và file "Ảnh đáp án" (ví dụ: tt2.2.png).<br />
-                • <strong>Bảng 2:</strong> "LINK DỮ LIỆU TĂNG TỐC" chứa số lượng ảnh và danh sách đường link/file ảnh/video cho từng câu (tt1.png, video.mp4...).
+                • <strong>Thời gian suy nghĩ:</strong> Câu 1 (20s), Câu 2 (20s), Câu 3 (30s), Câu 4 (30s).<br />
+                • <strong>Điểm số:</strong> 40, 30, 20, 10 điểm (+20đ nếu đúng nhanh 2 câu liên tiếp, +40đ nếu cả 4 câu).<br />
+                • <strong>7 dạng câu hỏi:</strong> Sắp xếp, Khác biệt, Dữ kiện, Suy luận, Tình huống, 6 đáp án loại trừ sau 10s, Đoạn băng media.
               </p>
             </div>
 
@@ -744,12 +800,13 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
                 </span>
                 <Trophy className="w-4 h-4 text-emerald-400" />
               </div>
-              <h4 className="text-sm font-bold text-white">4 Lượt Thi & Chú Thích MC/Host</h4>
+              <h4 className="text-sm font-bold text-white">Gói Điểm 20 - 30 - 40 Điểm (3 Câu/Gói)</h4>
               <p className="text-xs text-white/60 leading-relaxed">
-                • <strong>4 Lượt thi:</strong> Chia theo Lượt 1, Lượt 2, Lượt 3, Lượt 4 cho 4 thí sinh.<br />
-                • <strong>Gói điểm:</strong> Câu hỏi 20 điểm và 30 điểm.<br />
-                • <strong>Cột Chú thích:</strong> Hiển thị công thức vật lý, câu hỏi tiếng Anh, hoặc lưu ý riêng cho MC/Host.<br />
-                • <strong>Cột Media:</strong> File ảnh, video.mp4 và file âm thanh tada.mp3.
+                • <strong>Mỗi gói gồm đúng 3 câu hỏi:</strong> Thí sinh chọn trực tiếp 3 câu (từ các mức 20, 30, 40 điểm) tạo gói điểm khi bước lên bục thi đấu.<br />
+                • <strong>Xuất đầy đủ ngân hàng:</strong> File Excel cung cấp trọn vẹn các mức điểm (20, 30, 40đ) cho mỗi lượt để máy chủ sẵn sàng cho mọi lựa chọn của thí sinh.<br />
+                • <strong>Thời gian suy nghĩ:</strong> 20đ (15s), 30đ (20s), 40đ (30s).<br />
+                • <strong>Thời gian thực hành:</strong> 20đ (30s), 30đ (60s), 40đ (90s). Giành chuông trong 5s.<br />
+                • <strong>Ngôi sao hy vọng:</strong> Đặt 1 lần, đúng x2, sai -điểm. Lượt phân định 4 người hòa: 100đ khởi điểm.
               </p>
             </div>
 
@@ -761,10 +818,10 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
                 </span>
                 <HelpCircle className="w-4 h-4 text-rose-400" />
               </div>
-              <h4 className="text-sm font-bold text-white">Phân Định Thắng Thua</h4>
+              <h4 className="text-sm font-bold text-white">5 Câu Tie-Breaker & 1 Câu Dự Phòng</h4>
               <p className="text-xs text-white/60 leading-relaxed">
-                • Các câu hỏi phụ phân định thứ hạng trong trường hợp bằng điểm.<br />
-                • Câu hỏi phụ 1, 2, 3... trả lời ngắn (15 giây).
+                • <strong>5 câu hỏi phụ:</strong> Đấu loại trực tiếp 15 giây khi có các thí sinh bằng điểm sau Về đích.<br />
+                • <strong>1 câu hỏi tình huống:</strong> Phân định dự phòng nếu sau 5 câu chưa phân định được thắng thua.
               </p>
             </div>
 
@@ -1521,7 +1578,7 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
                 Xuất Ngân Hàng Câu Hỏi Ra File Excel (.xlsx)
               </h3>
               <p className="text-xs text-slate-300/80 max-w-2xl font-sans">
-                Lựa chọn xuất theo mẫu đa trang tính (6 Sheets) chuẩn Phần mềm thi đấu BTI 2026 hoặc xuất khớp 100% cấu trúc các nền tảng khảo thí bạn đã nạp (Azota, K12Online, OLM...).
+                Lựa chọn xuất theo mẫu đa trang tính (7 Sheets) chuẩn Phần mềm thi đấu BTI 2026 hoặc xuất khớp 100% cấu trúc các nền tảng khảo thí bạn đã nạp (Azota, K12Online, OLM...).
               </p>
             </div>
 
@@ -1583,12 +1640,12 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
                     </div>
 
                     <p className="text-[11px] text-slate-300/80 leading-relaxed font-sans">
-                      Đa trang tính (Khởi động, VCNV, Tăng tốc, Về đích, Câu hỏi phụ, Vòng loại BGD). Tương thích 100% phần mềm điều khiển trận đấu BTI.
+                      Đa trang tính (Luật thi đấu, Khởi động, VCNV, Tăng tốc, Về đích, Câu hỏi phụ, Vòng loại BGD). Tương thích 100% phần mềm điều khiển trận đấu BTI.
                     </p>
 
                     <div className="flex flex-wrap gap-1.5 pt-1 border-t border-white/5">
                       <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/40 text-emerald-300 border border-emerald-500/20">
-                        6 Sheets riêng biệt
+                        7 Sheets riêng biệt
                       </span>
                       <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/40 text-sky-300 border border-sky-500/20">
                         Tự khớp Media máy chủ
@@ -1736,7 +1793,7 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
                   </div>
                   <div className="flex items-baseline gap-2">
                     <strong className="text-lg font-black text-sky-300 font-mono tracking-tight truncate">
-                      {exportMode === 'BTI_OFFICIAL' ? '6 Sheets BTC' : (activeBlueprint?.name || 'Tùy Biến')}
+                      {exportMode === 'BTI_OFFICIAL' ? '7 Sheets BTC' : (activeBlueprint?.name || 'Tùy Biến')}
                     </strong>
                   </div>
                   <p className="text-[10px] text-sky-200/80 font-mono truncate">
@@ -1840,24 +1897,25 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
                     </div>
                   </div>
 
-                  {/* Card 2: 6 Sheets Breakdown in Output Workbook */}
+                  {/* Card 2: 7 Sheets Breakdown in Output Workbook */}
                   <div className="fluent-card p-4 sm:p-5 rounded-[6px] bg-[#16072D]/90 border border-purple-500/30 space-y-3 shadow-lg">
                     <div className="flex items-center justify-between pb-2 border-b border-white/10 text-xs font-mono">
                       <span className="font-bold text-slate-200 uppercase tracking-wide flex items-center gap-1.5">
                         <FileSpreadsheet className="w-4 h-4 text-sky-400" />
-                        Cấu Trúc 6 Trang Tính Trong "Đề thi.xlsx"
+                        Cấu Trúc 7 Trang Tính Trong "Đề thi.xlsx"
                       </span>
-                      <span className="text-[10px] text-emerald-400 font-bold">6/6 Sheets</span>
+                      <span className="text-[10px] text-emerald-400 font-bold">7/7 Sheets Chuẩn BTC</span>
                     </div>
 
                     <div className="space-y-1.5 font-mono text-xs">
                       {[
-                        { sheet: 'Khởi động', desc: '12 câu lượt riêng (4 thí sinh) + 12 câu lượt chung', color: 'text-amber-300 border-amber-500/30 bg-amber-950/20' },
-                        { sheet: 'VCNV', desc: '4 từ hàng ngang + 1 từ khóa trung tâm + ảnh CNV', color: 'text-emerald-300 border-emerald-500/30 bg-emerald-950/20' },
-                        { sheet: 'Tăng tốc', desc: '4 câu hỏi với thời gian phản hồi tăng dần', color: 'text-purple-300 border-purple-500/30 bg-purple-950/20' },
-                        { sheet: 'Về đích', desc: 'Gói 20đ & 30đ có hỗ trợ cờ Ngôi sao hy vọng', color: 'text-rose-300 border-rose-500/30 bg-rose-950/20' },
-                        { sheet: 'Câu hỏi phụ', desc: '3 câu hỏi phụ phân định thắng thua khi hòa điểm', color: 'text-indigo-300 border-indigo-500/30 bg-indigo-950/20' },
-                        { sheet: 'Vòng loại Bộ GD&ĐT', desc: '28 câu trắc nghiệm & điền chuẩn TT 02/2025', color: 'text-sky-300 border-sky-500/30 bg-sky-950/20' },
+                        { sheet: 'Luật thi đấu BTI 2026', desc: 'Toàn bộ quy chuẩn kỹ thuật 7 trang PDF & cây thư mục Media máy chủ', color: 'text-amber-300 border-amber-500/30 bg-amber-950/20' },
+                        { sheet: 'Khởi động', desc: '12 câu/TS (48 câu riêng) + 3 lượt chung (10, 15, 20 = 45 câu chung)', color: 'text-sky-300 border-sky-500/30 bg-sky-950/20' },
+                        { sheet: 'VCNV', desc: '4 hàng ngang góc + 1 ô trung tâm + Ô Mạo Hiểm 120 điểm', color: 'text-emerald-300 border-emerald-500/30 bg-emerald-950/20' },
+                        { sheet: 'Tăng tốc', desc: '4 câu (20s, 20s, 30s, 30s) thuộc 7 dạng + Link media AC1-AC4', color: 'text-purple-300 border-purple-500/30 bg-purple-950/20' },
+                        { sheet: 'Về đích', desc: 'Đầy đủ ngân hàng 20/30/40đ cho mỗi lượt (chọn gói 3 câu trực tiếp) + Hòa 4 người', color: 'text-rose-300 border-rose-500/30 bg-rose-950/20' },
+                        { sheet: 'Câu hỏi phụ', desc: '5 câu hỏi phụ (15s) + 1 câu hỏi tình huống phân định dự phòng', color: 'text-indigo-300 border-indigo-500/30 bg-indigo-950/20' },
+                        { sheet: 'Vòng loại Bộ GD&ĐT', desc: '28 câu trắc nghiệm & điền chuẩn TT 02/2025/TT-BGDĐT', color: 'text-teal-300 border-teal-500/30 bg-teal-950/20' },
                       ].map((item, idx) => (
                         <div key={idx} className={`p-2 rounded-[4px] border flex items-center justify-between gap-2 ${item.color}`}>
                           <div className="flex items-center gap-2">

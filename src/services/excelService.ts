@@ -202,7 +202,63 @@ export function detectColumnField(headerText: string, sampleValues: string[] = [
 }
 
 /**
- * Full sample dataset faithfully extracted from the official 6-page BTI competition template
+ * Helper to build the official "Luật thi đấu BTI 2026" sheet in Excel
+ */
+export function buildBtiRulesSheet(): any[][] {
+  return [
+    ['QUY CHUẨN KỸ THUẬT & LUẬT CHƠI CUỘC THI "BEYOND THE INTERNET 2026" (BTI 2026)'],
+    ['Ban hành chính thức kèm theo Phần mềm điều khiển trận đấu & Ngân hàng câu hỏi BTI 2026'],
+    [],
+    ['PHẦN THI', 'THỂ THỨC & SỐ LƯỢNG CÂU HỎI', 'THỜI GIAN QUY ĐỊNH', 'CƠ CHẾ TÍNH ĐIỂM & GHI CHÚ ĐIỀU HÀNH'],
+    [
+      '1. KHỞI ĐỘNG',
+      '• Lượt riêng: 12 câu hỏi / thí sinh (4 thí sinh = 48 câu)\n• Lượt chung: 3 lượt thi chuông (Lượt 1: 10 câu, Lượt 2: 15 câu, Lượt 3: 20 câu = 45 câu chung)\n• Dạng câu hỏi: Điền khuyết, Đúng/Sai, Nên/Không nên, Trắc nghiệm ABCD, Nhạc/Ảnh, Tình huống ngắn, Spot the Flaw, Sắp xếp',
+      '• Lượt riêng: 60 giây / thí sinh\n• Lượt chung: 3 giây suy nghĩ sau khi giành quyền trả lời. Sau 3 giây tính từ khi MC đọc xong nếu không ai bấm thì bỏ qua.',
+      '• Lượt riêng: Đúng +10 điểm, sai không bị trừ điểm\n• Lượt chung: Đúng +10 điểm. Sai hoặc bấm chuông không trả lời sau 3s: Trừ 5 điểm và mất quyền câu tiếp theo\n• Thí sinh được thay đổi đáp án liên tục trước khi MC công bố đáp án'
+    ],
+    [
+      '2. VƯỢT CHƯỚNG NGẠI VẬT',
+      '• 4 từ hàng ngang ở 4 góc (tương ứng 4 miếng ghép được đánh số cố định)\n• 1 ô trung tâm (miếng ghép thứ 5 - gợi ý cuối cùng)\n• 1 Ô MẠO HIỂM (xuất hiện 10 giây trước khi bắt đầu hoặc trước lượt chọn)',
+      '• Hàng ngang: 15 giây suy nghĩ / câu\n• Ô mạo hiểm: 20 giây suy nghĩ, 30 giây trả lời CNV\n• Sau ô trung tâm: 15 giây suy nghĩ cuối cùng để đoán CNV',
+      '• Đúng hàng ngang: +10 điểm (nếu là thí sinh chọn hàng ngang: +15 điểm)\n• Đúng ô trung tâm: +10 điểm\n• Điểm đoán đúng Chướng ngại vật: Trong 1 hàng ngang đầu: 80đ; 2 hàng ngang: 60đ; 3 hàng ngang: 40đ; 4 hàng ngang: 20đ; sau ô trung tâm: 10đ\n• Ô Mạo hiểm: Đoán đúng CNV nhận 120 điểm. Đoán sai: Bị trừ 1/2 số điểm hiện có và loại khỏi vòng thi'
+    ],
+    [
+      '3. TĂNG TỐC',
+      '• 4 câu hỏi thuộc 7 loại: Sắp xếp, Tìm điểm khác biệt, Dữ kiện, Suy luận thông thường, Giải quyết tình huống, Suy luận nâng cao (6 đáp án loại trừ sau 10s), Đoạn băng media',
+      '• Câu 1: 20 giây\n• Câu 2: 20 giây\n• Câu 3: 30 giây\n• Câu 4: 30 giây',
+      '• Điểm theo thứ tự trả lời đúng và nhanh nhất: 40, 30, 20, 10 điểm\n• Thưởng trả lời đúng và nhanh nhất 2 câu liên tiếp: +20 điểm\n• Thưởng trả lời đúng và nhanh nhất cả 4 câu: +40 điểm'
+    ],
+    [
+      '4. VỀ ĐÍCH',
+      '• 3 mức điểm: 20 điểm, 30 điểm và 40 điểm\n• Mỗi thí sinh có 1 lượt chọn 3 câu hỏi (từ 20, 30, 40đ) tạo thành gói điểm của mình\n• Gồm câu hỏi Lý thuyết và Thực hành / Giải quyết tình huống',
+      '• Suy nghĩ: 20đ (15 giây), 30đ (20 giây), 40đ (30 giây)\n• Thực hành: 20đ (30 giây), 30đ (60 giây), 40đ (90 giây)\n• Giành chuông: 5 giây (thời gian thực hành: 20đ là 20s, 30đ là 40s, 40đ là 60s)',
+      '• Trả lời đúng nhận đủ điểm câu hỏi\n• Trả lời sai: 3 thí sinh còn lại bấm chuông trong 5s. Thí sinh bấm chuông đúng lấy điểm từ thí sinh sai, sai bị trừ 1/2 số điểm của câu hỏi\n• Ngôi sao hy vọng: Đặt 1 lần trước khi MC đọc câu hỏi. Đúng gấp đôi điểm, sai bị trừ điểm của câu hỏi'
+    ],
+    [
+      '5. PHẦN THI CÂU HỎI PHỤ',
+      '• Áp dụng khi có các thí sinh bằng điểm nhau sau phần thi Về đích\n• Đấu loại trực tiếp 5 câu hỏi\n• Nếu sau 5 câu chưa phân định được thì giải quyết 1 câu hỏi tình huống dự phòng',
+      '• Thời gian suy nghĩ: 15 giây cho mỗi câu hỏi',
+      '• Thí sinh bấm chuông nhanh nhất trả lời đúng sẽ giành chiến thắng chung cuộc'
+    ],
+    [
+      '6. LƯỢT VỀ ĐÍCH BỔ SUNG (KHI 4 THÍ SINH CÙNG ĐIỂM)',
+      '• Áp dụng trường hợp hy hữu cả 4 thí sinh cùng điểm số sau Về đích\n• Mỗi thí sinh nhận 100 điểm khởi điểm (không tính vào điểm gốc)\n• Chọn gói 3 câu hỏi 20, 30, 40 điểm\n• Đặt Ngôi sao hy vọng trước khi chọn gói câu hỏi (có hiệu lực với cả 3 câu)',
+      '• Quy định thời gian tương tự phần thi Về đích',
+      '• Kết thúc lượt thi, thí sinh có điểm cao nhất sẽ giành chiến thắng'
+    ],
+    [],
+    ['QUY ĐỊNH CÂY THƯ MỤC MEDIA TRÊN MÁY CHỦ PHẦN MỀM THI ĐẤU BTI 2026'],
+    ['Tên thư mục', 'Đường dẫn máy chủ chuẩn', 'Chức năng phần thi', 'Quy tắc ghi tên trong file Excel'],
+    ['StudentImage/', 'Server_Root/StudentImage/', 'Ảnh chân dung đại diện 4 thí sinh (slot 1, 2, 3, 4)', 'Chỉ ghi tên file gốc, ví dụ: ts1.jpg, ts2.png'],
+    ['Starting/', 'Server_Root/Media/Starting/', 'Dữ liệu ảnh, âm thanh phần thi Khởi Động & Vòng loại BGD', 'Chỉ ghi tên file gốc, ví dụ: nani.jpg, tada.mp3'],
+    ['Obstacle/', 'Server_Root/Media/Obstacle/', 'Dữ liệu ảnh gợi ý Chướng ngại vật và Ô trung tâm', 'Chỉ ghi tên file gốc, ví dụ: cnv.jpg'],
+    ['Acceleration/', 'Server_Root/Media/Acceleration/', 'Dữ liệu ảnh, video Tăng Tốc (thư mục AC1, AC2, AC3, AC4)', 'Chỉ ghi tên file gốc, ví dụ: tt1.png, video.mp4'],
+    ['Finish/', 'Server_Root/Media/Finish/', 'Dữ liệu ảnh, video, âm thanh phần thi Về Đích', 'Chỉ ghi tên file gốc, ví dụ: video.mp4, clip.mp4']
+  ];
+}
+
+/**
+ * Full sample dataset faithfully updated to 100% match the official 7-page BTI 2026 rulebook
  */
 export const SAMPLE_BTI_EXCEL_DATA = {
   khoiDong: {
@@ -212,7 +268,13 @@ export const SAMPLE_BTI_EXCEL_DATA = {
       { q: 'Nguyên tố nào trong tiếng Latin có nghĩa là "sinh ra phèn"?', a: 'Al', img: '', audio: 'tada.mp3' },
       { q: 'Sinh trưởng thứ cấp chủ yếu xảy ra ở loại cây có bao nhiêu lá mầm?', a: '2', img: '', audio: '' },
       { q: '"Nên vợ nên chồng", "Con chó xấu xí", "Làng" là những tác phẩm của nhà văn nào?', a: 'Kim Lân', img: '', audio: '' },
-      { q: 'Ai là vị Thủ tướng đầu tiên của nước Cộng hòa Xã hội Chủ nghĩa Việt Nam?', a: 'Phạm Văn Đồng', img: '', audio: '' }
+      { q: 'Ai là vị Thủ tướng đầu tiên của nước Cộng hòa Xã hội Chủ nghĩa Việt Nam?', a: 'Phạm Văn Đồng', img: '', audio: '' },
+      { q: 'Nghị định quy định về Bảo vệ dữ liệu cá nhân của Chính phủ ban hành năm 2023 có số hiệu là gì?', a: 'Nghị định 13/2023/NĐ-CP', img: '', audio: '' },
+      { q: 'Giao thức truyền thông web an toàn có cơ chế mã hóa SSL/TLS viết tắt là gì?', a: 'HTTPS', img: '', audio: '' },
+      { q: 'Trong bảng mã ASCII chuẩn, ký tự chữ cái in hoa "A" có giá trị thập phân là bao nhiêu?', a: '65', img: '', audio: '' },
+      { q: 'Phương thức xác thực sinh trắc học dựa trên đường vân ngón tay hoặc khuôn mặt gọi chung là gì?', a: 'Sinh trắc học (Biometrics)', img: '', audio: '' },
+      { q: 'Thuật ngữ Trí tuệ nhân tạo tạo sinh trong tiếng Anh viết tắt là gì?', a: 'Gen AI (Generative AI)', img: '', audio: '' },
+      { q: 'Bộ xử lý đồ họa chuyên dụng trong phần cứng máy tính viết tắt là gì?', a: 'GPU', img: '', audio: '' }
     ],
     ts2: [
       { q: 'Trong hệ điều hành Windows, để xóa một tệp tin vĩnh viễn không qua thùng rác, ta dùng tổ hợp phím nào?', a: 'Shift + Delete', img: '', audio: '' },
@@ -220,7 +282,13 @@ export const SAMPLE_BTI_EXCEL_DATA = {
       { q: 'Du Xuân, Đào liễu, Lới lơ là những làn điệu quen thuộc của loại hình nghệ thuật nào?', a: 'Chèo', img: '', audio: '' },
       { q: 'Who was the leader of the Soviet Union during World War II?', a: 'Stalin', img: '', audio: '' },
       { q: 'Trong mặt phẳng Oxy, cặp số bao gồm hoành độ và tung độ được gọi là gì của một điểm?', a: 'Tọa độ', img: '', audio: '' },
-      { q: 'Gương cầu lồi có tâm nằm ở trước hay sau gương?', a: 'sau', img: '', audio: '' }
+      { q: 'Gương cầu lồi có tâm nằm ở trước hay sau gương?', a: 'sau', img: '', audio: '' },
+      { q: 'Khung năng lực số cho người học ban hành kèm Thông tư 02/2025/TT-BGDĐT gồm bao nhiêu miền năng lực?', a: '6 miền', img: '', audio: '' },
+      { q: 'Độ dài tối thiểu được khuyến nghị cho mật khẩu tài khoản số để đảm bảo độ mạnh an toàn là bao nhiêu ký tự?', a: '12 ký tự', img: '', audio: '' },
+      { q: 'Hình thức tấn công phi kỹ thuật lừa đảo qua email hoặc liên kết giả mạo mạo danh ngân hàng gọi là gì?', a: 'Phishing', img: '', audio: '' },
+      { q: 'Đơn vị đo lường thông tin cơ bản nhỏ nhất trong khoa học máy tính là gì?', a: 'Bit', img: '', audio: '' },
+      { q: 'Hệ thống tên miền trên Internet viết tắt là gì?', a: 'DNS', img: '', audio: '' },
+      { q: 'Giao thức mạng dùng để tự động cấp phát địa chỉ IP cho các thiết bị trong mạng LAN là gì?', a: 'DHCP', img: '', audio: '' }
     ],
     ts3: [
       { q: 'Pin Volta gồm một cực bằng copper và một cực bằng zinc nhúng trong dung dịch loãng của chất nào?', a: 'sulfuric acid', img: '', audio: '' },
@@ -228,7 +296,13 @@ export const SAMPLE_BTI_EXCEL_DATA = {
       { q: '2 màu sắc nào được nhắc tới trong câu tục ngữ về kinh nghiệm đi đêm: "... thì lội, ... thì tránh"?', a: 'trắng, đen', img: '', audio: '' },
       { q: 'Tập hợp A = {1, 555, 9} có bao nhiêu tập con?', a: '8', img: '', audio: '' },
       { q: '"Không ai tắm hai lần trên một dòng sông" là câu nói nổi tiếng của triết gia Hy Lạp nào?', a: 'Heraclitus', img: '', audio: '' },
-      { q: 'AI, IoT, Big Data là những xu thế toàn cầu của cuộc cách mạng công nghiệp lần thứ mấy?', a: '4', img: '', audio: '' }
+      { q: 'AI, IoT, Big Data là những xu thế toàn cầu của cuộc cách mạng công nghiệp lần thứ mấy?', a: '4', img: '', audio: '' },
+      { q: 'Đạo luật bảo vệ dữ liệu chung mang tính bước ngoặt của Liên minh Châu Âu viết tắt là gì?', a: 'GDPR', img: '', audio: '' },
+      { q: 'Mô hình ngôn ngữ lớn đóng vai trò nền tảng cho ChatGPT, Gemini viết tắt là gì?', a: 'LLM (Large Language Model)', img: '', audio: '' },
+      { q: 'Loại mã độc nguy hiểm tự động mã hóa toàn bộ dữ liệu máy tính của nạn nhân để đòi tiền chuộc là gì?', a: 'Ransomware', img: '', audio: '' },
+      { q: 'Cổng giao tiếp mặc định (Default Port) của giao thức HTTPS bảo mật là cổng số bao nhiêu?', a: '443', img: '', audio: '' },
+      { q: 'Công nghệ cơ sở dữ liệu phân tán lưu trữ các khối chuỗi bất biến gọi là gì?', a: 'Blockchain', img: '', audio: '' },
+      { q: 'Kỹ thuật tấn công chèn câu lệnh độc hại vào ô nhập liệu để thao túng câu trả lời của AI gọi là gì?', a: 'Prompt Injection', img: '', audio: '' }
     ],
     ts4: [
       { q: 'Trong văn hóa Thái Lan, Rắn Naga được đưa vào hình tượng con vật nào?', a: 'Rồng', img: '', audio: '' },
@@ -236,82 +310,194 @@ export const SAMPLE_BTI_EXCEL_DATA = {
       { q: 'Which chemical element are diamonds made of?', a: 'Carbon', img: '', audio: '' },
       { q: 'Trong một mẫu số liệu, giá trị xuất hiện nhiều nhất được gọi là gì?', a: 'mode', img: '', audio: '' },
       { q: 'Đơn vị của momen lực trong hệ SI là gì?', a: 'N.m', img: '', audio: '' },
-      { q: 'Mol/s là đơn vị dùng để đo đại lượng hóa học nào?', a: 'Tốc độ phản ứng', img: '', audio: '' }
+      { q: 'Mol/s là đơn vị dùng để đo đại lượng hóa học nào?', a: 'Tốc độ phản ứng', img: '', audio: '' },
+      { q: 'Tổng thể những vết tích dữ liệu cá nhân mà người dùng để lại khi hoạt động trên Internet gọi là gì?', a: 'Dấu chân kỹ thuật số (Digital Footprint)', img: '', audio: '' },
+      { q: 'Theo chuẩn nhị phân máy tính, 1 Terabyte (TB) tương đương với bao nhiêu Gigabyte (GB)?', a: '1024 GB', img: '', audio: '' },
+      { q: 'Hệ thống rào chắn phần cứng hoặc phần mềm kiểm soát luồng lưu lượng mạng vào ra gọi là gì?', a: 'Tường lửa (Firewall)', img: '', audio: '' },
+      { q: 'Thuật ngữ tiếng Anh chỉ phép lịch sự và chuẩn mực ứng xử văn hóa trong không gian mạng là gì?', a: 'Netiquette', img: '', audio: '' },
+      { q: 'Đơn vị đo tần số quét làm tươi của màn hình hiển thị là gì?', a: 'Hz (Hertz)', img: '', audio: '' },
+      { q: 'Mạng lưới vạn vật kết nối Internet trong xu thế công nghệ 4.0 viết tắt là gì?', a: 'IoT (Internet of Things)', img: '', audio: '' }
     ],
+    // Lượt chung gồm 45 câu hỏi (Lượt 1: 10 câu, Lượt 2: 15 câu, Lượt 3: 20 câu theo chuẩn Mục 1.2)
     luotChung: [
-      { q: 'Khí hậu ... là kiểu khí hậu có sự dao động về thời tiết và nhiệt độ ngày đêm lớn?', a: 'Lục địa', img: '', audio: '' },
-      { q: 'Ai là người cắm lá cờ chiến thắng của Mặt trận Dân tộc Giải phóng miền Nam Việt Nam trên nóc Dinh Độc Lập?', a: 'Bùi Quang Thận', img: '', audio: '' },
-      { q: 'Vở cải lương "Nợ nước non" kể về thân thế và sự nghiệp của vị lãnh tụ nào?', a: 'Hồ Chí Minh', img: '', audio: '' },
-      { q: 'Quảng Nam là nơi lưu giữ nhiều nhất những dấu tích của nền văn hóa cổ nào?', a: 'Champa', img: '', audio: '' },
-      { q: 'Các cơn bão ở Nam bán cầu có chiều xoắn thuận hay ngược chiều kim đồng hồ?', a: 'thuận', img: '', audio: '' },
-      { q: 'Nhân vật nữ anh hùng nào đã được xưng tụng câu nói: "Tôi muốn cưỡi cơn gió mạnh..."?', a: 'Bà Triệu', img: '', audio: '' },
-      { q: 'Ngành công nghiệp nào được ví như "Quả tim của nhóm ngành công nghiệp nặng"?', a: 'cơ khí', img: '', audio: '' },
-      { q: '"Zip Postal Code" là hệ thống mã toàn cầu dùng cho lĩnh vực nào?', a: 'bưu chính', img: '', audio: '' },
-      { q: 'Hải Thượng Lãn Ông đã ví loài thực vật quý nào là "nhân sâm của người nghèo"?', a: 'đinh lăng', img: '', audio: '' },
-      { q: 'Mão lông trĩ, cờ lệnh sau lưng, hia, đai lưng, đao,... là những trang phục đặc trưng của loại hình sân khấu nào?', a: 'tuồng', img: '', audio: '' },
-      { q: 'Hai loại quân cờ nào trên bàn cờ tướng chỉ được di chuyển trong cung cấm?', a: 'tướng và sĩ', img: '', audio: '' },
-      { q: 'In which continent is the country of Morocco located?', a: 'Africa', img: '', audio: '' }
+      // --- LƯỢT CHUNG 1: 10 CÂU HỎI (3s suy nghĩ, chuông nhanh) ---
+      { q: 'Khí hậu ... là kiểu khí hậu có sự dao động về thời tiết và nhiệt độ ngày đêm lớn?', a: 'Lục địa', img: '', audio: '', format: 'Điền từ khuyết' },
+      { q: 'Ai là người cắm lá cờ chiến thắng của Mặt trận Dân tộc Giải phóng miền Nam Việt Nam trên nóc Dinh Độc Lập?', a: 'Bùi Quang Thận', img: '', audio: '', format: 'Hỏi đáp ngắn' },
+      { q: 'Vở cải lương "Nợ nước non" kể về thân thế và sự nghiệp của vị lãnh tụ nào?', a: 'Hồ Chí Minh', img: '', audio: '', format: 'Văn hóa nghệ thuật' },
+      { q: 'Quảng Nam là nơi lưu giữ nhiều nhất những dấu tích của nền văn hóa cổ nào?', a: 'Champa', img: '', audio: '', format: 'Lịch sử di sản' },
+      { q: 'Các cơn bão ở Nam bán cầu có chiều xoắn thuận hay ngược chiều kim đồng hồ?', a: 'thuận', img: '', audio: '', format: 'Lựa chọn 2 phương án' },
+      { q: 'Nhân vật nữ anh hùng nào đã được xưng tụng câu nói: "Tôi muốn cưỡi cơn gió mạnh..."?', a: 'Bà Triệu', img: '', audio: '', format: 'Lịch sử Việt Nam' },
+      { q: 'Ngành công nghiệp nào được ví như "Quả tim của nhóm ngành công nghiệp nặng"?', a: 'cơ khí', img: '', audio: '', format: 'Kinh tế công nghiệp' },
+      { q: '"Zip Postal Code" là hệ thống mã toàn cầu dùng cho lĩnh vực nào?', a: 'bưu chính', img: '', audio: '', format: 'Kiến thức xã hội' },
+      { q: 'Hải Thượng Lãn Ông đã ví loài thực vật quý nào là "nhân sâm của người nghèo"?', a: 'đinh lăng', img: '', audio: '', format: 'Y học cổ truyền' },
+      { q: 'Mão lông trĩ, cờ lệnh sau lưng, hia, đai lưng, đao,... là những trang phục đặc trưng của loại hình sân khấu nào?', a: 'tuồng', img: '', audio: '', format: 'Sân khấu truyền thống' },
+
+      // --- LƯỢT CHUNG 2: 15 CÂU HỎI (3s suy nghĩ, chuông nhanh) ---
+      { q: 'Hai loại quân cờ nào trên bàn cờ tướng chỉ được di chuyển trong cung cấm?', a: 'tướng và sĩ', img: '', audio: '', format: 'Thể thao trí tuệ' },
+      { q: 'In which continent is the country of Morocco located?', a: 'Africa', img: '', audio: '', format: 'Tiếng Anh địa lý' },
+      { q: 'Theo Nghị định 13/2023/NĐ-CP, việc công khai thông tin cá nhân của người khác mà chưa có sự đồng ý là hành vi Nên hay Không nên?', a: 'Không nên (Vi phạm pháp luật)', img: '', audio: '', format: 'Nên/Không nên' },
+      { q: 'Spot the Flaw: Tìm lỗ hổng bảo mật trong URL sau: "http://mybank-login-secure.xyz/ebank"?', a: 'Giao thức HTTP không bảo mật và tên miền đuôi .xyz bất thường giả mạo', img: '', audio: '', format: 'Spot the Flaw (Tìm lỗi)' },
+      { q: 'Sắp xếp quy trình xử lý sự cố lộ lọt mật khẩu tài khoản: 1. Đổi mật khẩu mới; 2. Đăng xuất các thiết bị; 3. Bật xác thực 2 lớp?', a: '1 - 2 - 3', img: '', audio: '', format: 'Sắp xếp quy trình' },
+      { q: 'Công cụ tìm kiếm thông tin trên Internet thông dụng nhất hiện nay trên thế giới do tập đoàn nào phát triển?', a: 'Google (Alphabet)', img: '', audio: '', format: 'Công nghệ Internet' },
+      { q: 'Tập tin hình ảnh với đuôi mở rộng .PNG có đặc tính ưu việt nào so với .JPEG khi thiết kế đồ họa?', a: 'Hỗ trợ nền trong suốt (Transparency)', img: '', audio: '', format: 'Đồ họa số' },
+      { q: 'Tổ chức Tiêu chuẩn hóa Quốc tế viết tắt là gì?', a: 'ISO', img: '', audio: '', format: 'Tiêu chuẩn quốc tế' },
+      { q: 'Trong Excel, hàm nào được dùng để tính trung bình cộng của một dãy số?', a: 'AVERAGE', img: '', audio: '', format: 'Tin học văn phòng' },
+      { q: 'Nhà mạng viễn thông quân đội lớn nhất tại Việt Nam là gì?', a: 'Viettel', img: '', audio: '', format: 'Viễn thông Việt Nam' },
+      { q: 'Khi tham gia diễn đàn trực tuyến, việc viết toàn bộ chữ IN HOA thường bị coi là hành vi gì?', a: 'Quát mắng / La hét (Shouting)', img: '', audio: '', format: 'Văn hóa mạng (Netiquette)' },
+      { q: 'Định dạng tài liệu số có khả năng hiển thị đồng nhất trên mọi thiết bị và hệ điều hành là định dạng gì?', a: 'PDF (Portable Document Format)', img: '', audio: '', format: 'Định dạng tài liệu' },
+      { q: 'Cáp quang truyền dẫn dữ liệu bằng tín hiệu điện hay tín hiệu ánh sáng?', a: 'Tín hiệu ánh sáng', img: '', audio: '', format: 'Vật lý viễn thông' },
+      { q: 'Nhà bác học nào phát minh ra mạng máy tính toàn cầu World Wide Web (WWW) vào năm 1989?', a: 'Tim Berners-Lee', img: '', audio: '', format: 'Lịch sử Internet' },
+      { q: 'Trình duyệt web mã nguồn mở được phát triển bởi tổ chức Mozilla có biểu tượng con cáo lửa là gì?', a: 'Firefox', img: '', audio: '', format: 'Phần mềm duyệt web' },
+
+      // --- LƯỢT CHUNG 3: 20 CÂU HỎI (3s suy nghĩ, chuông nhanh) ---
+      { q: 'Phương thức sao lưu dữ liệu theo nguyên tắc 3-2-1 yêu cầu lưu trữ tối thiểu bao nhiêu bản sao độc lập ngoài nơi làm việc (Off-site)?', a: '1 bản sao', img: '', audio: '', format: 'An toàn dữ liệu' },
+      { q: 'Hiện tượng AI tự bịa ra thông tin sai lệch nhưng diễn đạt rất thuyết phục được gọi là gì?', a: 'Ảo giác AI (AI Hallucination)', img: '', audio: '', format: 'Trí tuệ nhân tạo' },
+      { q: 'Theo Luật An ninh mạng 2018, trẻ em trên không gian mạng có quyền được bảo vệ bí mật đời sống riêng tư. Đúng hay Sai?', a: 'Đúng', img: '', audio: '', format: 'Đúng/Sai' },
+      { q: 'Khi quét mã QR tại nơi công cộng cần đề phòng nguy cơ bị chuyển hướng đến website lừa đảo, thủ đoạn này gọi là gì?', a: 'Qshing (QR Code Phishing)', img: '', audio: '', format: 'Cảnh báo an ninh mạng' },
+      { q: 'Chương trình máy tính độc hại có khả năng tự nhân bản và lây lan qua mạng mà không cần file chủ gọi là gì?', a: 'Sâu máy tính (Worm)', img: '', audio: '', format: 'Mã độc mạng' },
+      { q: 'Hành động dùng trí tuệ nhân tạo tạo video hoặc hình ảnh khuôn mặt giả mạo người thật gọi là gì?', a: 'Deepfake', img: '', audio: '', format: 'Công nghệ truyền thông số' },
+      { q: 'Địa chỉ IPv4 gồm có bao nhiêu bit nhị phân?', a: '32 bit', img: '', audio: '', format: 'Giao thức mạng' },
+      { q: 'Mô hình điện toán đám mây cho phép người dùng thuê máy chủ, lưu trữ và mạng gọi là gì (IaaS, PaaS hay SaaS)?', a: 'IaaS (Infrastructure as a Service)', img: '', audio: '', format: 'Điện toán đám mây' },
+      { q: 'Loại tấn công mạng nào làm tràn ngập băng thông khiến máy chủ nạn nhân bị quá tải ngưng phục vụ?', a: 'DDoS (Distributed Denial of Service)', img: '', audio: '', format: 'Tấn công mạng' },
+      { q: 'Chữ cái "S" trong chuẩn kết nối bảo mật SSH có nghĩa là gì?', a: 'Secure (Secure Shell)', img: '', audio: '', format: 'Giao thức bảo mật' },
+      { q: 'Thuật ngữ dùng để chỉ một lỗ hổng phần mềm chưa được công bố và chưa có bản vá là gì?', a: 'Zero-day (0-day)', img: '', audio: '', format: 'Lỗ hổng an ninh' },
+      { q: 'Tính năng duyệt web ẩn danh trên trình duyệt Google Chrome có tên gọi là gì?', a: 'Incognito', img: '', audio: '', format: 'Trình duyệt web' },
+      { q: 'Chuẩn kết nối không dây tầm ngắn thường dùng để truyền dữ liệu giữa tai nghe và điện thoại là gì?', a: 'Bluetooth', img: '', audio: '', format: 'Kết nối không dây' },
+      { q: 'Thiết bị định tuyến trung tâm kết nối mạng cục bộ với mạng Internet toàn cầu gọi là gì?', a: 'Router', img: '', audio: '', format: 'Thiết bị mạng' },
+      { q: 'Loại bản quyền phần mềm cho phép người dùng tự do truy cập, chỉnh sửa và phân phối mã nguồn gọi là gì?', a: 'Mã nguồn mở (Open Source)', img: '', audio: '', format: 'Bản quyền số' },
+      { q: 'Cổng thông tin Dịch vụ công Quốc gia của Việt Nam có tên miền là gì?', a: 'dichvucong.gov.vn', img: '', audio: '', format: 'Chính phủ số' },
+      { q: 'Căn cước công dân gắn chip điện tử của Việt Nam có ứng dụng định danh số quốc gia tên là gì?', a: 'VNeID', img: '', audio: '', format: 'Định danh số' },
+      { q: 'Bộ chỉ số đo lường mức độ chuyển đổi số của các bộ, tỉnh/thành tại Việt Nam viết tắt là gì?', a: 'DTI (Digital Transformation Index)', img: '', audio: '', format: 'Chuyển đổi số quốc gia' },
+      { q: 'Trong an toàn thông tin, 3 yếu tố cốt lõi của mô hình CIA Triad là Tính bảo mật, Tính toàn vẹn và Tính gì?', a: 'Tính sẵn sàng (Availability)', img: '', audio: '', format: 'An toàn thông tin cơ bản' },
+      { q: 'Theo Thông tư 02/2025/TT-BGDĐT, việc sử dụng các công cụ số để hợp tác và chia sẻ tài nguyên thuộc Miền năng lực số mấy?', a: 'Miền 2 (Giao tiếp và Hợp tác trong môi trường số)', img: '', audio: '', format: 'Khung năng lực số BGD' }
     ]
   },
   vuotCnv: {
-    keyword: 'PHÁO ĐẤT',
+    keyword: 'AN TOÀN THÔNG TIN',
     imageFile: 'cnv.jpg',
-    piecesCount: '1',
-    explanation: 'Đây là giải thích về chướng ngại vật, có thể được mở trên app MC.',
+    piecesCount: '5', // 4 góc + 1 ô trung tâm (theo chuẩn Mục 2.1)
+    explanation: 'Chướng ngại vật gồm 4 miếng ghép tương ứng 4 từ hàng ngang ở 4 góc và 1 miếng ghép ô trung tâm. Ô Mạo hiểm tồn tại trong 10 giây cho thí sinh chọn nhanh nhất. Trả lời đúng sau Ô Mạo hiểm nhận 120 điểm.',
     rows: [
-      { name: 'Hàng ngang 1', q: 'Sự kiện văn hóa được tổ chức theo nghi lễ truyền thống của cộng đồng gọi là gì?', a: 'Lễ hội', audio: 'untitled.wav' },
-      { name: 'Hàng ngang 2', q: 'Sông Cái, Nhị Hà hay Nhĩ Hà là tên gọi khác của con sông lớn nào ở miền Bắc?', a: 'sông Hồng', audio: '' },
-      { name: 'Hàng ngang 3', q: 'Từ nào được dùng để chỉ kế sách quân sự đánh lừa đối phương, giấu giếm ý đồ thật?', a: 'Nghi binh', audio: '' },
-      { name: 'Hàng ngang 4', q: 'Từ nào còn thiếu trong câu tục ngữ: "Tiếng lành đồn xa, tiếng dữ đồn..."?', a: 'Nổ', audio: '' },
-      { name: 'Hàng ngang trung tâm', q: 'Loại vũ khí nào xuất hiện trên mặt trận chi viện hỏa lực tầm xa?', a: 'Pháo', audio: '' }
-    ]
+      { name: 'Hàng ngang 1 (Góc 1 - 15s)', q: 'Sự bảo đảm cho dữ liệu số không bị truy cập hoặc tiết lộ trái phép gọi là tính gì trong an toàn thông tin?', a: 'Bảo mật', audio: 'untitled.wav' },
+      { name: 'Hàng ngang 2 (Góc 2 - 15s)', q: 'Phần mềm độc hại xâm nhập máy tính để phá hoại, đánh cắp thông tin gọi chung là gì?', a: 'Mã độc', audio: '' },
+      { name: 'Hàng ngang 3 (Góc 3 - 15s)', q: 'Chuỗi ký tự bí mật dùng để xác thực quyền truy cập của người dùng vào tài khoản số gọi là gì?', a: 'Mật khẩu', audio: '' },
+      { name: 'Hàng ngang 4 (Góc 4 - 15s)', q: 'Hệ thống mạng máy tính toàn cầu kết nối hàng tỷ thiết bị trên khắp thế giới gọi là gì?', a: 'Internet', audio: '' },
+      { name: 'Hàng ngang trung tâm (15s)', q: 'Bộ luật nào của Quốc hội quy định về hoạt động an toàn thông tin mạng, quyền và trách nhiệm của cơ quan, tổ chức, cá nhân ban hành năm 2015?', a: 'Luật An toàn thông tin mạng', audio: '' }
+    ],
+    // Ô MẠO HIỂM (Theo Mục 2.3: 20s suy nghĩ, 30s trả lời CNV, đoán đúng nhận 120 điểm)
+    riskSlot: {
+      name: 'Ô Mạo Hiểm (120 Điểm)',
+      q: 'Theo Nghị định 13/2023/NĐ-CP, việc xử lý dữ liệu cá nhân của trẻ em từ đủ 7 tuổi trở lên bắt buộc phải có sự đồng ý của những ai?',
+      a: 'Cha, mẹ hoặc người giám hộ và trẻ em đó',
+      timeLimit: '20s suy nghĩ (30s trả lời CNV)',
+      points: 120,
+      note: 'Ô mạo hiểm chỉ tồn tại trong 10 giây cho thí sinh nhanh tay nhất nhấp chuột. Đoán đúng Chướng ngại vật nhận 120 điểm, sai bị trừ 1/2 số điểm hiện có.'
+    }
   },
   tangToc: {
+    // 4 câu hỏi thời gian suy nghĩ cố định: 20s, 20s, 30s, 30s (Theo Mục 3)
     questions: [
-      { name: 'Tăng tốc 1', q: 'Trả lời câu hỏi: Hãy xác định phương án bảo mật dữ liệu an toàn?', a: 'B', answerImg: '', mediaList: ['tt1.png'] },
-      { name: 'Tăng tốc 2', q: 'Trả lời câu hỏi: Hãy sắp xếp tên các tác phẩm văn học: Ông già và biển cả (Ernest Hemingway), Nhà giả kim...', a: 'ADCBCBAD (Các tác phẩm Ông già và biển cả - Ernest Hemingway, Nhà giả kim...)', answerImg: 'tt2.2.png', mediaList: ['tt2.1.png'] },
-      { name: 'Tăng tốc 3', q: 'Trả lời câu hỏi: Quan sát hình khối và đếm số lượng hình lập phương?', a: '6', answerImg: '', mediaList: ['tt3.jpg'] },
-      { name: 'Tăng tốc 4', q: 'Đây là ai? Bác sĩ nông học người Việt Nam lai tạo ra giống lúa Nông nghiệp 1?', a: 'Lương Định Của', answerImg: '', mediaList: ['video.mp4'] }
+      { 
+        name: 'Tăng tốc 1 (20 giây)', 
+        time: 20,
+        type: 'Tìm điểm khác biệt / Dữ kiện',
+        q: 'Quan sát 4 hình ảnh chứng chỉ bảo mật SSL/TLS. Hãy xác định hình ảnh nào chứa dấu hiệu website giả mạo (Phishing)?', 
+        a: 'B (Hình B sử dụng tên miền con giả mạo và chứng chỉ tự ký)', 
+        answerImg: '', 
+        mediaList: ['tt1.png'] 
+      },
+      { 
+        name: 'Tăng tốc 2 (20 giây)', 
+        time: 20,
+        type: 'Sắp xếp quy trình nhanh',
+        q: 'Hãy sắp xếp thứ tự 4 bước phản ứng khi phát hiện máy tính bị nhiễm Ransomware: A. Ngắt kết nối mạng ngay lập tức; B. Báo cáo bộ phận an ninh mạng; C. Sao lưu dữ liệu phân tích; D. Quét và cách ly mã độc?', 
+        a: 'A - B - C - D (Ngắt mạng ➔ Báo cáo ➔ Sao lưu mẫu ➔ Cách ly)', 
+        answerImg: 'tt2.2.png', 
+        mediaList: ['tt2.1.png'] 
+      },
+      { 
+        name: 'Tăng tốc 3 (30 giây)', 
+        time: 30,
+        type: 'Suy luận nâng cao trắc nghiệm (6 đáp án, loại trừ sau 10s)',
+        q: 'Trong 6 công nghệ sau: A. Blockchain; B. Mật khẩu 4 số; C. Sinh trắc học FIDO2; D. Khóa bảo mật phần cứng USB; E. Mã hóa lượng tử; F. Gửi mật khẩu qua SMS không mã hóa. Có 2 công nghệ KHÔNG an toàn cho hệ thống trọng yếu. Hãy xác định 2 công nghệ đó?', 
+        a: 'B và F (Mật khẩu 4 số và SMS không mã hóa dễ bị tấn công SIM swap)', 
+        answerImg: '', 
+        mediaList: ['tt3.jpg'] 
+      },
+      { 
+        name: 'Tăng tốc 4 (30 giây)', 
+        time: 30,
+        type: 'Đoạn băng / Giải quyết tình huống',
+        q: 'Theo dõi đoạn video mô phỏng một cuộc tấn công mạng nhằm vào hệ thống năng lượng quốc gia. Kỹ thuật xâm nhập ban đầu nào đã được tin tặc sử dụng?', 
+        a: 'Tấn công chuỗi cung ứng (Supply Chain Attack) qua bản cập nhật phần mềm của bên thứ ba', 
+        answerImg: '', 
+        mediaList: ['video.mp4'] 
+      }
     ]
   },
   veDich: {
+    // Mỗi lượt gồm đầy đủ các câu hỏi mức 20, 30 và 40 điểm để sẵn sàng cho thí sinh chọn gói 3 câu bất kỳ khi thi đấu (Mục 4.1 & 4.2)
+    // Thời gian suy nghĩ: 20đ (15s), 30đ (20s), 40đ (30s)
+    // Thời gian thực hành: 20đ (30s), 30đ (60s), 40đ (90s)
     luot1: [
-      { pts: 'Câu hỏi 20 điểm', q: 'Mỗi buổi sáng, tôi thường thức dậy và ngắm dãy núi cao nhất thế giới. Dãy núi đó tên là gì?', a: 'Himalaya', media: '', note: '', audio: '' },
-      { pts: 'Câu hỏi 20 điểm', q: 'Vì sao một quả bóng nếu bơm căng quá khi đá sẽ nhanh bị hỏng hơn bóng vừa phải?', a: 'Vì bóng khó biến dạng nên tính đàn hồi giảm', media: '', note: '', audio: '' },
-      { pts: 'Câu hỏi 20 điểm', q: 'Bạn hãy trả lời câu hỏi sau bằng tiếng Anh: Which organ is the main organ of human\'s circulatory system?', a: 'Heart', media: '', note: 'Which organ is the main organ of human\'s circulatory system?', audio: '' },
-      { pts: 'Câu hỏi 30 điểm', q: 'Sự ra đời của tổ chức nào vào cuối năm 1960 đã đánh dấu bước ngoặt của cách mạng miền Nam?', a: 'Mặt trận Dân tộc giải phóng miền Nam Việt Nam', media: '', note: '', audio: '' },
-      { pts: 'Câu hỏi 30 điểm', q: 'Trong một đoạn mạch xoay chiều chỉ có điện trở, nếu ta tăng điện áp hiệu dụng giữa hai đầu mạch lên thì công suất tỏa nhiệt thay đổi thế nào?', a: 'Tăng 8 lần', media: '', note: 'công thức P = U^2 / R', audio: '' },
-      { pts: 'Câu hỏi 30 điểm', q: 'Trên trán cổng của ngôi đền nào ở Hồ Gươm có khắc ba chữ "Đắc Nguyệt Lâu"?', a: 'Đền Ngọc Sơn', media: '', note: '', audio: '' }
+      { pts: 'Câu hỏi 20 điểm', time: '15s (Thực hành 30s)', q: 'Mỗi buổi sáng, tôi thường thức dậy và ngắm dãy núi cao nhất thế giới. Dãy núi đó tên là gì?', a: 'Himalaya', media: '', note: 'MC kiểm tra phát âm', audio: '' },
+      { pts: 'Câu hỏi 20 điểm', time: '15s (Thực hành 30s)', q: 'Vì sao một quả bóng nếu bơm căng quá khi đá sẽ nhanh bị hỏng hơn bóng vừa phải?', a: 'Vì bóng khó biến dạng nên tính đàn hồi giảm', media: '', note: '', audio: '' },
+      { pts: 'Câu hỏi 20 điểm', time: '15s (Thực hành 30s)', q: 'Đơn vị đo lường năng lượng calo (cal) thường dùng trong dinh dưỡng tương đương xấp xỉ bao nhiêu Jun (J)?', a: '4,184 J', media: '', note: '1 cal = 4,184 J', audio: '' },
+      { pts: 'Câu hỏi 30 điểm', time: '20s (Thực hành 60s)', q: 'Sự ra đời của tổ chức nào vào cuối năm 1960 đã đánh dấu bước ngoặt của cách mạng miền Nam?', a: 'Mặt trận Dân tộc giải phóng miền Nam Việt Nam', media: '', note: 'Ngày 20/12/1960', audio: '' },
+      { pts: 'Câu hỏi 30 điểm', time: '20s (Thực hành 60s)', q: 'Trong một đoạn mạch xoay chiều chỉ có điện trở, nếu ta tăng điện áp hiệu dụng giữa hai đầu mạch lên 2 lần thì công suất tỏa nhiệt thay đổi thế nào?', a: 'Tăng 4 lần', media: '', note: 'Công thức P = U^2 / R', audio: '' },
+      { pts: 'Câu hỏi 30 điểm', time: '20s (Thực hành 60s)', q: 'Cấu trúc dữ liệu nào trong lập trình hoạt động theo nguyên lý LIFO (Last In First Out)?', a: 'Ngăn xếp (Stack)', media: '', note: 'Cấu trúc dữ liệu cơ bản', audio: '' },
+      { pts: 'Câu hỏi 40 điểm', time: '30s (Thực hành 90s)', q: 'Một hệ thống ngân hàng bị tấn công từ chối dịch vụ phân tán (DDoS) với lưu lượng 100 Gbps. Hãy nêu 3 bước phản ứng khẩn cấp để duy trì tính sẵn sàng của dịch vụ?', a: '1. Kích hoạt trung tâm lọc lưu lượng (Scrubbing Center/CDN); 2. BGP Blackholing dải IP tấn công; 3. Báo cáo Ban chỉ đạo ứng cứu khẩn cấp quốc gia (VNCERT/CC)', media: 'video.mp4', note: 'Câu hỏi thực hành tình huống 40 điểm, thời gian suy nghĩ 30s, thực hành 90s', audio: '' },
+      { pts: 'Câu hỏi 40 điểm', time: '30s (Thực hành 90s)', q: 'Trình bày giải pháp thiết kế chính sách an toàn thông tin nhiều lớp (Defense-in-Depth) bảo vệ dữ liệu khách hàng theo chuẩn ISO/IEC 27001?', a: 'Phân tách vùng mạng (Network Segmentation), kiểm soát truy cập đặc quyền (PAM), mã hóa dữ liệu lưu trữ và truyền tải (AES-256/TLS), kết hợp giám sát SIEM/SOC 24/7', media: '', note: 'Câu hỏi thực hành 40 điểm (Suy nghĩ 30s, Thực hành 90s)', audio: '' },
+      { pts: 'Câu hỏi 40 điểm', time: '30s (Thực hành 90s)', q: 'Phân tích nguy cơ an ninh mạng khi triển khai kiến trúc microservices và đề xuất 2 giải pháp kiểm soát API Gateway hiệu quả?', a: 'Nguy cơ: Bề mặt tấn công rộng và khó kiểm soát dữ liệu liên dịch vụ; Giải pháp: Áp dụng mTLS giữa các services kết hợp xác thực OAuth2/JWT và cấu hình Rate Limiting trên API Gateway', media: '', note: 'Câu hỏi thực hành kiến trúc hệ thống 40 điểm', audio: '' }
     ],
     luot2: [
-      { pts: 'Câu hỏi 20 điểm', q: 'Đặt trên mặt bàn một chiếc điện thoại đang kêu chuông, vì sao khi áp tai vào mặt bàn nghe rõ hơn khi ở trong không khí?', a: 'vì chất rắn truyền âm tốt hơn chất khí.', media: '', note: '', audio: '' },
-      { pts: 'Câu hỏi 20 điểm', q: 'Nếu xóa đi 1 trong 10 số nguyên dương liên tiếp thì tổng 9 số còn lại tận cùng bằng chữ số nào?', a: '9 (Tổng của 10 số nguyên dương liên tiếp luôn có tận cùng là 5)', media: '', note: '', audio: '' },
-      { pts: 'Câu hỏi 20 điểm', q: '"Thằng nhãi con Tuyên Đức động binh không ngừng/ Đồ nhút nhát Thạnh, Thăng đem dầu chữa cháy". "Thạnh", "Thăng" trong câu chỉ những ai?', a: 'Mộc Thạnh, Liễu Thăng', media: '', note: '', audio: '' },
-      { pts: 'Câu hỏi 30 điểm', q: 'Văn bia chùa Thiên ứng dựng đời vua Lê Thái Tông ghi lại sự hình thành của thương cảng phồn thịnh nào?', a: 'Phố Hiến (Hưng Yên)', media: '', note: '', audio: '' },
-      { pts: 'Câu hỏi 30 điểm', q: '2 tỉnh nào có lượng mưa trung bình năm cao nhất và thấp nhất nước ta?', a: 'Thừa Thiên Huế (VQG Bạch Mã), Ninh Thuận', media: '', note: '', audio: '' },
-      { pts: 'Câu hỏi 30 điểm', q: '"Thư sinh giết giặc bằng ngòi bút" là lời ca ngợi nhân dân dành cho nhà thơ nào?', a: 'Nguyễn Đình Chiểu', media: '', note: '', audio: '' }
+      { pts: 'Câu hỏi 20 điểm', time: '15s (Thực hành 30s)', q: 'Đặt trên mặt bàn một chiếc điện thoại đang kêu chuông, vì sao khi áp tai vào mặt bàn nghe rõ hơn khi ở trong không khí?', a: 'Vì chất rắn truyền âm tốt hơn chất khí.', media: '', note: '', audio: '' },
+      { pts: 'Câu hỏi 20 điểm', time: '15s (Thực hành 30s)', q: 'Nếu xóa đi 1 trong 10 số nguyên dương liên tiếp thì tổng 9 số còn lại tận cùng bằng chữ số nào?', a: '9 (Tổng của 10 số liên tiếp có tận cùng bằng 5)', media: '', note: '', audio: '' },
+      { pts: 'Câu hỏi 20 điểm', time: '15s (Thực hành 30s)', q: 'Hiện tượng tán sắc ánh sáng lần đầu tiên được nhà khoa học vĩ đại nào giải thích bằng lăng kính vào năm 1666?', a: 'Isaac Newton', media: '', note: '', audio: '' },
+      { pts: 'Câu hỏi 30 điểm', time: '20s (Thực hành 60s)', q: 'Văn bia chùa Thiên ứng dựng đời vua Lê Thái Tông ghi lại sự hình thành của thương cảng phồn thịnh nào ở miền Bắc?', a: 'Phố Hiến (Hưng Yên)', media: '', note: 'Thứ nhất Kinh kỳ, thứ nhì Phố Hiến', audio: '' },
+      { pts: 'Câu hỏi 30 điểm', time: '20s (Thực hành 60s)', q: '2 tỉnh nào có lượng mưa trung bình năm cao nhất và thấp nhất nước ta?', a: 'Thừa Thiên Huế (Bạch Mã) và Ninh Thuận', media: '', note: '', audio: '' },
+      { pts: 'Câu hỏi 30 điểm', time: '20s (Thực hành 60s)', q: 'Trong mạng máy tính, thuật toán mã hóa bất đối xứng sử dụng cặp khóa nào để bảo mật dữ liệu?', a: 'Khóa công khai (Public Key) và Khóa bí mật (Private Key)', media: '', note: 'Mật mã học cơ bản', audio: '' },
+      { pts: 'Câu hỏi 40 điểm', time: '30s (Thực hành 90s)', q: 'Theo Luật Giao dịch điện tử 2023 và Khung năng lực số Thông tư 02/2025/TT-BGDĐT, chữ ký số chuyên dùng công vụ khác chữ ký số cá nhân thông thường ở những điểm cơ bản nào?', a: 'Do Ban Cơ yếu Chính phủ cấp riêng cho cán bộ, công chức thực hiện công vụ; có giá trị pháp lý xác thực văn bản nhà nước và được bảo đảm an toàn mức độ cao nhất', media: '', note: 'Câu hỏi 40 điểm chuyên sâu pháp lý số (Suy nghĩ 30s, Thực hành 90s)', audio: '' },
+      { pts: 'Câu hỏi 40 điểm', time: '30s (Thực hành 90s)', q: 'Quy trình 4 bước xử lý và phục hồi hệ thống công nghệ thông tin bệnh viện sau khi bị mã độc Ransomware mã hóa dữ liệu?', a: '1. Cô lập mạng lập tức; 2. Xác định chủng mã độc và khóa giải mã; 3. Khôi phục từ bản sao lưu độc lập (Clean Backup); 4. Vá lỗ hổng xâm nhập trước khi tái kết nối', media: '', note: 'Câu hỏi thực hành tình huống 40 điểm', audio: '' },
+      { pts: 'Câu hỏi 40 điểm', time: '30s (Thực hành 90s)', q: 'Một ứng dụng web thương mại điện tử bị tấn công Cross-Site Scripting (XSS). Giải thích cơ chế tấn công và đề xuất 2 biện pháp mã nguồn để khắc phục triệt để?', a: 'Cơ chế: Chèn mã script độc hại vào trang web để chiếm phiên của người dùng; Biện pháp: Mã hóa dữ liệu đầu ra theo ngữ cảnh (Context-aware Output Encoding), bật cờ HttpOnly cho Cookie và triển khai Content Security Policy (CSP)', media: '', note: 'Câu hỏi thực hành lập trình an toàn 40 điểm', audio: '' }
     ],
     luot3: [
-      { pts: 'Câu hỏi 20 điểm', q: '"Chuồn chuồn bay thấp thì mưa/ Bay cao thì nắng, bay vừa thì râm" phản ánh sự thay đổi của đại lượng nào?', a: 'Độ ẩm không khí', media: '', note: '', audio: '' },
-      { pts: 'Câu hỏi 20 điểm', q: 'Kim Tôn là tên thường gọi thời thơ ấu của nhà văn tài hoa nào?', a: 'Nguyễn Tuân', media: '', note: '', audio: '' },
-      { pts: 'Câu hỏi 20 điểm', q: 'Nếu hàm lượng nguyên tố Mo (Molipden) trong thực vật cao hơn bình thường có thể gây bệnh gì ở người?', a: 'gout (gút, thống phong)', media: '', note: '', audio: '' },
-      { pts: 'Câu hỏi 30 điểm', q: 'Bà là một danh sĩ tài hoa sống vào thời Lê - Trịnh, tác giả bản dịch Chinh phụ ngâm khúc nổi tiếng?', a: 'Đoàn Thị Điểm', media: '', note: '', audio: '' },
-      { pts: 'Câu hỏi 30 điểm', q: 'Trong các phát minh sau, (những) phát minh nào của Thomas Edison?', a: 'bóng đèn dây tóc và điện thoại', media: '', note: '', audio: '' },
-      { pts: 'Câu hỏi 30 điểm', q: 'Bạn hãy trả lời câu hỏi sau bằng tiếng Anh.', a: 'Scorpion', media: '', note: 'Hi, I\'m Jeremy from Boston. Today, I have a question for you.', audio: '' }
+      { pts: 'Câu hỏi 20 điểm', time: '15s (Thực hành 30s)', q: '"Chuồn chuồn bay thấp thì mưa/ Bay cao thì nắng, bay vừa thì râm" phản ánh sự thay đổi của đại lượng vật lý nào?', a: 'Độ ẩm không khí (Áp suất khí quyển)', media: '', note: '', audio: '' },
+      { pts: 'Câu hỏi 20 điểm', time: '15s (Thực hành 30s)', q: 'Kim Tôn là tên thường gọi thời thơ ấu của nhà văn tài hoa nào của văn học Việt Nam?', a: 'Nguyễn Tuân', media: '', note: '', audio: '' },
+      { pts: 'Câu hỏi 20 điểm', time: '15s (Thực hành 30s)', q: 'Khí nào chiếm tỉ lệ thể tích lớn thứ hai trong bầu khí quyển của Trái Đất sau Nitrogen?', a: 'Oxygen (O2)', media: '', note: 'Khoảng 21% thể tích', audio: '' },
+      { pts: 'Câu hỏi 30 điểm', time: '20s (Thực hành 60s)', q: 'Bà là một nữ danh sĩ tài hoa sống vào thời Lê - Trịnh, tác giả bản dịch "Chinh phụ ngâm khúc" nổi tiếng?', a: 'Đoàn Thị Điểm', media: '', note: '', audio: '' },
+      { pts: 'Câu hỏi 30 điểm', time: '20s (Thực hành 60s)', q: 'Trong các phát minh sau: bóng đèn dây tóc, điện thoại, máy hát đĩa, phát minh nào KHÔNG phải của Thomas Edison?', a: 'Điện thoại (Phát minh của Alexander Graham Bell)', media: '', note: '', audio: '' },
+      { pts: 'Câu hỏi 30 điểm', time: '20s (Thực hành 60s)', q: 'Hàm băm một chiều (Hash function) an toàn đạt tiêu chuẩn công nghiệp hiện nay phải đáp ứng tối thiểu độ dài bao nhiêu bit (MD5, SHA-1 hay SHA-256)?', a: 'SHA-256 (256 bit)', media: '', note: 'An toàn thuật toán băm', audio: '' },
+      { pts: 'Câu hỏi 40 điểm', time: '30s (Thực hành 90s)', q: 'Một trường học phát hiện dữ liệu điểm số và thông tin cá nhân của học sinh bị rò rỉ lên diễn đàn mạng. Căn cứ Nghị định 13/2023/NĐ-CP, nhà trường phải thông báo cho Cục A05 (Bộ Công an) trong thời hạn tối đa bao nhiêu giờ kể từ khi phát hiện sự cố?', a: '72 giờ', media: '', note: 'Khoản 3 Điều 26 Nghị định 13/2023/NĐ-CP (Suy nghĩ 30s, Thực hành 90s)', audio: '' },
+      { pts: 'Câu hỏi 40 điểm', time: '30s (Thực hành 90s)', q: 'Trình bày phương pháp kiểm thử an ninh mạng (Penetration Testing) để phát hiện và ngăn chặn lỗ hổng SQL Injection trên Cổng thông tin đào tạo?', a: 'Sử dụng kỹ thuật Fuzzing tham số đầu vào, kiểm tra phản hồi lỗi SQL, áp dụng công cụ quét DAST kết hợp rà soát mã nguồn (SAST) để đóng lỗ hổng bằng Parameterized Queries', media: '', note: 'Câu hỏi thực hành 40 điểm (Suy nghĩ 30s, Thực hành 90s)', audio: '' },
+      { pts: 'Câu hỏi 40 điểm', time: '30s (Thực hành 90s)', q: 'Theo Khung kiến trúc Chính phủ điện tử Việt Nam và Thông tư 02/2025/TT-BGDĐT, hãy nêu 3 nguyên tắc bảo đảm liên thông và an toàn dữ liệu khi kết nối Cơ sở dữ liệu quốc gia về giáo dục?', a: '1. Sử dụng Trục liên thông quốc gia (NDXP); 2. Mã hóa đường truyền bằng VPN IPsec/TLS chuyên dụng; 3. Kiểm soát quyền truy cập chi tiết và ghi nhật ký truy vết tự động', media: '', note: 'Câu hỏi chuyên sâu tích hợp hệ thống số 40 điểm', audio: '' }
     ],
     luot4: [
-      { pts: 'Câu hỏi 20 điểm', q: 'Tìm hiệu của số nguyên tố lớn nhất có 1 chữ số với số nguyên tố nhỏ nhất có 1 chữ số?', a: '3', media: 'video.mp4', note: 'giang đẹp trai', audio: '' },
-      { pts: 'Câu hỏi 20 điểm', q: 'Trong "Thi nhân Việt Nam", Hoài Thanh khi nhắc tới tác giả của bài "Chân quê" đã gọi ông là gì?', a: 'Nguyễn Bính', media: 'cnv.jpg', note: '', audio: '' },
-      { pts: 'Câu hỏi 20 điểm', q: 'Trong sự phát triển của phôi thai người, cấu trúc khe mang gợi nhớ đến tổ tiên loài nào?', a: 'Cá', media: '', note: '', audio: 'tada.mp3' },
-      { pts: 'Câu hỏi 30 điểm', q: 'Xe đạp và người đi xe máy cùng xuất phát từ A đến B...', a: '19,2 km/h', media: 'video.mp4', note: '', audio: '' },
-      { pts: 'Câu hỏi 30 điểm', q: 'Có bao nhiêu vùng kinh tế ở nước ta không có cảng biển? Đó là vùng nào?', a: '1, Tây Nguyên', media: 'cnv.jpg', note: '', audio: '' },
-      { pts: 'Câu hỏi 30 điểm', q: 'Cơ quan nào trong tế bào động vật đóng vai trò tiêu hóa nội bào?', a: 'Lisosome', media: '', note: '', audio: 'tada.mp3' }
+      { pts: 'Câu hỏi 20 điểm', time: '15s (Thực hành 30s)', q: 'Tìm hiệu của số nguyên tố lớn nhất có 1 chữ số với số nguyên tố nhỏ nhất có 1 chữ số?', a: '5 (7 - 2 = 5)', media: 'video.mp4', note: 'Số nguyên tố nhỏ nhất là 2, lớn nhất có 1 chữ số là 7', audio: '' },
+      { pts: 'Câu hỏi 20 điểm', time: '15s (Thực hành 30s)', q: 'Trong "Thi nhân Việt Nam", Hoài Thanh khi nhắc tới tác giả của bài thơ "Chân quê" đã gọi ông là gì?', a: 'Nguyễn Bính', media: 'cnv.jpg', note: '', audio: '' },
+      { pts: 'Câu hỏi 20 điểm', time: '15s (Thực hành 30s)', q: 'Tác phẩm văn học trung đại nào của Nguyễn Dữ được ví như "Thiên cổ kỳ bút" của nước Nam?', a: 'Truyền kỳ mạn lục', media: '', note: '', audio: '' },
+      { pts: 'Câu hỏi 30 điểm', time: '20s (Thực hành 60s)', q: 'Xe đạp và xe máy cùng xuất phát từ A đến B. Vận tốc xe máy lớn hơn xe đạp 20 km/h. Sau 2 giờ, khoảng cách giữa 2 xe là bao nhiêu?', a: '40 km', media: 'video.mp4', note: 'Quãng đường chênh lệch = delta v * t = 20 * 2', audio: '' },
+      { pts: 'Câu hỏi 30 điểm', time: '20s (Thực hành 60s)', q: 'Có bao nhiêu vùng kinh tế - xã hội ở nước ta không tiếp giáp với biển? Đó là vùng nào?', a: '1 vùng (Tây Nguyên)', media: 'cnv.jpg', note: '', audio: '' },
+      { pts: 'Câu hỏi 30 điểm', time: '20s (Thực hành 60s)', q: 'Tấn công Man-in-the-Middle (MitM) trên mạng Wi-Fi công cộng thường lợi dụng kỹ thuật giả mạo giao thức nào ở tầng liên kết dữ liệu?', a: 'ARP Spoofing (ARP Poisoning)', media: '', note: 'Giao thức mạng máy tính', audio: '' },
+      { pts: 'Câu hỏi 40 điểm', time: '30s (Thực hành 90s)', q: 'Phân tích điểm khác biệt giữa tấn công Zero-day và Phishing. Giải pháp kỹ thuật nào giúp phát hiện mã độc Zero-day chưa từng có chữ ký nhận diện?', a: 'Phân tích hành vi trong môi trường hộp cát (Sandbox / Behavioral Analysis) kết hợp giải pháp EDR (Endpoint Detection and Response)', media: 'video.mp4', note: 'Câu hỏi tình huống an toàn thông tin 40 điểm (Suy nghĩ 30s, Thực hành 90s)', audio: '' },
+      { pts: 'Câu hỏi 40 điểm', time: '30s (Thực hành 90s)', q: 'Xây dựng mô hình bảo mật Zero Trust (Không tin tưởng bất kỳ ai, luôn xác thực) cho hệ thống cơ quan nhà nước gồm những trụ cột chính nào?', a: '1. Định danh người dùng (IAM/MFA); 2. Thiết bị đầu cuối (Endpoint Security); 3. Mạng lưới vi phân đoạn (Micro-segmentation); 4. Ứng dụng & Dữ liệu được mã hóa toàn trình', media: '', note: 'Câu hỏi chiến lược bảo mật số 40 điểm', audio: '' },
+      { pts: 'Câu hỏi 40 điểm', time: '30s (Thực hành 90s)', q: 'Khi triển khai hệ thống trung tâm dữ liệu dự phòng thảm họa (Disaster Recovery Center), hai chỉ số RPO (Recovery Point Objective) và RTO (Recovery Time Objective) mang ý nghĩa gì?', a: 'RPO là thời gian mất mát dữ liệu tối đa chấp nhận được; RTO là khoảng thời gian tối đa để khôi phục dịch vụ hoạt động bình thường sau sự cố', media: '', note: 'Câu hỏi quản trị dự phòng thảm họa CNTT 40 điểm', audio: '' }
+    ],
+    // Lượt phân định khi có 4 thí sinh bằng điểm (Theo Mục 6: 100 điểm khởi điểm, gói 3 câu 20-30-40đ, ngôi sao hy vọng)
+    luotHoaDiem4Nguoi: [
+      { pts: 'Câu hỏi 20 điểm', time: '15s', q: 'Thiết bị nào trong mạng máy tính hoạt động ở Tầng 2 (Data Link) của mô hình OSI và chuyển tiếp gói tin dựa trên địa chỉ MAC?', a: 'Switch (Bộ chuyển mạch)', note: 'Dự phòng phân định hòa 4 người' },
+      { pts: 'Câu hỏi 30 điểm', time: '20s', q: 'Theo Nghị định 13/2023/NĐ-CP, hành vi mua bán dữ liệu cá nhân có thể bị xử phạt hành chính lên tới bao nhiêu phần trăm tổng doanh thu?', a: 'Tới 5% tổng doanh thu năm tài chính liền kề', note: 'Điều 4 Nghị định 13' },
+      { pts: 'Câu hỏi 40 điểm', time: '30s (Thực hành 90s)', q: 'Trình bày giải pháp phòng chống tấn công chèn mã SQL Injection trên ứng dụng web theo khuyến nghị OWASP Top 10?', a: 'Sử dụng Prepared Statements (Parameterized Queries), kiểm thực dữ liệu đầu vào (Input Validation) và áp dụng nguyên tắc đặc quyền tối thiểu cho tài khoản Database', note: 'Câu hỏi phân định chiến thắng' }
     ]
   },
+  // 5 câu hỏi phụ + 1 câu hỏi tình huống phân định (Theo chuẩn Mục 5)
   cauHoiPhu: [
-    { name: 'Câu hỏi phụ 1', q: 'nhiệt độ hà nội hôm nay', a: '20 độ' },
-    { name: 'Câu hỏi phụ 2', q: 'nhiệt độ nghệ an hôm nay', a: '30 độ' },
-    { name: 'Câu hỏi phụ 3', q: 'nhiệt độ thanh hóa hôm nay', a: '40 độ' }
+    { name: 'Câu hỏi phụ 1 (15 giây)', q: 'Số nguyên tố chẵn duy nhất trong tập hợp số tự nhiên là số mấy?', a: '2' },
+    { name: 'Câu hỏi phụ 2 (15 giây)', q: 'Hành tinh nào trong Hệ Mặt Trời có thời gian tự quay một vòng quanh trục lâu hơn thời gian quay một vòng quanh Mặt Trời?', a: 'Sao Kim (Venus)' },
+    { name: 'Câu hỏi phụ 3 (15 giây)', q: 'Trong kiến trúc máy tính Von Neumann, thành phần nào chịu trách nhiệm thực hiện các phép tính số học và logic?', a: 'ALU (Arithmetic Logic Unit)' },
+    { name: 'Câu hỏi phụ 4 (15 giây)', q: 'Văn bản quy phạm pháp luật nào của Bộ Giáo dục và Đào tạo ban hành Khung năng lực số cho người học năm 2025?', a: 'Thông tư 02/2025/TT-BGDĐT' },
+    { name: 'Câu hỏi phụ 5 (15 giây)', q: 'Vị vua nào của triều Nguyễn đã cho đúc Cửu Đỉnh đặt trước Thế Miếu ở Hoàng thành Huế?', a: 'Vua Minh Mạng' },
+    { name: 'Câu hỏi tình huống phân định (Dự phòng)', q: 'Một công ty công nghệ phát hiện một nhân viên mang ổ cứng chứa mã nguồn bảo mật ra khỏi công ty. Với vai trò quản trị viên an ninh, hãy đưa ra hành động tức thời trong 60 giây?', a: 'Khóa tài khoản truy cập, vô hiệu hóa chứng thư số của nhân viên từ xa và trích xuất nhật ký truy cập (Log audit) để báo cáo Hội đồng kỷ luật' }
   ]
 };
 
@@ -476,7 +662,7 @@ export function parseBtiKdRows(rows: any[][]): QuestionItem[] {
         options: {},
         correct_key: ansText,
         explanation: `Lượt thi: ${roundName}`,
-        time_limit: isChung ? 15 : 10,
+        time_limit: isChung ? 3 : 10,
         points: 10,
         participant_slot: isChung ? undefined : currentSlot,
         media_type: imgFile ? 'IMAGE' : (audioFile ? 'AUDIO' : 'NONE'),
@@ -525,21 +711,24 @@ export function parseBtiVcnvRows(rows: any[][]): QuestionItem[] {
     const ans = String(row[2] || '').trim();
     const audio = cleanMediaFileName(String(row[3] || '').trim());
 
-    if (normVn(label).includes('HANG NGANG') && qText.length > 3) {
+    if ((normVn(label).includes('HANG NGANG') || normVn(label).includes('MAO HIEM')) && qText.length > 3) {
       const isCenter = normVn(label).includes('TRUNG TAM');
-      const roundFormat = isCenter ? 'VCNV_TRUNG_TAM' : 'VCNV_HANG_NGANG';
+      const isRisk = normVn(label).includes('MAO HIEM');
+      const roundFormat = isRisk ? 'VCNV_MAO_HIEM' : (isCenter ? 'VCNV_TRUNG_TAM' : 'VCNV_HANG_NGANG');
       items.push({
         id: `VCNV_${items.length + 1}`,
-        round_name: `Vòng 2: VCNV (${label})`,
+        round_name: isRisk ? 'Vòng 2: VCNV (Ô Mạo Hiểm - 120 điểm)' : `Vòng 2: VCNV (${label})`,
         round_type: 'VCNV',
         round_format: roundFormat,
         category: 'Vượt Chướng Ngại Vật BTI 2026',
         question_text: qText,
         options: {},
         correct_key: ans,
-        explanation: `Gợi ý mở hàng ngang cho CNV: "${obstacleKeyword}"`,
-        time_limit: 15,
-        points: isCenter ? 40 : 10,
+        explanation: isRisk 
+          ? 'Ô Mạo hiểm: 20s suy nghĩ, 30s trả lời CNV. Đoán đúng nhận 120 điểm, sai trừ 1/2 số điểm và bị loại.'
+          : `Gợi ý mở hàng ngang cho CNV: "${obstacleKeyword}"`,
+        time_limit: isRisk ? 20 : 15,
+        points: isRisk ? 120 : (isCenter ? 40 : 10),
         audio_url: audio || undefined,
         obstacle_info: {
           obstacleKey: obstacleKeyword,
@@ -547,7 +736,7 @@ export function parseBtiVcnvRows(rows: any[][]): QuestionItem[] {
           explanation: obstacleExp
         },
         stage: 'BAN_KET_1',
-        cognitive_level: 'THONG_HIEU',
+        cognitive_level: isRisk ? 'VAN_DUNG_CAO' : 'THONG_HIEU',
         digital_competency_domain: 'MIEN_2',
         approval_status: 'APPROVED',
         created_by: 'BTI Excel Template',
@@ -638,17 +827,18 @@ export function parseBtiVdAndChpRows(rows: any[][]): { vdQuestions: QuestionItem
       const ans = col1.length > 3 ? col2 : col1;
 
       if (qText && qText.length > 3 && ans && !normVn(qText).includes('CAU HOI')) {
+        const isReserve = normVn(col0).includes('TINH HUONG') || normVn(col0).includes('DU PHONG');
         chpQuestions.push({
           id: `CHP_${chpQuestions.length + 1}`,
-          round_name: 'Câu hỏi phụ (Tie-breaker)',
+          round_name: isReserve ? 'Câu hỏi phụ (Tình huống phân định dự phòng)' : `Câu hỏi phụ ${chpQuestions.length + 1} (15 giây)`,
           round_type: 'SHORT_ANSWER',
           round_format: 'CAU_HOI_PHU',
           category: 'Câu hỏi phụ BTI 2026',
           question_text: qText,
           options: {},
           correct_key: ans,
-          explanation: 'Câu hỏi phụ đấu loại trực tiếp trong 15 giây',
-          time_limit: 15,
+          explanation: isReserve ? 'Câu hỏi tình huống phân định nếu sau 5 câu chưa phân định được' : 'Câu hỏi phụ đấu loại trực tiếp trong 15 giây',
+          time_limit: isReserve ? 60 : 15,
           points: 10,
           stage: 'BAN_KET_1',
           cognitive_level: 'THONG_HIEU',
@@ -665,6 +855,7 @@ export function parseBtiVdAndChpRows(rows: any[][]): { vdQuestions: QuestionItem
     else if (fullRowText.includes('LUOT 2')) currentLuot = 2;
     else if (fullRowText.includes('LUOT 3')) currentLuot = 3;
     else if (fullRowText.includes('LUOT 4')) currentLuot = 4;
+    else if (fullRowText.includes('PHAN DINH 4 THI SINH') || fullRowText.includes('HOA DIEM')) currentLuot = 5;
 
     if (fullRowText.includes('MUC DIEM') && fullRowText.includes('CAU HOI')) continue;
     if (fullRowText.includes('HUONG DAN') || fullRowText === 'VE DICH') continue;
@@ -677,10 +868,13 @@ export function parseBtiVdAndChpRows(rows: any[][]): { vdQuestions: QuestionItem
     const audio = cleanMediaFileName(String(row[5] || '').trim());
 
     if (qText.length > 3 && ans) {
-      const pts = ptsStr.includes('30') ? 30 : ptsStr.includes('40') ? 40 : 20;
+      const pts = ptsStr.includes('40') ? 40 : ptsStr.includes('30') ? 30 : 20;
+      const isTieBreak4 = currentLuot === 5;
       vdQuestions.push({
-        id: `VD_L${currentLuot}_${vdQuestions.length + 1}`,
-        round_name: `Vòng 4: Về đích (Lượt ${currentLuot} - ${pts} điểm)`,
+        id: isTieBreak4 ? `VD_HOA_4TS_${vdQuestions.length + 1}` : `VD_L${currentLuot}_${vdQuestions.length + 1}`,
+        round_name: isTieBreak4 
+          ? `Vòng 4: Về đích bổ sung (Hòa điểm 4 người - ${pts} điểm)`
+          : `Vòng 4: Về đích (Lượt ${currentLuot} - ${pts} điểm)`,
         round_type: 'SHORT_ANSWER',
         round_format: pts === 20 ? 'VE_DICH_20' : (pts === 30 ? 'VE_DICH_30' : 'VE_DICH_40'),
         category: 'Về đích BTI 2026',
@@ -688,13 +882,15 @@ export function parseBtiVdAndChpRows(rows: any[][]): { vdQuestions: QuestionItem
         options: {},
         correct_key: ans,
         host_notes: note || undefined,
-        explanation: note || 'MC chú ý đối chiếu đáp án và cho quyền chuông nếu trả lời sai',
+        explanation: isTieBreak4
+          ? (note || 'Lượt về đích bổ sung khi 4 thí sinh cùng điểm (100 điểm khởi điểm)')
+          : (note || 'MC chú ý đối chiếu đáp án và cho quyền chuông nếu trả lời sai'),
         media_type: media ? (media.endsWith('.mp4') ? 'VIDEO' : 'IMAGE') : (audio ? 'AUDIO' : 'NONE'),
         media_url: media || undefined,
         audio_url: audio || undefined,
         time_limit: pts === 20 ? 15 : (pts === 30 ? 20 : 30),
         points: pts,
-        participant_slot: currentLuot,
+        participant_slot: isTieBreak4 ? 5 : currentLuot,
         stage: 'BAN_KET_1',
         cognitive_level: pts >= 30 ? 'VAN_DUNG_CAO' : 'VAN_DUNG',
         digital_competency_domain: 'MIEN_4',
@@ -721,17 +917,18 @@ export function parseBtiChpRows(rows: any[][]): QuestionItem[] {
     const ans = col1.length > 3 ? col2 : col1;
 
     if (qText && qText.length > 3 && ans && !normVn(qText).includes('CAU HOI')) {
+      const isReserve = normVn(col0).includes('TINH HUONG') || normVn(col0).includes('DU PHONG');
       items.push({
         id: `CHP_${items.length + 1}`,
-        round_name: 'Câu hỏi phụ (Tie-breaker)',
+        round_name: isReserve ? 'Câu hỏi phụ (Tình huống phân định dự phòng)' : `Câu hỏi phụ ${items.length + 1} (15 giây)`,
         round_type: 'SHORT_ANSWER',
         round_format: 'CAU_HOI_PHU',
         category: 'Câu hỏi phụ BTI 2026',
         question_text: qText,
         options: {},
         correct_key: ans,
-        explanation: 'Câu hỏi phụ đấu loại trực tiếp trong 15 giây',
-        time_limit: 15,
+        explanation: isReserve ? 'Câu hỏi tình huống phân định nếu sau 5 câu chưa phân định được' : 'Câu hỏi phụ đấu loại trực tiếp trong 15 giây',
+        time_limit: isReserve ? 60 : 15,
         points: 10,
         stage: 'BAN_KET_1',
         cognitive_level: 'THONG_HIEU',
@@ -754,11 +951,18 @@ export const excelService = {
     const wb = XLSX.utils.book_new();
 
     // -------------------------------------------------------------
-    // SHEET 1: KHỞI ĐỘNG (Lượt riêng 4 thí sinh + Lượt chung)
+    // SHEET 0: LUẬT THI ĐẤU BTI 2026 (Quy chuẩn kỹ thuật chính thức)
+    // -------------------------------------------------------------
+    const rulesRows = buildBtiRulesSheet();
+    const wsRules = XLSX.utils.aoa_to_sheet(rulesRows);
+    XLSX.utils.book_append_sheet(wb, wsRules, 'Luật thi đấu BTI 2026');
+
+    // -------------------------------------------------------------
+    // SHEET 1: KHỞI ĐỘNG (Lượt riêng 4 thí sinh + 3 Lượt chung)
     // -------------------------------------------------------------
     const kdRows: any[][] = [
       ['KHỞI ĐỘNG'],
-      ['Hướng dẫn: Nhập Câu hỏi và Đáp án tương ứng với các câu trong mỗi gói (từ trên xuống trong mỗi lượt). Nhập tên file ảnh, âm thanh (nếu có) tương ứng với vị trí của câu hỏi.'],
+      ['Hướng dẫn: Nhập Câu hỏi và Đáp án tương ứng với các câu trong mỗi gói (từ trên xuống trong mỗi lượt). Lượt riêng gồm 12 câu / thí sinh (60 giây, đúng +10đ). Lượt chung gồm 3 lượt: 10, 15 và 20 câu (3 giây suy nghĩ, đúng +10đ, sai -5đ). Nhập tên file ảnh, âm thanh (nếu có) tương ứng.'],
       ['LƯỢT RIÊNG']
     ];
 
@@ -771,51 +975,69 @@ export const excelService = {
       
       const list = includeSampleData 
         ? SAMPLE_BTI_EXCEL_DATA.khoiDong[tsDataKeys[tsIdx]] 
-        : Array.from({ length: 6 }, () => ({ q: '', a: '', img: '', audio: '' }));
+        : Array.from({ length: 12 }, () => ({ q: '', a: '', img: '', audio: '' }));
 
       list.forEach((item, i) => {
-        kdRows.push([i + 1, item.q, item.a, item.img, item.audio]);
+        kdRows.push([i + 1, item.q, item.a, cleanMediaFileName(item.img), cleanMediaFileName(item.audio)]);
       });
     }
 
-    // Lượt chung
+    // Lượt chung gồm 3 lượt: 10, 15, 20 câu (Tổng: 45 câu chung theo Mục 1.2)
     kdRows.push(['LƯỢT CHUNG']);
-    kdRows.push(['', 'Câu hỏi', 'Đáp án', 'Ảnh (nếu có)', 'Âm thanh (nếu có)']);
     const chungList = includeSampleData
       ? SAMPLE_BTI_EXCEL_DATA.khoiDong.luotChung
-      : Array.from({ length: 12 }, () => ({ q: '', a: '', img: '', audio: '' }));
+      : Array.from({ length: 45 }, () => ({ q: '', a: '', img: '', audio: '' }));
 
-    chungList.forEach((item, i) => {
-      kdRows.push([i + 1, item.q, item.a, item.img, item.audio]);
+    const chungSubRounds = [
+      { name: 'LƯỢT CHUNG 1 (10 CÂU - 3S SUY NGHĨ)', count: 10, start: 0 },
+      { name: 'LƯỢT CHUNG 2 (15 CÂU - 3S SUY NGHĨ)', count: 15, start: 10 },
+      { name: 'LƯỢT CHUNG 3 (20 CÂU - 3S SUY NGHĨ)', count: 20, start: 25 },
+    ];
+
+    chungSubRounds.forEach(sub => {
+      kdRows.push([sub.name]);
+      kdRows.push(['', 'Câu hỏi', 'Đáp án', 'Ảnh (nếu có)', 'Âm thanh (nếu có)']);
+      for (let i = 0; i < sub.count; i++) {
+        const item = chungList[sub.start + i] || { q: '', a: '', img: '', audio: '' };
+        kdRows.push([i + 1, item.q, item.a, cleanMediaFileName(item.img), cleanMediaFileName(item.audio)]);
+      }
     });
 
     const wsKd = XLSX.utils.aoa_to_sheet(kdRows);
     XLSX.utils.book_append_sheet(wb, wsKd, 'Khởi động');
 
     // -------------------------------------------------------------
-    // SHEET 2: VƯỢT CHƯỚNG NGẠI VẬT (B3=CNV, C3=Ảnh, 4 hàng ngang + trung tâm)
+    // SHEET 2: VƯỢT CHƯỚNG NGẠI VẬT (B3=CNV, C3=Ảnh, 4 hàng ngang góc + trung tâm + Ô mạo hiểm)
     // -------------------------------------------------------------
     const vcnv = SAMPLE_BTI_EXCEL_DATA.vuotCnv;
     const vcnvRows: any[][] = [
       ['VƯỢT CHƯỚNG NGẠI VẬT'],
-      ['Hướng dẫn: Nhập Chướng ngại vật vào ô B3. Nhập tên ảnh Chướng ngại vật vào ô C3. Nhập câu hỏi và đáp án tương ứng theo mẫu dưới đây.'],
-      ['CHƯỚNG NGẠI VẬT', includeSampleData ? vcnv.keyword : '', includeSampleData ? cleanMediaFileName(vcnv.imageFile) : '', includeSampleData ? vcnv.piecesCount : '1'],
+      ['Hướng dẫn: Nhập Chướng ngại vật vào ô B3. Nhập tên ảnh Chướng ngại vật vào ô C3 (5 mảnh ghép: 4 góc + 1 ô trung tâm). Nhập câu hỏi 4 hàng ngang, ô trung tâm và Ô Mạo Hiểm (120đ).'],
+      ['CHƯỚNG NGẠI VẬT', includeSampleData ? vcnv.keyword : '', includeSampleData ? cleanMediaFileName(vcnv.imageFile) : '', includeSampleData ? vcnv.piecesCount : '5'],
       ['', 'Câu hỏi', 'Đáp án', 'Âm thanh (nếu có)']
     ];
 
     const vcnvList = includeSampleData 
       ? vcnv.rows 
       : [
-          { name: 'Hàng ngang 1', q: '', a: '', audio: '' },
-          { name: 'Hàng ngang 2', q: '', a: '', audio: '' },
-          { name: 'Hàng ngang 3', q: '', a: '', audio: '' },
-          { name: 'Hàng ngang 4', q: '', a: '', audio: '' },
-          { name: 'Hàng ngang trung tâm', q: '', a: '', audio: '' }
+          { name: 'Hàng ngang 1 (Góc 1 - 15s)', q: '', a: '', audio: '' },
+          { name: 'Hàng ngang 2 (Góc 2 - 15s)', q: '', a: '', audio: '' },
+          { name: 'Hàng ngang 3 (Góc 3 - 15s)', q: '', a: '', audio: '' },
+          { name: 'Hàng ngang 4 (Góc 4 - 15s)', q: '', a: '', audio: '' },
+          { name: 'Hàng ngang trung tâm (15s)', q: '', a: '', audio: '' }
         ];
 
     vcnvList.forEach(r => {
       vcnvRows.push([r.name, r.q, r.a, cleanMediaFileName(r.audio)]);
     });
+
+    // Ô MẠO HIỂM (Theo Mục 2.3: 20s suy nghĩ, 30s trả lời CNV, đoán đúng nhận 120 điểm)
+    vcnvRows.push([
+      'Ô Mạo Hiểm (120 Điểm - 20s suy nghĩ / 30s CNV)',
+      includeSampleData ? vcnv.riskSlot.q : '',
+      includeSampleData ? vcnv.riskSlot.a : '',
+      includeSampleData ? vcnv.riskSlot.note : ''
+    ]);
 
     vcnvRows.push([]);
     vcnvRows.push([includeSampleData ? vcnv.explanation : 'Đây là giải thích về chướng ngại vật, có thể được mở trên app MC.']);
@@ -824,22 +1046,22 @@ export const excelService = {
     XLSX.utils.book_append_sheet(wb, wsVcnv, 'Vượt chướng ngại vật');
 
     // -------------------------------------------------------------
-    // SHEET 3: TĂNG TỐC (Bảng 1: Câu hỏi & Đáp án, Bảng 2: Link Dữ Liệu Tăng Tốc)
+    // SHEET 3: TĂNG TỐC (4 câu: 20s, 20s, 30s, 30s & Bảng Link Dữ Liệu Tăng Tốc)
     // -------------------------------------------------------------
     const tt = SAMPLE_BTI_EXCEL_DATA.tangToc;
     const ttRows: any[][] = [
       ['TĂNG TỐC'],
-      ['Hướng dẫn: Nhập câu hỏi và Đáp án tương ứng với các câu hỏi. Nhập liệu ảnh Tăng tốc ở bên dưới. Cột Ảnh đáp án được dùng để nhập ảnh đáp án cho câu hỏi (nếu có).'],
+      ['Hướng dẫn: Nhập câu hỏi và Đáp án tương ứng với 4 câu hỏi (20s, 20s, 30s, 30s). Nhập liệu ảnh Tăng tốc ở bên dưới. Cột Ảnh đáp án được dùng để nhập ảnh đáp án cho câu hỏi (nếu có).'],
       ['', 'Câu hỏi', 'Đáp án', 'Ảnh đáp án']
     ];
 
     const ttList = includeSampleData 
       ? tt.questions 
       : [
-          { name: 'Tăng tốc 1', q: '', a: '', answerImg: '', mediaList: [''] },
-          { name: 'Tăng tốc 2', q: '', a: '', answerImg: '', mediaList: [''] },
-          { name: 'Tăng tốc 3', q: '', a: '', answerImg: '', mediaList: [''] },
-          { name: 'Tăng tốc 4', q: '', a: '', answerImg: '', mediaList: [''] }
+          { name: 'Tăng tốc 1 (20 giây)', q: '', a: '', answerImg: '', mediaList: [''] },
+          { name: 'Tăng tốc 2 (20 giây)', q: '', a: '', answerImg: '', mediaList: [''] },
+          { name: 'Tăng tốc 3 (30 giây)', q: '', a: '', answerImg: '', mediaList: [''] },
+          { name: 'Tăng tốc 4 (30 giây)', q: '', a: '', answerImg: '', mediaList: [''] }
         ];
 
     ttList.forEach(item => {
@@ -867,12 +1089,12 @@ export const excelService = {
     XLSX.utils.book_append_sheet(wb, wsTt, 'Tăng tốc');
 
     // -------------------------------------------------------------
-    // SHEET 4: VỀ ĐÍCH (Lượt 1, 2, 3, 4 với Mức điểm, Chú thích MC, Audio/Video & Câu hỏi phụ)
+    // SHEET 4: VỀ ĐÍCH (3 mức điểm: 20đ, 30đ, 40đ + Phân định 4 thí sinh hòa điểm + Câu hỏi phụ)
     // -------------------------------------------------------------
     const vd = SAMPLE_BTI_EXCEL_DATA.veDich;
     const vdRows: any[][] = [
       ['VỀ ĐÍCH'],
-      ['Hướng dẫn: Nhập Câu hỏi và Đáp án tương ứng với các mức điểm. Nhập tên file ảnh (nếu có) vào vị trí tương ứng. Lưu ý: Chú thích sẽ chỉ hiển thị trên giao diện MC và Host']
+      ['Hướng dẫn: Nhập Câu hỏi và Đáp án tương ứng với các mức điểm: 20 điểm (15s suy nghĩ, 30s thực hành), 30 điểm (20s suy nghĩ, 60s thực hành), 40 điểm (30s suy nghĩ, 90s thực hành). Mỗi lượt thi cung cấp trọn vẹn ngân hàng câu hỏi (20, 30, 40 điểm) để sẵn sàng cho thí sinh lựa chọn gói 3 câu bất kỳ khi thi đấu trực tiếp. Chú thích hiển thị trên giao diện MC và Host.']
     ];
 
     const luotKeys = ['luot1', 'luot2', 'luot3', 'luot4'] as const;
@@ -884,30 +1106,51 @@ export const excelService = {
       
       const list = includeSampleData 
         ? vd[luotKeys[lIdx]] 
-        : Array.from({ length: 6 }, (_, i) => ({
-            pts: i < 3 ? 'Câu hỏi 20 điểm' : 'Câu hỏi 30 điểm',
-            q: '',
-            a: '',
-            media: '',
-            note: '',
-            audio: ''
-          }));
+        : [
+            { pts: 'Câu hỏi 20 điểm', q: '', a: '', media: '', note: 'Suy nghĩ: 15s / Thực hành: 30s', audio: '' },
+            { pts: 'Câu hỏi 20 điểm', q: '', a: '', media: '', note: 'Suy nghĩ: 15s / Thực hành: 30s', audio: '' },
+            { pts: 'Câu hỏi 20 điểm', q: '', a: '', media: '', note: 'Suy nghĩ: 15s / Thực hành: 30s', audio: '' },
+            { pts: 'Câu hỏi 30 điểm', q: '', a: '', media: '', note: 'Suy nghĩ: 20s / Thực hành: 60s', audio: '' },
+            { pts: 'Câu hỏi 30 điểm', q: '', a: '', media: '', note: 'Suy nghĩ: 20s / Thực hành: 60s', audio: '' },
+            { pts: 'Câu hỏi 30 điểm', q: '', a: '', media: '', note: 'Suy nghĩ: 20s / Thực hành: 60s', audio: '' },
+            { pts: 'Câu hỏi 40 điểm', q: '', a: '', media: '', note: 'Suy nghĩ: 30s / Thực hành: 90s', audio: '' },
+            { pts: 'Câu hỏi 40 điểm', q: '', a: '', media: '', note: 'Suy nghĩ: 30s / Thực hành: 90s', audio: '' },
+            { pts: 'Câu hỏi 40 điểm', q: '', a: '', media: '', note: 'Suy nghĩ: 30s / Thực hành: 90s', audio: '' }
+          ];
 
       list.forEach(item => {
         vdRows.push([item.pts, item.q, item.a, cleanMediaFileName(item.media), item.note, cleanMediaFileName(item.audio)]);
       });
     }
 
-    // Append CÂU HỎI PHỤ into Về đích sheet matching the official BTI template file
+    // Lượt phân định 4 thí sinh cùng điểm (Theo Mục 6: 100 điểm khởi điểm, gói 3 câu 20-30-40đ, ngôi sao hy vọng)
     vdRows.push([]);
-    vdRows.push(['CÂU HỎI PHỤ']);
+    vdRows.push(['LƯỢT PHÂN ĐỊNH 4 THÍ SINH CÙNG ĐIỂM (100 ĐIỂM KHỞI ĐIỂM)']);
+    vdRows.push(['Mức điểm', 'Câu hỏi', 'Đáp án', 'Chú thích']);
+    const hoaList = includeSampleData
+      ? vd.luotHoaDiem4Nguoi
+      : [
+          { pts: 'Câu hỏi 20 điểm', q: '', a: '', note: 'Dự phòng phân định hòa 4 người' },
+          { pts: 'Câu hỏi 30 điểm', q: '', a: '', note: 'Dự phòng phân định hòa 4 người' },
+          { pts: 'Câu hỏi 40 điểm', q: '', a: '', note: 'Dự phòng phân định hòa 4 người' }
+        ];
+    hoaList.forEach(item => {
+      vdRows.push([item.pts, item.q, item.a, item.note]);
+    });
+
+    // CÂU HỎI PHỤ tích hợp trong sheet Về đích (5 câu 15s + 1 câu tình huống phân định dự phòng)
+    vdRows.push([]);
+    vdRows.push(['CÂU HỎI PHỤ (TIE-BREAKER)']);
     vdRows.push(['', 'Câu hỏi', 'Đáp án']);
     const chpList = includeSampleData 
       ? SAMPLE_BTI_EXCEL_DATA.cauHoiPhu 
       : [
-          { name: 'Câu hỏi phụ 1', q: '', a: '' },
-          { name: 'Câu hỏi phụ 2', q: '', a: '' },
-          { name: 'Câu hỏi phụ 3', q: '', a: '' }
+          { name: 'Câu hỏi phụ 1 (15 giây)', q: '', a: '' },
+          { name: 'Câu hỏi phụ 2 (15 giây)', q: '', a: '' },
+          { name: 'Câu hỏi phụ 3 (15 giây)', q: '', a: '' },
+          { name: 'Câu hỏi phụ 4 (15 giây)', q: '', a: '' },
+          { name: 'Câu hỏi phụ 5 (15 giây)', q: '', a: '' },
+          { name: 'Câu hỏi tình huống phân định (Dự phòng)', q: '', a: '' }
         ];
 
     chpList.forEach(item => {
@@ -918,10 +1161,12 @@ export const excelService = {
     XLSX.utils.book_append_sheet(wb, wsVd, 'Về đích');
 
     // -------------------------------------------------------------
-    // SHEET 5: CÂU HỎI PHỤ (Trang tính riêng tiện dụng)
+    // SHEET 5: CÂU HỎI PHỤ (Trang tính riêng biệt chuẩn hóa)
     // -------------------------------------------------------------
     const chpRows: any[][] = [
-      ['CÂU HỎI PHỤ'],
+      ['CÂU HỎI PHỤ (TIE-BREAKER) - LUẬT THI ĐẤU BTI 2026'],
+      ['Hướng dẫn: Đấu loại trực tiếp 5 câu hỏi (15 giây suy nghĩ). Nếu sau 5 câu chưa phân định được thì sử dụng câu hỏi tình huống dự phòng.'],
+      [],
       ['', 'Câu hỏi', 'Đáp án']
     ];
 
@@ -964,11 +1209,17 @@ export const excelService = {
 
   /**
    * Export questions from the system to the official BTI Excel format ("Đề thi.xlsx")
+   * 100% compliant with the official 7-page BTI 2026 rulebook.
    */
   exportToBTIExcel(questions: QuestionItem[], stageName: string = 'Đề thi.xlsx'): void {
     const wb = XLSX.utils.book_new();
 
-    // 1. SHEET: KHỞI ĐỘNG
+    // 0. SHEET: LUẬT THI ĐẤU BTI 2026 (Ban hành kèm phần mềm điều khiển trận đấu)
+    const rulesRows = buildBtiRulesSheet();
+    const wsRules = XLSX.utils.aoa_to_sheet(rulesRows);
+    XLSX.utils.book_append_sheet(wb, wsRules, 'Luật thi đấu BTI 2026');
+
+    // 1. SHEET: KHỞI ĐỘNG (Lượt riêng 12 câu / TS + 3 Lượt chung 10, 15, 20 câu = 45 câu chung)
     const kdQuestions = questions.filter(q => 
       q.round_name.includes('Khởi động') || 
       q.round_format?.startsWith('KHOI_DONG') ||
@@ -977,7 +1228,7 @@ export const excelService = {
 
     const kdRows: any[][] = [
       ['KHỞI ĐỘNG'],
-      ['Hướng dẫn: Nhập Câu hỏi và Đáp án tương ứng với các câu trong mỗi gói (từ trên xuống trong mỗi lượt). Nhập tên file ảnh, âm thanh (nếu có) tương ứng với vị trí của câu hỏi.'],
+      ['Hướng dẫn: Nhập Câu hỏi và Đáp án tương ứng với các câu trong mỗi gói (từ trên xuống trong mỗi lượt). Lượt riêng gồm 12 câu / thí sinh (60 giây, đúng +10đ). Lượt chung gồm 3 lượt: 10, 15 và 20 câu (3 giây suy nghĩ, đúng +10đ, sai -5đ). Nhập tên file ảnh, âm thanh (nếu có) tương ứng.'],
       ['LƯỢT RIÊNG']
     ];
 
@@ -986,11 +1237,11 @@ export const excelService = {
       kdRows.push([tsNames[ts - 1]]);
       kdRows.push(['', 'Câu hỏi', 'Đáp án', 'Ảnh (nếu có)', 'Âm thanh (nếu có)']);
       
-      const tsQuestions = kdQuestions.filter(q => q.participant_slot === ts).slice(0, 6);
-      const fallback = kdQuestions.slice((ts - 1) * 6, ts * 6);
+      const tsQuestions = kdQuestions.filter(q => q.participant_slot === ts).slice(0, 12);
+      const fallback = kdQuestions.slice((ts - 1) * 12, ts * 12);
       const items = tsQuestions.length > 0 ? tsQuestions : fallback;
 
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 12; i++) {
         const q = items[i];
         if (q) {
           kdRows.push([i + 1, q.question_text, q.correct_key, cleanMediaFileName(q.media_url), cleanMediaFileName(q.audio_url)]);
@@ -1000,27 +1251,37 @@ export const excelService = {
       }
     }
 
-    // Lượt chung
+    // Lượt chung: 45 câu chia thành 3 lượt: 10, 15, 20 câu theo Mục 1.2
     kdRows.push(['LƯỢT CHUNG']);
-    kdRows.push(['', 'Câu hỏi', 'Đáp án', 'Ảnh (nếu có)', 'Âm thanh (nếu có)']);
     const chungQuestions = kdQuestions.filter(q => q.round_format === 'KHOI_DONG_CHUNG' || !q.participant_slot);
-    const chungItems = chungQuestions.length > 0 ? chungQuestions : kdQuestions.slice(24);
+    const chungItems = chungQuestions.length > 0 ? chungQuestions : kdQuestions.slice(48);
 
-    for (let i = 0; i < Math.max(chungItems.length, 12); i++) {
-      const q = chungItems[i];
-      if (q) {
-        kdRows.push([i + 1, q.question_text, q.correct_key, cleanMediaFileName(q.media_url), cleanMediaFileName(q.audio_url)]);
-      } else {
-        kdRows.push([i + 1, '', '', '', '']);
+    const subRounds = [
+      { name: 'LƯỢT CHUNG 1 (10 CÂU - 3S SUY NGHĨ)', count: 10, start: 0 },
+      { name: 'LƯỢT CHUNG 2 (15 CÂU - 3S SUY NGHĨ)', count: 15, start: 10 },
+      { name: 'LƯỢT CHUNG 3 (20 CÂU - 3S SUY NGHĨ)', count: 20, start: 25 },
+    ];
+
+    subRounds.forEach(sub => {
+      kdRows.push([sub.name]);
+      kdRows.push(['', 'Câu hỏi', 'Đáp án', 'Ảnh (nếu có)', 'Âm thanh (nếu có)']);
+      for (let i = 0; i < sub.count; i++) {
+        const q = chungItems[sub.start + i];
+        if (q) {
+          kdRows.push([i + 1, q.question_text, q.correct_key, cleanMediaFileName(q.media_url), cleanMediaFileName(q.audio_url)]);
+        } else {
+          kdRows.push([i + 1, '', '', '', '']);
+        }
       }
-    }
+    });
 
     const wsKd = XLSX.utils.aoa_to_sheet(kdRows);
     XLSX.utils.book_append_sheet(wb, wsKd, 'Khởi động');
 
-    // 2. SHEET: VƯỢT CHƯỚNG NGẠI VẬT
+    // 2. SHEET: VƯỢT CHƯỚNG NGẠI VẬT (B3=CNV, C3=Ảnh, 4 hàng ngang góc + trung tâm + Ô Mạo Hiểm 120đ)
     const vcnvQuestions = questions.filter(q => 
       q.round_name.includes('Vượt Chướng Ngại Vật') || 
+      q.round_name.includes('VCNV') || 
       q.round_type === 'VCNV' || 
       q.round_format?.startsWith('VCNV_')
     );
@@ -1030,36 +1291,48 @@ export const excelService = {
     const obstacleKey = firstVcnv?.obstacle_info?.obstacleKey || firstVcnv?.correct_key || 'AN TOÀN THÔNG TIN';
     const obstacleImg = cleanMediaFileName(firstVcnv?.obstacle_info?.obstacleImage || firstVcnv?.media_url || 'cnv.jpg');
     
-    // Check if there is risk question
+    // Tìm câu hỏi mạo hiểm nếu có
+    const riskQ = vcnvQuestions.find(q => q.round_format === 'VCNV_MAO_HIEM' || q.points === 120 || q.question_text?.toLowerCase().includes('mạo hiểm'));
+    const riskQuestionText = riskQ?.question_text || opts.riskQuestion || SAMPLE_BTI_EXCEL_DATA.vuotCnv.riskSlot.q;
+    const riskAnswerText = riskQ?.correct_key || opts.riskAnswer || SAMPLE_BTI_EXCEL_DATA.vuotCnv.riskSlot.a;
+    const riskNoteText = riskQ?.explanation || opts.riskNote || SAMPLE_BTI_EXCEL_DATA.vuotCnv.riskSlot.note;
+
     let obstacleExp = firstVcnv?.obstacle_info?.explanation || firstVcnv?.explanation || '';
-    if (opts.riskQuestion || opts.riskAnswer) {
-      obstacleExp = `[Ô MẠO HIỂM]: ${opts.riskQuestion || ''} ➔ ĐÁP ÁN: ${opts.riskAnswer || ''}. ${obstacleExp}`.trim();
-    }
     if (!obstacleExp) {
-      obstacleExp = 'Đây là giải thích về chướng ngại vật, có thể được mở trên app MC.';
+      obstacleExp = 'Chướng ngại vật gồm 4 miếng ghép ở 4 góc và 1 miếng ghép ô trung tâm. Ô Mạo hiểm tồn tại trong 10 giây cho thí sinh chọn nhanh nhất. Trả lời đúng sau Ô Mạo hiểm nhận 120 điểm.';
     }
 
     const vcnvRows: any[][] = [
       ['VƯỢT CHƯỚNG NGẠI VẬT'],
-      ['Hướng dẫn: Nhập Chướng ngại vật vào ô B3. Nhập tên ảnh Chướng ngại vật vào ô C3. Nhập câu hỏi và đáp án tương ứng theo mẫu dưới đây.'],
-      ['CHƯỚNG NGẠI VẬT', obstacleKey, obstacleImg, '1'],
+      ['Hướng dẫn: Nhập Chướng ngại vật vào ô B3. Nhập tên ảnh Chướng ngại vật vào ô C3 (5 mảnh ghép: 4 góc + 1 ô trung tâm). Nhập câu hỏi 4 hàng ngang, ô trung tâm và Ô Mạo Hiểm (120đ).'],
+      ['CHƯỚNG NGẠI VẬT', obstacleKey, obstacleImg, '5'],
       ['', 'Câu hỏi', 'Đáp án', 'Âm thanh (nếu có)']
     ];
 
     if (opts.clue1 || opts.ans1) {
       // 7-row packaged question
-      vcnvRows.push(['Hàng ngang 1', opts.clue1 || '', opts.ans1 || '', '']);
-      vcnvRows.push(['Hàng ngang 2', opts.clue2 || '', opts.ans2 || '', '']);
-      vcnvRows.push(['Hàng ngang 3', opts.clue3 || '', opts.ans3 || '', '']);
-      vcnvRows.push(['Hàng ngang 4', opts.clue4 || '', opts.ans4 || '', '']);
-      vcnvRows.push(['Hàng ngang trung tâm', opts.centerText || '', opts.centerAnswer || '', '']);
+      vcnvRows.push(['Hàng ngang 1 (Góc 1 - 15s)', opts.clue1 || '', opts.ans1 || '', '']);
+      vcnvRows.push(['Hàng ngang 2 (Góc 2 - 15s)', opts.clue2 || '', opts.ans2 || '', '']);
+      vcnvRows.push(['Hàng ngang 3 (Góc 3 - 15s)', opts.clue3 || '', opts.ans3 || '', '']);
+      vcnvRows.push(['Hàng ngang 4 (Góc 4 - 15s)', opts.clue4 || '', opts.ans4 || '', '']);
+      vcnvRows.push(['Hàng ngang trung tâm (15s)', opts.centerText || '', opts.centerAnswer || '', '']);
     } else {
-      const rowLabels = ['Hàng ngang 1', 'Hàng ngang 2', 'Hàng ngang 3', 'Hàng ngang 4', 'Hàng ngang trung tâm'];
+      const normalVcnvQs = vcnvQuestions.filter(q => q !== riskQ);
+      const rowLabels = [
+        'Hàng ngang 1 (Góc 1 - 15s)',
+        'Hàng ngang 2 (Góc 2 - 15s)',
+        'Hàng ngang 3 (Góc 3 - 15s)',
+        'Hàng ngang 4 (Góc 4 - 15s)',
+        'Hàng ngang trung tâm (15s)'
+      ];
       rowLabels.forEach((label, idx) => {
-        const q = vcnvQuestions[idx];
+        const q = normalVcnvQs[idx];
         vcnvRows.push([label, q?.question_text || '', q?.correct_key || '', cleanMediaFileName(q?.audio_url)]);
       });
     }
+
+    // Row Ô Mạo Hiểm (120 Điểm)
+    vcnvRows.push(['Ô Mạo Hiểm (120 Điểm - 20s suy nghĩ / 30s CNV)', riskQuestionText, riskAnswerText, riskNoteText]);
 
     vcnvRows.push([]);
     vcnvRows.push([obstacleExp]);
@@ -1067,7 +1340,7 @@ export const excelService = {
     const wsVcnv = XLSX.utils.aoa_to_sheet(vcnvRows);
     XLSX.utils.book_append_sheet(wb, wsVcnv, 'Vượt chướng ngại vật');
 
-    // 3. SHEET: TĂNG TỐC (Tất cả là câu trả lời ngắn, tự động sắp xếp & đưa ra đáp án)
+    // 3. SHEET: TĂNG TỐC (4 câu: 20s, 20s, 30s, 30s & Bảng Link Dữ Liệu Tăng Tốc)
     const ttQuestions = questions.filter(q => 
       q.round_name.includes('Tăng tốc') || 
       q.round_format === 'TANG_TOC' || 
@@ -1076,8 +1349,15 @@ export const excelService = {
 
     const ttRows: any[][] = [
       ['TĂNG TỐC'],
-      ['Hướng dẫn: Nhập câu hỏi và Đáp án tương ứng với các câu hỏi. Nhập liệu ảnh Tăng tốc ở bên dưới. Cột Ảnh đáp án được dùng để nhập ảnh đáp án cho câu hỏi (nếu có).'],
+      ['Hướng dẫn: Nhập câu hỏi và Đáp án tương ứng với 4 câu hỏi (20s, 20s, 30s, 30s). Nhập liệu ảnh Tăng tốc ở bên dưới. Cột Ảnh đáp án được dùng để nhập ảnh đáp án cho câu hỏi (nếu có).'],
       ['', 'Câu hỏi', 'Đáp án', 'Ảnh đáp án']
+    ];
+
+    const ttRowLabels = [
+      'Tăng tốc 1 (20 giây)',
+      'Tăng tốc 2 (20 giây)',
+      'Tăng tốc 3 (30 giây)',
+      'Tăng tốc 4 (30 giây)'
     ];
 
     for (let i = 1; i <= 4; i++) {
@@ -1105,7 +1385,7 @@ export const excelService = {
         }
       }
 
-      ttRows.push([`Tăng tốc ${i}`, q?.question_text || '', formattedAnswer, cleanMediaFileName(q?.answer_media_url)]);
+      ttRows.push([ttRowLabels[i - 1], q?.question_text || '', formattedAnswer, cleanMediaFileName(q?.answer_media_url)]);
     }
 
     ttRows.push([]);
@@ -1132,7 +1412,7 @@ export const excelService = {
     const wsTt = XLSX.utils.aoa_to_sheet(ttRows);
     XLSX.utils.book_append_sheet(wb, wsTt, 'Tăng tốc');
 
-    // 4. SHEET: VỀ ĐÍCH
+    // 4. SHEET: VỀ ĐÍCH (3 mức điểm: 20đ, 30đ, 40đ + Phân định 4 người hòa + Câu hỏi phụ)
     const vdQuestions = questions.filter(q => 
       q.round_name.includes('Về đích') || 
       q.round_format?.startsWith('VE_DICH') ||
@@ -1146,39 +1426,85 @@ export const excelService = {
 
     const vdRows: any[][] = [
       ['VỀ ĐÍCH'],
-      ['Hướng dẫn: Nhập Câu hỏi và Đáp án tương ứng với các mức điểm. Nhập tên file ảnh (nếu có) vào vị trí tương ứng. Lưu ý: Chú thích sẽ chỉ hiển thị trên giao diện MC và Host']
+      ['Hướng dẫn: Nhập Câu hỏi và Đáp án tương ứng với các mức điểm: 20 điểm (15s suy nghĩ, 30s thực hành), 30 điểm (20s suy nghĩ, 60s thực hành), 40 điểm (30s suy nghĩ, 90s thực hành). Mỗi lượt thi xuất trọn vẹn ngân hàng câu hỏi (20, 30, 40 điểm) để thí sinh chọn gói 3 câu bất kỳ trực tiếp khi thi đấu. Chú thích hiển thị trên giao diện MC và Host.']
     ];
 
     for (let l = 1; l <= 4; l++) {
       vdRows.push([`LƯỢT ${l}`]);
       vdRows.push(['Mức điểm', 'Câu hỏi', 'Đáp án', 'Ảnh / Video (nếu có)', 'Chú thích', 'Âm thanh (nếu có)']);
       
-      const luotQs = vdQuestions.filter(q => q.participant_slot === l);
-      const items = luotQs.length > 0 ? luotQs : vdQuestions.slice((l - 1) * 6, l * 6);
+      let luotQs = vdQuestions.filter(q => q.participant_slot === l);
+      
+      // Nếu ngân hàng chưa gán participant_slot, chia đều cho 4 lượt
+      if (luotQs.length === 0 && !vdQuestions.some(q => q.participant_slot && q.participant_slot >= 1 && q.participant_slot <= 4)) {
+        const chunkSize = Math.max(3, Math.ceil(vdQuestions.length / 4));
+        luotQs = vdQuestions.slice((l - 1) * chunkSize, l * chunkSize);
+      }
 
-      for (let i = 0; i < 6; i++) {
-        const q = items[i];
-        if (q) {
-          const ptsText = q.points ? `Câu hỏi ${q.points} điểm` : (i < 3 ? 'Câu hỏi 20 điểm' : 'Câu hỏi 30 điểm');
-          vdRows.push([ptsText, q.question_text, q.correct_key, cleanMediaFileName(q.media_url), q.host_notes || q.explanation || '', cleanMediaFileName(q.audio_url)]);
-        } else {
-          vdRows.push([i < 3 ? 'Câu hỏi 20 điểm' : 'Câu hỏi 30 điểm', '', '', '', '', '']);
-        }
+      // Sắp xếp thứ tự mức điểm: 20 -> 30 -> 40
+      luotQs.sort((a, b) => (a.points || 20) - (b.points || 20));
+
+      if (luotQs.length > 0) {
+        // XUẤT TOÀN BỘ CÂU HỎI CỦA LƯỢT NÀY (KHÔNG GIỚI HẠN CHỈ 3 CÂU)
+        // Vì thí sinh chỉ chọn gói 3 câu trong lúc trận đấu diễn ra
+        luotQs.forEach(q => {
+          const ptsVal = q.points || (q.round_format === 'VE_DICH_40' ? 40 : q.round_format === 'VE_DICH_30' ? 30 : 20);
+          const ptsText = `Câu hỏi ${ptsVal} điểm`;
+          const timeNote = ptsVal === 40 
+            ? 'Suy nghĩ: 30s / Thực hành: 90s' 
+            : (ptsVal === 30 ? 'Suy nghĩ: 20s / Thực hành: 60s' : 'Suy nghĩ: 15s / Thực hành: 30s');
+          const fullNote = [q.host_notes || q.explanation || '', `[${timeNote}]`].filter(Boolean).join(' - ');
+          vdRows.push([
+            ptsText, 
+            q.question_text, 
+            q.correct_key, 
+            cleanMediaFileName(q.media_url), 
+            fullNote, 
+            cleanMediaFileName(q.audio_url)
+          ]);
+        });
+      } else {
+        // Nếu lượt này chưa có câu hỏi, xuất 9 dòng mẫu chuẩn (3 câu 20đ, 3 câu 30đ, 3 câu 40đ)
+        const templatePts = [20, 20, 20, 30, 30, 30, 40, 40, 40];
+        templatePts.forEach(ptsVal => {
+          const timeNote = ptsVal === 40 
+            ? 'Suy nghĩ: 30s / Thực hành: 90s' 
+            : (ptsVal === 30 ? 'Suy nghĩ: 20s / Thực hành: 60s' : 'Suy nghĩ: 15s / Thực hành: 30s');
+          vdRows.push([`Câu hỏi ${ptsVal} điểm`, '', '', '', timeNote, '']);
+        });
       }
     }
 
-    // Append CÂU HỎI PHỤ into Về đích sheet matching the official BTI template file
+    // Lượt phân định 4 thí sinh cùng điểm (100 điểm khởi điểm theo Mục 6)
     vdRows.push([]);
-    vdRows.push(['CÂU HỎI PHỤ']);
+    vdRows.push(['LƯỢT PHÂN ĐỊNH 4 THÍ SINH CÙNG ĐIỂM (100 ĐIỂM KHỞI ĐIỂM)']);
+    vdRows.push(['Mức điểm', 'Câu hỏi', 'Đáp án', 'Chú thích']);
+    const tieBreak4 = vdQuestions.filter(q => q.participant_slot === 5 || q.round_name.includes('hòa') || q.round_name.includes('hoa'));
+    if (tieBreak4.length > 0) {
+      tieBreak4.forEach(q => {
+        const ptsVal = q.points || (q.round_format === 'VE_DICH_40' ? 40 : q.round_format === 'VE_DICH_30' ? 30 : 20);
+        vdRows.push([`Câu hỏi ${ptsVal} điểm`, q.question_text, q.correct_key, q.host_notes || 'Dự phòng phân định hòa 4 người']);
+      });
+    } else {
+      vdRows.push(['Câu hỏi 20 điểm', '', '', 'Dự phòng phân định hòa 4 người (15s suy nghĩ)']);
+      vdRows.push(['Câu hỏi 30 điểm', '', '', 'Dự phòng phân định hòa 4 người (20s suy nghĩ)']);
+      vdRows.push(['Câu hỏi 40 điểm', '', '', 'Dự phòng phân định hòa 4 người (30s suy nghĩ, 90s thực hành)']);
+    }
+
+    // Append CÂU HỎI PHỤ into Về đích sheet matching the official BTI template file (5 câu 15s + 1 tình huống dự phòng)
+    vdRows.push([]);
+    vdRows.push(['CÂU HỎI PHỤ (TIE-BREAKER)']);
     vdRows.push(['', 'Câu hỏi', 'Đáp án']);
     if (chpQuestions.length > 0) {
       chpQuestions.forEach((q, idx) => {
-        vdRows.push([`Câu hỏi phụ ${idx + 1}`, q.question_text, q.correct_key]);
+        const label = idx < 5 ? `Câu hỏi phụ ${idx + 1} (15 giây)` : 'Câu hỏi tình huống phân định (Dự phòng)';
+        vdRows.push([label, q.question_text, q.correct_key]);
       });
     } else {
-      vdRows.push(['Câu hỏi phụ 1', '', '']);
-      vdRows.push(['Câu hỏi phụ 2', '', '']);
-      vdRows.push(['Câu hỏi phụ 3', '', '']);
+      for (let i = 1; i <= 5; i++) {
+        vdRows.push([`Câu hỏi phụ ${i} (15 giây)`, '', '']);
+      }
+      vdRows.push(['Câu hỏi tình huống phân định (Dự phòng)', '', '']);
     }
 
     const wsVd = XLSX.utils.aoa_to_sheet(vdRows);
@@ -1186,18 +1512,22 @@ export const excelService = {
 
     // 5. SHEET: CÂU HỎI PHỤ (Trang tính độc lập)
     const chpRows: any[][] = [
-      ['CÂU HỎI PHỤ'],
+      ['CÂU HỎI PHỤ (TIE-BREAKER) - LUẬT THI ĐẤU BTI 2026'],
+      ['Hướng dẫn: Đấu loại trực tiếp 5 câu hỏi (15 giây suy nghĩ). Nếu sau 5 câu chưa phân định được thì sử dụng câu hỏi tình huống dự phòng.'],
+      [],
       ['', 'Câu hỏi', 'Đáp án']
     ];
 
     if (chpQuestions.length > 0) {
       chpQuestions.forEach((q, idx) => {
-        chpRows.push([`Câu hỏi phụ ${idx + 1}`, q.question_text, q.correct_key]);
+        const label = idx < 5 ? `Câu hỏi phụ ${idx + 1} (15 giây)` : 'Câu hỏi tình huống phân định (Dự phòng)';
+        chpRows.push([label, q.question_text, q.correct_key]);
       });
     } else {
-      chpRows.push(['Câu hỏi phụ 1', '', '']);
-      chpRows.push(['Câu hỏi phụ 2', '', '']);
-      chpRows.push(['Câu hỏi phụ 3', '', '']);
+      for (let i = 1; i <= 5; i++) {
+        chpRows.push([`Câu hỏi phụ ${i} (15 giây)`, '', '']);
+      }
+      chpRows.push(['Câu hỏi tình huống phân định (Dự phòng)', '', '']);
     }
 
     const wsChp = XLSX.utils.aoa_to_sheet(chpRows);

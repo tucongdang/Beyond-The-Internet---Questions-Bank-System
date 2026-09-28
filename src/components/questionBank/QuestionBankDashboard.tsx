@@ -106,6 +106,7 @@ import { QuestionQualityReviewModal } from './QuestionQualityReviewModal';
 import { InteractiveQuizPreviewModal } from './InteractiveQuizPreviewModal';
 import { SmartTaggingModal } from './SmartTaggingModal';
 import { AllInOneAuthoringSuiteModal } from './AllInOneAuthoringSuiteModal';
+import { BankOperationsSuiteModal, BankOperationsTabKey } from './BankOperationsSuiteModal';
 import { questionReviewService, getStatusInfo } from '../../services/questionReviewService';
 import { BtiCompetencyMatrixQuickPopup } from './BtiCompetencyMatrixQuickPopup';
 import { GeminiCameraDocumentScannerModal } from './GeminiCameraDocumentScannerModal';
@@ -409,6 +410,15 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
   const [smartTaggingTargetQuestion, setSmartTaggingTargetQuestion] = useState<QuestionItem | null>(null);
   const [smartTaggingSelectedQuestions, setSmartTaggingSelectedQuestions] = useState<QuestionItem[]>([]);
   const [showAllInOneModal, setShowAllInOneModal] = useState<boolean>(false);
+  const [showOperationsSuiteModal, setShowOperationsSuiteModal] = useState<boolean>(false);
+  const [operationsSuiteDefaultTab, setOperationsSuiteDefaultTab] = useState<BankOperationsTabKey>('LIFECYCLE');
+
+  const handleOpenOperationsSuite = (tab: BankOperationsTabKey = 'LIFECYCLE') => {
+    vibrateTap();
+    soundFx.playClick();
+    setOperationsSuiteDefaultTab(tab);
+    setShowOperationsSuiteModal(true);
+  };
 
   // Hero Command Bar Dropdowns State
   const [activeHeaderMenu, setActiveHeaderMenu] = useState<'import' | 'export' | 'ai' | 'more' | null>(null);
@@ -717,7 +727,21 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
         return false;
       }
 
-      if (filterStatus !== 'ALL' && q.approval_status !== filterStatus) return false;
+      if (filterStatus !== 'ALL') {
+        if (filterStatus === 'QUARANTINED') {
+          if (q.lifecycle_status !== 'QUARANTINED' && !q.quarantine_info) return false;
+        } else if (filterStatus === 'ARCHIVED') {
+          if (q.lifecycle_status !== 'ARCHIVED' && q.vault_partition !== 'ARCHIVED') return false;
+        } else if (filterStatus === 'OFFICIAL') {
+          if (q.vault_partition !== 'OFFICIAL' && q.vault_partition !== undefined) return false;
+        } else if (filterStatus === 'RESERVE') {
+          if (q.vault_partition !== 'RESERVE') return false;
+        } else if (filterStatus === 'SEALED') {
+          if (!q.is_sealed) return false;
+        } else {
+          if (q.approval_status !== filterStatus && q.lifecycle_status !== filterStatus) return false;
+        }
+      }
       return true;
     });
 
@@ -1502,6 +1526,21 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                 <span>⚡ Ôm Trọn Gói (AutoPilot)</span>
               </button>
 
+              {/* 7 Core NHCH Operations Suite Button */}
+              <button
+                type="button"
+                onClick={() => handleOpenOperationsSuite('LIFECYCLE')}
+                className="px-3 py-2 text-xs font-black flex items-center gap-1.5 cursor-pointer rounded-[4px] border border-cyan-400/50 bg-gradient-to-r from-cyan-500/20 via-blue-500/25 to-indigo-500/20 hover:from-cyan-500/35 hover:to-indigo-500/35 text-cyan-200 hover:text-white transition shadow-md shadow-cyan-500/15 active:scale-95"
+                title="Bộ Nghiệp Vụ Khảo Thí & Vận Hành NHCH (7 Nghiệp Vụ Chuyên Sâu): Cách ly vòng đời, Ma trận khoảng trống, Thẩm định nhiễu, Biến thể 1:1, Niêm phong SHA-256, Word Studio, Linter pháp lý"
+              >
+                <ShieldCheck className="w-4 h-4 text-cyan-400 shrink-0" />
+                <span className="hidden lg:inline font-bold">Nghiệp Vụ Khảo Thí</span>
+                <span className="lg:hidden font-bold">Khảo Thí</span>
+                <span className="text-[10px] bg-cyan-400/25 text-cyan-300 px-1 py-0.2 rounded font-mono font-bold">
+                  7
+                </span>
+              </button>
+
               {/* Quick Interactive Quiz Preview */}
               <button
                 type="button"
@@ -1640,6 +1679,26 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                             <span className="text-[9px] bg-amber-400 text-slate-950 font-bold px-1 rounded font-mono">1-Click</span>
                           </div>
                           <div className="text-[10px] text-amber-300/80">Soạn ➜ Nhiễu ➜ TT 02/2025 ➜ NĐ 13 ➜ IRT ➜ 3 Biến thể</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveHeaderMenu(null);
+                          handleOpenOperationsSuite('LIFECYCLE');
+                        }}
+                        className="w-full px-3 py-2 text-left flex items-center gap-2.5 text-white hover:bg-cyan-600/30 transition cursor-pointer bg-gradient-to-r from-cyan-500/15 via-blue-500/15 to-transparent border-b border-cyan-500/25"
+                      >
+                        <ShieldCheck className="w-4 h-4 text-cyan-300 shrink-0" />
+                        <div>
+                          <div className="font-bold flex items-center gap-1 text-cyan-200">
+                            <span>Nghiệp Vụ Khảo Thí & Kho Đề (7 Nghiệp Vụ)</span>
+                            <span className="text-[9px] bg-cyan-400 text-slate-950 font-bold px-1 rounded font-mono">NHCH</span>
+                          </div>
+                          <div className="text-[10px] text-cyan-300/80">Vòng đời & Cách ly ➜ Ma trận ➜ Nhiễu ➜ Biến thể ➜ Niêm phong SHA ➜ Word ➜ Linter</div>
                         </div>
                       </button>
 
@@ -4365,6 +4424,20 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             addToast('Hoàn tất thêm đề thi', `Đã thêm thành công ${count} câu hỏi vào ngân hàng đề BTI 2026.`, 'success');
           }}
           onShowToast={(title, msg, type) => addToast(title, msg, type)}
+        />
+      )}
+
+      {/* 7 Core NHCH Operations Suite Modal */}
+      {showOperationsSuiteModal && (
+        <BankOperationsSuiteModal
+          isOpen={showOperationsSuiteModal}
+          defaultTab={operationsSuiteDefaultTab}
+          onClose={() => setShowOperationsSuiteModal(false)}
+          onQuestionsUpdated={() => {
+            setQuestions(questionBankManager.getQuestions());
+            setStats(questionBankManager.getMatrixStats());
+            addToast('Đồng bộ ngân hàng đề', 'Dữ liệu ngân hàng câu hỏi đã được cập nhật thành công.', 'success');
+          }}
         />
       )}
 
