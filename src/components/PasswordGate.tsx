@@ -293,7 +293,7 @@ export const PasswordGate: React.FC<PasswordGateProps> = ({
           fullName: 'Trưởng Ban Kỹ Thuật (Super Admin)',
           role: 'SUPER_ADMIN',
           status: 'APPROVED',
-          technicalRole: 'SYSTEM_ADMIN'
+          technicalRole: 'SUPER_ADMIN'
         };
         saveAdminSession(`token_${Date.now()}`, rootUser);
         onAuthenticated(rootUser);
@@ -356,7 +356,7 @@ export const PasswordGate: React.FC<PasswordGateProps> = ({
           email: googleUser.email || undefined,
           role: 'SUPER_ADMIN',
           status: 'APPROVED',
-          technicalRole: regTechnicalRole || 'SYSTEM_ADMIN'
+          technicalRole: regTechnicalRole || 'SUPER_ADMIN'
         };
       }
 
@@ -694,7 +694,7 @@ export const PasswordGate: React.FC<PasswordGateProps> = ({
           fullName: 'Trưởng Ban Kỹ Thuật (Root Admin)',
           role: 'SUPER_ADMIN',
           status: 'APPROVED',
-          technicalRole: 'SYSTEM_ADMIN'
+          technicalRole: 'SUPER_ADMIN'
         };
         soundFx.playPacingChime('complete');
         vibrateSuccess();
