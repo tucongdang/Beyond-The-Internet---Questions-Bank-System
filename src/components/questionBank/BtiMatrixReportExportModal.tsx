@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   FileSpreadsheet,
   Printer,
@@ -258,8 +259,10 @@ export const BtiMatrixReportExportModal: React.FC<BtiMatrixReportExportModalProp
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn font-mono">
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn font-mono modal-backdrop-isolated select-none">
       <div className="fluent-card w-full max-w-2xl bg-[#16072D] border border-amber-400/50 rounded-[6px] shadow-2xl p-5 space-y-5 text-slate-100 relative">
         
         {/* Modal Header */}
@@ -390,6 +393,7 @@ export const BtiMatrixReportExportModal: React.FC<BtiMatrixReportExportModalProp
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -30,33 +30,49 @@ import {
   Zap,
   Key,
   Download,
-  FileCode
+  FileCode,
+  Shuffle,
+  Columns,
+  SquareAsterisk,
+  BarChart3,
+  Award,
+  ShieldCheck
 } from 'lucide-react';
 import { useLockBodyScroll } from '../../hooks/useLockBodyScroll';
 import { QuestionItem } from '../../types';
 import { vibrateTap, vibrateSuccess } from '../../utils/hapticUtils';
 import { soundFx } from '../../services/audioEffects';
-import { generateJsonExport, downloadJsonFile } from '../../services/questionExportService';
+import { 
+  generateJsonExport, 
+  downloadJsonFile, 
+  generatePrintableHtmlDocument, 
+  downloadHtmlDocument,
+  calculateExportStats 
+} from '../../services/questionExportService';
+import { DIGITAL_COMPETENCY_DOMAINS, COGNITIVE_LEVELS } from '../../data/digitalCompetencyData';
 
 export interface PrintPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   questions: QuestionItem[];
   selectedQuestions?: QuestionItem[];
+  filterContextLabel?: string;
 }
 
-type DocumentFormat = 'EXAM' | 'TABLE' | 'ANSWER_KEY';
-type PageOrientation = 'portrait' | 'landscape';
-type PaperSize = 'a4' | 'letter' | 'a3';
-type MarginSize = 'standard' | 'narrow' | 'wide';
-type FontSizeChoice = 'compact' | 'standard' | 'large';
-type PageScope = 'ALL' | 'CURRENT' | 'CUSTOM';
+export type DocumentFormat = 'EXAM' | 'TEACHER_KEY' | 'TABLE' | 'ANSWER_KEY' | 'BUBBLE_SHEET' | 'MATRIX';
+export type PageOrientation = 'portrait' | 'landscape';
+export type PaperSize = 'a4' | 'letter' | 'a3';
+export type MarginSize = 'narrow' | 'standard' | 'wide';
+export type FontSizeChoice = 'compact' | 'standard' | 'large';
+export type ColumnLayout = '1-col' | '2-col';
+export type PageScope = 'ALL' | 'CURRENT' | 'CUSTOM';
 
 export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   isOpen,
   onClose,
   questions: initialQuestions,
-  selectedQuestions = []
+  selectedQuestions = [],
+  filterContextLabel
 }) => {
   useLockBodyScroll(isOpen);
 
@@ -64,34 +80,59 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   const hasSelected = selectedQuestions.length > 0;
   const [useSelectionOnly, setUseSelectionOnly] = useState<boolean>(false);
 
-  // Active question set based on scope
+  // Shuffled or Original active list
+  const [isShuffled, setIsShuffled] = useState<boolean>(false);
+  const [shuffleSeed, setShuffleSeed] = useState<number>(101);
+
+  // Active question set based on scope & shuffle
   const activeQuestions = useMemo(() => {
-    if (useSelectionOnly && hasSelected) {
-      return selectedQuestions;
+    const base = useSelectionOnly && hasSelected ? selectedQuestions : initialQuestions;
+    if (!isShuffled) return base;
+    
+    // Deterministic shuffle with seed
+    const cloned = [...base];
+    let m = cloned.length;
+    let t: QuestionItem;
+    let i: number;
+    let seed = shuffleSeed;
+    
+    const random = () => {
+      seed = (seed * 9301 + 49297) % 233280;
+      return seed / 233280;
+    };
+
+    while (m) {
+      i = Math.floor(random() * m--);
+      t = cloned[m];
+      cloned[m] = cloned[i];
+      cloned[i] = t;
     }
-    return initialQuestions;
-  }, [useSelectionOnly, hasSelected, selectedQuestions, initialQuestions]);
+    return cloned;
+  }, [useSelectionOnly, hasSelected, selectedQuestions, initialQuestions, isShuffled, shuffleSeed]);
 
   // Settings state - Layout & Paper
   const [docFormat, setDocFormat] = useState<DocumentFormat>('EXAM');
   const [orientation, setOrientation] = useState<PageOrientation>('portrait');
   const [paperSize, setPaperSize] = useState<PaperSize>('a4');
   const [marginSize, setMarginSize] = useState<MarginSize>('standard');
+  const [columnLayout, setColumnLayout] = useState<ColumnLayout>('1-col');
   const [itemsPerPage, setItemsPerPage] = useState<number>(5);
   const [fontSize, setFontSize] = useState<FontSizeChoice>('standard');
 
   // Content options
-  const [showAnswers, setShowAnswers] = useState<boolean>(true);
-  const [showExplanations, setShowExplanations] = useState<boolean>(true);
+  const [showAnswers, setShowAnswers] = useState<boolean>(false);
+  const [showExplanations, setShowExplanations] = useState<boolean>(false);
   const [showLegalRef, setShowLegalRef] = useState<boolean>(true);
   const [showStudentInfo, setShowStudentInfo] = useState<boolean>(true);
   const [showHeaderFooter, setShowHeaderFooter] = useState<boolean>(true);
+  const [includeEndNote, setIncludeEndNote] = useState<boolean>(true);
   const [ecoInkMode, setEcoInkMode] = useState<boolean>(false);
+  const [watermarkText, setWatermarkText] = useState<string>('');
 
   // Custom Header Text
   const [institutionName, setInstitutionName] = useState<string>('BỘ GIÁO DỤC VÀ ĐÀO TẠO • HỘI ĐỒNG THI BTI');
   const [examTitle, setExamTitle] = useState<string>('ĐỀ THI ĐÁNH GIÁ NĂNG LỰC SỐ NGƯỜI HỌC 2026');
-  const [examSubtitle, setExamSubtitle] = useState<string>('MÃ ĐỀ: 101 • THỜI GIAN LÀM BÀI: 45 PHÚT');
+  const [examSubtitle, setExamSubtitle] = useState<string>(`MÃ ĐỀ: ${shuffleSeed} • THỜI GIAN LÀM BÀI: 45 PHÚT`);
 
   // Preview Navigation & Zoom
   const [viewPageMode, setViewPageMode] = useState<'ALL' | 'SINGLE'>('ALL');
@@ -103,20 +144,45 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   const [pageScope, setPageScope] = useState<PageScope>('ALL');
   const [customPageRange, setCustomPageRange] = useState<string>('');
 
-  // Auto-switch to landscape if user chooses Table format and vice versa
-  const handleFormatChange = (fmt: DocumentFormat) => {
+  // Auto-switch presets
+  const applyPreset = (preset: 'STUDENT' | 'TEACHER' | 'BUBBLE' | 'MATRIX' | 'TABLE' | 'ANSWER_KEY') => {
     vibrateTap();
     soundFx.playClick();
-    setDocFormat(fmt);
-    if (fmt === 'TABLE') {
+    if (preset === 'STUDENT') {
+      setDocFormat('EXAM');
+      setShowAnswers(false);
+      setShowExplanations(false);
+      setShowStudentInfo(true);
+      setShowLegalRef(false);
+      setOrientation('portrait');
+      setItemsPerPage(columnLayout === '2-col' ? 8 : 5);
+    } else if (preset === 'TEACHER') {
+      setDocFormat('TEACHER_KEY');
+      setShowAnswers(true);
+      setShowExplanations(true);
+      setShowStudentInfo(false);
+      setShowLegalRef(true);
+      setOrientation('portrait');
+      setItemsPerPage(4);
+    } else if (preset === 'BUBBLE') {
+      setDocFormat('BUBBLE_SHEET');
+      setOrientation('portrait');
+      setItemsPerPage(0);
+    } else if (preset === 'MATRIX') {
+      setDocFormat('MATRIX');
+      setOrientation('landscape');
+      setItemsPerPage(0);
+    } else if (preset === 'TABLE') {
+      setDocFormat('TABLE');
+      setShowAnswers(true);
       setOrientation('landscape');
       setItemsPerPage(6);
-    } else if (fmt === 'ANSWER_KEY') {
+    } else if (preset === 'ANSWER_KEY') {
+      setDocFormat('ANSWER_KEY');
+      setShowAnswers(true);
+      setShowExplanations(true);
       setOrientation('portrait');
-      setItemsPerPage(0); // continuous or full
-    } else {
-      setOrientation('portrait');
-      setItemsPerPage(5);
+      setItemsPerPage(0);
     }
   };
 
@@ -144,11 +210,35 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, selectedQuestions.length]);
 
+  // Handle Shuffle
+  const handleShuffleToggle = () => {
+    vibrateTap();
+    soundFx.playClick();
+    if (!isShuffled) {
+      const nextSeed = Math.floor(100 + Math.random() * 899);
+      setShuffleSeed(nextSeed);
+      setIsShuffled(true);
+      setExamSubtitle(`MÃ ĐỀ: ${nextSeed} • THỜI GIAN LÀM BÀI: 45 PHÚT`);
+    } else {
+      setIsShuffled(false);
+      setExamSubtitle(`MÃ ĐỀ: 101 • THỜI GIAN LÀM BÀI: 45 PHÚT`);
+    }
+  };
+
+  const handleNextShuffleCode = () => {
+    vibrateTap();
+    soundFx.playClick();
+    const nextSeed = Math.floor(100 + Math.random() * 899);
+    setShuffleSeed(nextSeed);
+    setIsShuffled(true);
+    setExamSubtitle(`MÃ ĐỀ: ${nextSeed} • THỜI GIAN LÀM BÀI: 45 PHÚT`);
+  };
+
   // Chunk questions into pages
   const pageChunks = useMemo(() => {
     if (activeQuestions.length === 0) return [[]];
-    if (itemsPerPage <= 0 || docFormat === 'ANSWER_KEY') {
-      // In answer key or continuous mode, single/dynamic chunk
+    if (itemsPerPage <= 0 || docFormat === 'ANSWER_KEY' || docFormat === 'BUBBLE_SHEET' || docFormat === 'MATRIX') {
+      // In full continuous single sheet
       return [activeQuestions];
     }
     const chunks: QuestionItem[][] = [];
@@ -175,7 +265,6 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
     if (pageScope === 'CURRENT') {
       return [currentPage];
     }
-    // CUSTOM
     if (!customPageRange.trim()) {
       return Array.from({ length: totalPages }, (_, i) => i + 1);
     }
@@ -222,6 +311,27 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
       pretty: true
     });
     downloadJsonFile(jsonString, filename);
+  };
+
+  const handleDownloadHtml = () => {
+    vibrateSuccess();
+    soundFx.playCorrect();
+    const html = generatePrintableHtmlDocument(activeQuestions, {
+      scope: useSelectionOnly ? 'SELECTED' : 'ALL',
+      layout: docFormat === 'TEACHER_KEY' || showAnswers ? 'TEACHER' : 'STUDENT',
+      title: examTitle,
+      institution: institutionName,
+      subtitle: examSubtitle,
+      includeLegalRef: showLegalRef,
+      includeExplanation: showExplanations,
+      includeStudentInfoBox: showStudentInfo,
+      includeQuickAnswerKey: docFormat === 'ANSWER_KEY' || showAnswers,
+      includeCompetencyMatrix: docFormat === 'MATRIX',
+      fontSize: fontSize,
+      paperSize: paperSize === 'a3' ? 'a4' : paperSize
+    });
+    const filename = `BTI_2026_DeThi_${docFormat}_${activeQuestions.length}Cau_${new Date().toISOString().slice(0, 10)}.html`;
+    downloadHtmlDocument(html, filename);
   };
 
   const getDifficultyText = (level?: string) => {
@@ -279,7 +389,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
     return '';
   };
 
-  // Helper to check if a question is VCNV (Vượt Chướng Ngại Vật)
+  // Helper to check if a question is VCNV
   const isVcnvQuestion = (q: QuestionItem): boolean => {
     const roundGrp = q.round_group || '';
     const roundType = q.round_type || '';
@@ -310,7 +420,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
     return (
       <div className={`space-y-2 mt-2 pt-2 border-t border-gray-300 break-inside-avoid ${isTableMode ? 'text-xs' : ''}`}>
         {/* VCNV Header Banner */}
-        <div className="flex flex-wrap items-center justify-between gap-2 bg-amber-50/70 p-2 rounded border border-amber-200">
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-amber-50/80 p-2 rounded border border-amber-300">
           <div className="flex items-center gap-1.5 text-xs font-bold text-amber-950">
             <Layers className="w-3.5 h-3.5 text-amber-700 shrink-0" />
             <span>BỘ CÂU HỎI VƯỢT CHƯỚNG NGẠI VẬT (7 HÀNG CHUẨN)</span>
@@ -423,10 +533,12 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
     );
   };
 
-  // Render Sheet Content - EXAM FORMAT
+  // Render Sheet Content - EXAM / TEACHER FORMAT
   const renderExamFormat = (pageQuestions: QuestionItem[], startIdx: number) => {
+    const isDualCol = columnLayout === '2-col';
+
     return (
-      <div className={`space-y-4 ${fontSizeClasses}`}>
+      <div className={`${isDualCol ? 'columns-1 sm:columns-2 gap-6' : 'space-y-4'} ${fontSizeClasses}`}>
         {pageQuestions.map((q, idx) => {
           const globalIdx = startIdx + idx + 1;
           const isVcnv = isVcnvQuestion(q);
@@ -437,7 +549,10 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
           );
 
           return (
-            <div key={q.id || idx} className="break-inside-avoid border-b border-gray-300 pb-3 last:border-b-0">
+            <div 
+              key={q.id || idx} 
+              className={`break-inside-avoid border-b border-gray-300 pb-3 last:border-b-0 ${isDualCol ? 'mb-3.5 inline-block w-full' : ''}`}
+            >
               {/* Question Text */}
               <div className="font-bold text-gray-950 mb-1.5 flex items-start gap-2">
                 <span className="font-mono bg-black text-white text-[11px] px-2 py-0.5 rounded-[2px] shrink-0 font-bold">
@@ -473,7 +588,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
 
                   {/* Case 2: True/False 4 statements */}
                   {isTrueFalse4 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pl-6 mt-1.5 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pl-4 mt-1.5 text-xs">
                       {['a', 'b', 'c', 'd'].map(key => {
                         const text = q.options?.[key] || q.options?.[key.toUpperCase()];
                         if (!text) return null;
@@ -500,9 +615,9 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                   ) : (
                     /* Case 3: Standard Multiple Choice Options */
                     validOptions.length > 0 && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 pl-6 mt-1.5">
+                      <div className={`grid ${isDualCol ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-x-4 gap-y-1 pl-4 mt-1.5`}>
                         {validOptions.map(([k, opt]) => {
-                          const isCorrect = showAnswers && k === q.correct_key;
+                          const isCorrect = showAnswers && (k === q.correct_key || q.correct_key?.includes(k));
                           return (
                             <div 
                               key={k} 
@@ -527,7 +642,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
 
               {/* Scenario details if any */}
               {q.scenario_details?.scriptText && (
-                <div className="pl-6 mt-2 text-xs italic text-gray-700 bg-gray-50/80 p-2 rounded border-l-2 border-amber-400">
+                <div className="pl-4 mt-2 text-xs italic text-gray-700 bg-gray-50/80 p-2 rounded border-l-2 border-amber-400">
                   <div className="font-bold not-italic text-gray-900 mb-0.5">Tình huống / Bối cảnh:</div>
                   <div>{q.scenario_details.scriptText}</div>
                   {q.scenario_details.dilemma && (
@@ -538,7 +653,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
 
               {/* Answer Key & Explanation if enabled */}
               {showAnswers && (
-                <div className="mt-2 pl-6 text-[11.5px] text-gray-800 bg-gray-50 p-2 rounded border border-gray-200">
+                <div className="mt-2 pl-4 text-[11.5px] text-gray-800 bg-gray-50 p-2 rounded border border-gray-200">
                   <div className="flex items-center gap-2 font-bold text-emerald-900">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                     <span>Đáp án đúng: <span className="font-mono bg-emerald-700 text-white px-1.5 py-0.2 rounded text-xs">{q.correct_key || 'Chưa xác định'}</span></span>
@@ -589,12 +704,10 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                 <td className="p-2 border border-gray-400">
                   <div className="font-semibold text-gray-900 leading-snug">{q.question_text}</div>
 
-                  {/* Case 1: VCNV Question Breakdown */}
                   {isVcnv ? (
                     renderVcnvContent(q, showAnswers, true)
                   ) : (
                     <>
-                      {/* Question Image if provided */}
                       {imgUrl && (
                         <div className="my-2 p-1.5 bg-gray-50 rounded border border-gray-300 inline-block max-w-full">
                           <img
@@ -607,7 +720,6 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                         </div>
                       )}
 
-                      {/* Case 2: True/False 4 statements */}
                       {isTrueFalse4 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-1.5 pt-1.5 border-t border-gray-200 text-xs">
                           {['a', 'b', 'c', 'd'].map(key => {
@@ -634,7 +746,6 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                           })}
                         </div>
                       ) : (
-                        /* Case 3: Multiple choice options */
                         validOptions.length > 0 && (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-0.5 mt-1.5 pt-1.5 border-t border-gray-200 text-xs">
                             {validOptions.map(([k, opt]) => (
@@ -724,13 +835,14 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
     );
   };
 
-  // Render Sheet Content - ANSWER KEY FORMAT (Phiếu đáp án & barem chấm)
+  // Render Sheet Content - ANSWER KEY FORMAT
   const renderAnswerKeyFormat = () => {
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-sm font-bold uppercase tracking-wider text-black border-b pb-1 mb-3">
-            BẢNG ĐÁP ÁN TRẮC NGHIỆM NHANH ({activeQuestions.length} CÂU)
+          <h2 className="text-sm font-bold uppercase tracking-wider text-black border-b-2 border-black pb-1 mb-3 flex items-center justify-between">
+            <span>BẢNG ĐÁP ÁN TRẮC NGHIỆM NHANH ({activeQuestions.length} CÂU)</span>
+            <span className="text-xs font-mono font-normal">MÃ ĐỀ: {shuffleSeed}</span>
           </h2>
           <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5 text-center font-mono">
             {activeQuestions.map((q, idx) => {
@@ -753,7 +865,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
         {/* Detailed Rubric / Explanations */}
         {showExplanations && (
           <div>
-            <h2 className="text-sm font-bold uppercase tracking-wider text-black border-b pb-1 mb-3">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-black border-b-2 border-black pb-1 mb-3">
               HƯỚNG DẪN GIẢI CHI TIẾT & BIỂU ĐIỂM
             </h2>
             <div className="space-y-3 text-xs">
@@ -773,6 +885,172 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
             </div>
           </div>
         )}
+      </div>
+    );
+  };
+
+  // Render Sheet Content - BUBBLE ANSWER SHEET (Phiếu trả lời trắc nghiệm chuẩn)
+  const renderBubbleSheetFormat = () => {
+    const qCount = Math.max(activeQuestions.length, 40);
+    const questionsList = Array.from({ length: qCount }, (_, i) => i + 1);
+
+    return (
+      <div className="space-y-4 text-xs">
+        {/* Bubble Sheet Top Section */}
+        <div className="border-2 border-black p-3 bg-white space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 border-b-2 border-black pb-3">
+            {/* Left: Student instructions */}
+            <div className="sm:col-span-2 space-y-1.5 border-r-0 sm:border-r border-black sm:pr-3">
+              <div className="font-bold uppercase text-[11px] text-black">HƯỚNG DẪN TÔ PHIẾU TRẢ LỜI:</div>
+              <ul className="text-[10px] text-gray-700 space-y-0.5 list-disc pl-4">
+                <li>Dùng bút chì 2B để tô kín ô tròn tương ứng với phương án trả lời đúng.</li>
+                <li>Không được gạch chéo, đánh dấu V, tô nhạt hoặc để thừa vết tẩy chì.</li>
+                <li>Số báo danh và Mã đề thi phải được ghi bằng số và tô kín vào bảng số tương ứng.</li>
+              </ul>
+              <div className="flex items-center gap-3 pt-1 text-[10.5px]">
+                <div className="flex items-center gap-1 font-mono">
+                  <span>Mẫu đúng:</span>
+                  <span className="inline-block w-4 h-4 rounded-full bg-black"></span>
+                </div>
+                <div className="flex items-center gap-1 font-mono text-gray-500">
+                  <span>Mẫu sai:</span>
+                  <span className="inline-block w-4 h-4 rounded-full border border-black text-center font-bold text-[9px] leading-3.5">✕</span>
+                  <span className="inline-block w-4 h-4 rounded-full border border-black text-center font-bold text-[9px] leading-3.5">✓</span>
+                  <span className="inline-block w-4 h-4 rounded-full border border-black flex items-center justify-center">
+                    <span className="w-1.5 h-1.5 bg-black rounded-full"></span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: SBD & Mã Đề Box */}
+            <div className="space-y-2 font-mono">
+              <div className="border border-black p-1 text-center bg-gray-100 font-bold uppercase text-[10.5px]">
+                MÃ ĐỀ THI: {shuffleSeed}
+              </div>
+              <div className="grid grid-cols-6 gap-0.5 text-center text-[9.5px]">
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                  <div key={num} className="border border-gray-400 p-0.5 rounded-full flex items-center justify-center h-4 w-4 mx-auto">
+                    {num}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Student Fill In Line */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono">
+            <div>Họ và tên thí sinh: .....................................................................</div>
+            <div>Số báo danh: ..............................................................</div>
+            <div>Phòng thi số: ...........................................................................</div>
+            <div>Chữ ký CB coi thi: ......................................................</div>
+          </div>
+        </div>
+
+        {/* 40-50 Questions Bubble Circles Grid (4 Columns) */}
+        <div>
+          <div className="font-bold uppercase text-center text-xs tracking-wider border-b-2 border-black pb-1 mb-2">
+            PHẦN TRẢ LỜI CÂU HỎI TRẮC NGHIỆM
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1.5 font-mono">
+            {questionsList.map((num) => {
+              const currentQ = activeQuestions[num - 1];
+              const correctKey = currentQ?.correct_key?.toUpperCase() || '';
+              return (
+                <div key={num} className="flex items-center justify-between border border-gray-300 px-1.5 py-0.5 rounded bg-gray-50/50">
+                  <span className="font-bold text-[10.5px] w-8">
+                    {num < 10 ? `0${num}` : num}.
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {['A', 'B', 'C', 'D'].map(opt => {
+                      const isCorrect = showAnswers && correctKey === opt;
+                      return (
+                        <div 
+                          key={opt} 
+                          className={`w-5 h-5 rounded-full border text-center font-bold text-[10px] flex items-center justify-center transition ${
+                            isCorrect 
+                              ? 'bg-black text-white border-black font-black' 
+                              : 'border-black text-black bg-white'
+                          }`}
+                        >
+                          {opt}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Render Sheet Content - MATRIX FORMAT (Ma trận đặc tả năng lực số BTI 2026)
+  const renderMatrixFormat = () => {
+    const stats = calculateExportStats(activeQuestions);
+
+    return (
+      <div className="space-y-4 text-xs">
+        <div className="border-b-2 border-black pb-2">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-black">
+            BẢNG MA TRẬN & ĐẶC TẢ ĐỀ THI NĂNG LỰC SỐ (THÔNG TƯ 02/2025/TT-BGDĐT)
+          </h2>
+          <p className="text-[11px] text-gray-600 font-mono mt-0.5">
+            Tổng số câu hỏi: {stats.total} câu • Media/Hình ảnh: {stats.withImages} câu • Tỷ lệ phân hóa chuẩn khảo thí
+          </p>
+        </div>
+
+        {/* Matrix Table */}
+        <table className="w-full text-left border-collapse border border-gray-400 text-[11px]">
+          <thead>
+            <tr className="bg-gray-100 border-b-2 border-black font-bold uppercase text-[10px]">
+              <th className="p-2 border border-gray-400">Miền Năng Lực Số (Khung BTI 2026)</th>
+              <th className="p-2 border border-gray-400 text-center w-20">Nhận biết</th>
+              <th className="p-2 border border-gray-400 text-center w-20">Thông hiểu</th>
+              <th className="p-2 border border-gray-400 text-center w-20">Vận dụng</th>
+              <th className="p-2 border border-gray-400 text-center w-20">Vận dụng cao</th>
+              <th className="p-2 border border-gray-400 text-center w-20">Tổng số câu</th>
+              <th className="p-2 border border-gray-400 text-center w-20">Tỷ lệ (%)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(DIGITAL_COMPETENCY_DOMAINS).map(([domKey, domInfo]) => {
+              const domQuestions = activeQuestions.filter(q => q.digital_competency_domain === domKey);
+              const nbCount = domQuestions.filter(q => q.cognitive_level === 'NHAN_BIET').length;
+              const thCount = domQuestions.filter(q => q.cognitive_level === 'THONG_HIEU').length;
+              const vdCount = domQuestions.filter(q => q.cognitive_level === 'VAN_DUNG').length;
+              const vdcCount = domQuestions.filter(q => q.cognitive_level === 'VAN_DUNG_CAO').length;
+              const total = domQuestions.length;
+              const pct = stats.total > 0 ? ((total / stats.total) * 100).toFixed(1) : '0.0';
+
+              return (
+                <tr key={domKey} className="border-b border-gray-300">
+                  <td className="p-2 border border-gray-400 font-medium">
+                    <div className="font-bold text-gray-900">{domInfo.name}</div>
+                    <div className="text-[9.5px] text-gray-500 font-mono">{domInfo.code}</div>
+                  </td>
+                  <td className="p-2 border border-gray-400 text-center font-mono">{nbCount || '-'}</td>
+                  <td className="p-2 border border-gray-400 text-center font-mono">{thCount || '-'}</td>
+                  <td className="p-2 border border-gray-400 text-center font-mono">{vdCount || '-'}</td>
+                  <td className="p-2 border border-gray-400 text-center font-mono">{vdcCount || '-'}</td>
+                  <td className="p-2 border border-gray-400 text-center font-mono font-bold bg-gray-50">{total}</td>
+                  <td className="p-2 border border-gray-400 text-center font-mono font-bold">{pct}%</td>
+                </tr>
+              );
+            })}
+            <tr className="bg-gray-100 border-t-2 border-black font-bold font-mono">
+              <td className="p-2 border border-gray-400 uppercase">TỔNG CỘNG</td>
+              <td className="p-2 border border-gray-400 text-center">{stats.byCognitiveLevel['NHAN_BIET'] || 0}</td>
+              <td className="p-2 border border-gray-400 text-center">{stats.byCognitiveLevel['THONG_HIEU'] || 0}</td>
+              <td className="p-2 border border-gray-400 text-center">{stats.byCognitiveLevel['VAN_DUNG'] || 0}</td>
+              <td className="p-2 border border-gray-400 text-center">{stats.byCognitiveLevel['VAN_DUNG_CAO'] || 0}</td>
+              <td className="p-2 border border-gray-400 text-center text-sm font-black">{stats.total}</td>
+              <td className="p-2 border border-gray-400 text-center">100%</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     );
   };
@@ -799,7 +1077,16 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
           breakAfter: isLastPage ? 'avoid' : 'page' 
         }}
       >
-        <div className="flex flex-col justify-between min-h-full print:min-h-0 print:block">
+        {/* Optional Watermark */}
+        {watermarkText && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5 select-none overflow-hidden">
+            <span className="text-6xl sm:text-8xl font-black uppercase transform -rotate-45 tracking-widest text-black">
+              {watermarkText}
+            </span>
+          </div>
+        )}
+
+        <div className="flex flex-col justify-between min-h-full print:min-h-0 print:block relative z-10">
           <div>
             {/* Header Section */}
             {showHeaderFooter && (
@@ -824,7 +1111,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                 </div>
 
                 {/* Student Info Box - Only on Page 1 for Exam Format */}
-                {showStudentInfo && docFormat === 'EXAM' && pageIndex === 0 && (
+                {showStudentInfo && (docFormat === 'EXAM' || docFormat === 'TEACHER_KEY') && pageIndex === 0 && (
                   <div className="mt-3 p-2.5 border border-gray-400 rounded bg-gray-50/60 text-xs font-mono grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
                     <div>Họ và tên thí sinh: ..............................................................</div>
                     <div>Số báo danh: .....................................................</div>
@@ -840,10 +1127,20 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
             )}
 
             {/* Document Body Format */}
-            {docFormat === 'EXAM' && renderExamFormat(pageQuestions, startIdx)}
+            {(docFormat === 'EXAM' || docFormat === 'TEACHER_KEY') && renderExamFormat(pageQuestions, startIdx)}
             {docFormat === 'TABLE' && renderTableFormat(pageQuestions, startIdx)}
             {docFormat === 'ANSWER_KEY' && renderAnswerKeyFormat()}
+            {docFormat === 'BUBBLE_SHEET' && renderBubbleSheetFormat()}
+            {docFormat === 'MATRIX' && renderMatrixFormat()}
           </div>
+
+          {/* End Note on Last Page */}
+          {isLastPage && includeEndNote && docFormat === 'EXAM' && (
+            <div className="mt-6 text-center text-xs font-mono text-gray-500 uppercase tracking-widest border-t border-gray-300 pt-2">
+              ---------- HẾT ---------- <br />
+              <span className="text-[10px] normal-case text-gray-400">Cán bộ coi thi không giải thích gì thêm</span>
+            </div>
+          )}
 
           {/* Footer Section */}
           {showHeaderFooter && (
@@ -884,14 +1181,20 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-white font-mono tracking-wide">
-                HỘP THOẠI IN & XUẤT BẢN ĐỀ THI
+                HỘP THOẠI IN & XUẤT BẢN ĐỀ THI (PDF)
               </span>
               <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 {totalPages} Trang ({paperSize.toUpperCase()})
               </span>
+              {isShuffled && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  Mã đề: {shuffleSeed}
+                </span>
+              )}
             </div>
             <p className="text-[11px] text-[#B6A6D8] font-mono">
               Tổng số: {activeQuestions.length} câu hỏi {useSelectionOnly ? '(Đang chọn)' : '(Toàn bộ)'}
+              {filterContextLabel ? ` • Lọc: ${filterContextLabel}` : ''}
             </p>
           </div>
         </div>
@@ -990,12 +1293,12 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
 
           <button
             type="button"
-            onClick={handleExportJson}
+            onClick={handleDownloadHtml}
             className="px-3 py-1.5 border border-sky-400/40 bg-sky-500/15 hover:bg-sky-500/30 text-sky-200 hover:text-white rounded-[4px] transition text-xs font-mono font-bold cursor-pointer flex items-center gap-1.5"
-            title="Xuất các câu hỏi đang xem ra tệp JSON (.json) để chia sẻ ngoại tuyến"
+            title="Tải tệp HTML Đóng Gói (Offline Printable) xem & in ngoại tuyến"
           >
             <Download className="w-3.5 h-3.5 text-sky-300" />
-            <span className="hidden sm:inline">Xuất JSON</span>
+            <span className="hidden sm:inline">Tải HTML</span>
           </button>
 
           <button
@@ -1013,7 +1316,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
             title="Mở lệnh in trình duyệt hoặc xuất file PDF (Ctrl + P)"
           >
             <Printer className="w-4 h-4 text-slate-950" />
-            <span>In Ngay (Ctrl+P)</span>
+            <span>In PDF (Ctrl+P)</span>
           </button>
         </div>
       </div>
@@ -1025,23 +1328,80 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
           <div className="w-80 sm:w-96 bg-[#160731] border-r border-theme-accent/20 flex flex-col shrink-0 no-print z-10 shadow-2xl">
             {/* Sidebar Scrollable Sections */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 text-xs font-mono">
-              {/* Section 1: Destination & Scope */}
+              {/* Quick Preset Buttons */}
+              <div className="bg-[#210c47]/80 p-3 rounded-[4px] border border-theme-accent/20 space-y-2">
+                <div className="text-[#F7CAC9] font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Mẫu Định Dạng Nhanh (Preset)</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => applyPreset('STUDENT')}
+                    className={`p-1.5 rounded border text-left flex items-center gap-1.5 transition ${
+                      docFormat === 'EXAM' && !showAnswers
+                        ? 'bg-amber-400 text-slate-950 border-amber-400 font-bold'
+                        : 'bg-black/30 text-slate-300 border-white/10 hover:bg-white/5'
+                    }`}
+                  >
+                    <GraduationCap className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">Đề Thí Sinh</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => applyPreset('TEACHER')}
+                    className={`p-1.5 rounded border text-left flex items-center gap-1.5 transition ${
+                      docFormat === 'TEACHER_KEY' || (docFormat === 'EXAM' && showAnswers)
+                        ? 'bg-amber-400 text-slate-950 border-amber-400 font-bold'
+                        : 'bg-black/30 text-slate-300 border-white/10 hover:bg-white/5'
+                    }`}
+                  >
+                    <Award className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">Đề Giám Khảo</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => applyPreset('BUBBLE')}
+                    className={`p-1.5 rounded border text-left flex items-center gap-1.5 transition ${
+                      docFormat === 'BUBBLE_SHEET'
+                        ? 'bg-amber-400 text-slate-950 border-amber-400 font-bold'
+                        : 'bg-black/30 text-slate-300 border-white/10 hover:bg-white/5'
+                    }`}
+                  >
+                    <SquareAsterisk className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">Phiếu Tô Ô (OMR)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => applyPreset('MATRIX')}
+                    className={`p-1.5 rounded border text-left flex items-center gap-1.5 transition ${
+                      docFormat === 'MATRIX'
+                        ? 'bg-amber-400 text-slate-950 border-amber-400 font-bold'
+                        : 'bg-black/30 text-slate-300 border-white/10 hover:bg-white/5'
+                    }`}
+                  >
+                    <BarChart3 className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">Ma Trận Đề Thi</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Section 1: Scope & Shuffle Controls */}
               <div className="bg-[#210c47]/80 p-3 rounded-[4px] border border-theme-accent/20 space-y-2.5">
                 <div className="flex items-center justify-between text-[#F7CAC9] font-bold text-[11px] uppercase tracking-wider">
                   <div className="flex items-center gap-1.5">
                     <Printer className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Máy in / Đích đến</span>
+                    <span>Phạm vi & Trộn Đề</span>
                   </div>
-                </div>
-                <div className="bg-black/40 p-2 rounded border border-white/10 text-[11px] text-slate-300 flex items-center justify-between">
-                  <span>Lưu dưới dạng PDF / Máy in hệ thống</span>
-                  <span className="text-emerald-400 text-[10px]">● Sẵn sàng</span>
                 </div>
 
                 {/* Scope selector if has selected questions */}
                 {hasSelected && (
-                  <div className="pt-2 border-t border-white/10">
-                    <label className="text-[11px] text-slate-300 font-bold block mb-1">
+                  <div>
+                    <label className="text-[10.5px] text-slate-400 block mb-1">
                       Phạm vi câu hỏi:
                     </label>
                     <div className="grid grid-cols-2 gap-1.5">
@@ -1054,7 +1414,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                             : 'bg-black/20 text-slate-400 border-white/10 hover:text-white'
                         }`}
                       >
-                        Toàn bộ ({initialQuestions.length} câu)
+                        Đang lọc ({initialQuestions.length} câu)
                       </button>
                       <button
                         type="button"
@@ -1070,114 +1430,81 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                     </div>
                   </div>
                 )}
-              </div>
 
-              {/* Section 2: Document Layout Format */}
-              <div className="bg-[#210c47]/80 p-3 rounded-[4px] border border-theme-accent/20 space-y-2.5">
-                <div className="text-[#F7CAC9] font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5 text-theme-accent" />
-                  <span>Hình thức tài liệu</span>
-                </div>
-                <div className="grid grid-cols-3 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleFormatChange('EXAM')}
-                    className={`p-2 rounded border text-center flex flex-col items-center gap-1 transition ${
-                      docFormat === 'EXAM'
-                        ? 'bg-theme-accent text-[#190839] border-theme-accent font-bold shadow'
-                        : 'bg-black/30 text-slate-300 border-white/10 hover:bg-white/5'
-                    }`}
-                  >
-                    <FileCheck className="w-4 h-4" />
-                    <span className="text-[10.5px]">Đề thi</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleFormatChange('TABLE')}
-                    className={`p-2 rounded border text-center flex flex-col items-center gap-1 transition ${
-                      docFormat === 'TABLE'
-                        ? 'bg-theme-accent text-[#190839] border-theme-accent font-bold shadow'
-                        : 'bg-black/30 text-slate-300 border-white/10 hover:bg-white/5'
-                    }`}
-                  >
-                    <Table className="w-4 h-4" />
-                    <span className="text-[10.5px]">Ma trận</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleFormatChange('ANSWER_KEY')}
-                    className={`p-2 rounded border text-center flex flex-col items-center gap-1 transition ${
-                      docFormat === 'ANSWER_KEY'
-                        ? 'bg-theme-accent text-[#190839] border-theme-accent font-bold shadow'
-                        : 'bg-black/30 text-slate-300 border-white/10 hover:bg-white/5'
-                    }`}
-                  >
-                    <BookOpen className="w-4 h-4" />
-                    <span className="text-[10.5px]">Đáp án</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Section 3: Pages to Print (Trang in) */}
-              <div className="bg-[#210c47]/80 p-3 rounded-[4px] border border-theme-accent/20 space-y-2.5">
-                <div className="text-[#F7CAC9] font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
-                  <Sliders className="w-3.5 h-3.5 text-sky-400" />
-                  <span>Trang in</span>
-                </div>
-                <div className="space-y-1.5 text-slate-300">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="pageScope" 
-                      checked={pageScope === 'ALL'} 
-                      onChange={() => setPageScope('ALL')}
-                      className="accent-amber-400 cursor-pointer"
-                    />
-                    <span>Tất cả các trang ({totalPages} trang)</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="pageScope" 
-                      checked={pageScope === 'CURRENT'} 
-                      onChange={() => setPageScope('CURRENT')}
-                      className="accent-amber-400 cursor-pointer"
-                    />
-                    <span>Chỉ trang hiện tại (Trang {currentPage})</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="pageScope" 
-                      checked={pageScope === 'CUSTOM'} 
-                      onChange={() => setPageScope('CUSTOM')}
-                      className="accent-amber-400 cursor-pointer"
-                    />
-                    <span>Tùy chỉnh khoảng trang</span>
-                  </label>
-
-                  {pageScope === 'CUSTOM' && (
-                    <div className="pl-5 pt-1">
-                      <input
-                        type="text"
-                        value={customPageRange}
-                        onChange={(e) => setCustomPageRange(e.target.value)}
-                        placeholder="Ví dụ: 1-2, 4"
-                        className="w-full bg-black/50 border border-white/20 px-2.5 py-1 rounded text-white text-xs outline-none focus:border-theme-accent font-mono"
-                      />
-                      <span className="text-[10px] text-slate-400 block mt-1">
-                        Sẽ in: {parsedPrintPages.join(', ')} (Tổng: {parsedPrintPages.length} trang)
-                      </span>
+                {/* Shuffle / Randomize toggle */}
+                <div className="pt-2 border-t border-white/10 flex items-center justify-between">
+                  <div>
+                    <div className="text-white font-bold text-[11px] flex items-center gap-1">
+                      <Shuffle className="w-3.5 h-3.5 text-sky-400" />
+                      <span>Trộn thứ tự câu hỏi</span>
                     </div>
-                  )}
+                    <div className="text-[10px] text-slate-400">
+                      {isShuffled ? `Đã trộn (Mã đề ${shuffleSeed})` : 'Thứ tự gốc theo ngân hàng'}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={handleShuffleToggle}
+                      className={`px-2 py-1 rounded text-[10.5px] font-bold border transition ${
+                        isShuffled 
+                          ? 'bg-sky-500/25 text-sky-300 border-sky-400/50' 
+                          : 'bg-white/5 text-slate-300 border-white/10 hover:text-white'
+                      }`}
+                    >
+                      {isShuffled ? 'Đang bật' : 'Tắt'}
+                    </button>
+                    {isShuffled && (
+                      <button
+                        type="button"
+                        onClick={handleNextShuffleCode}
+                        className="p-1 rounded bg-sky-500/20 text-sky-300 hover:bg-sky-500/40 border border-sky-400/40"
+                        title="Đổi mã đề ngẫu nhiên khác"
+                      >
+                        <RotateCw className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Section 4: Orientation, Paper Size & Margins */}
+              {/* Section 2: Layout Format & Columns */}
+              <div className="bg-[#210c47]/80 p-3 rounded-[4px] border border-theme-accent/20 space-y-2.5">
+                <div className="text-[#F7CAC9] font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                  <Columns className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Bố Cục Cột Đề Thi</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => { vibrateTap(); setColumnLayout('1-col'); }}
+                    className={`p-1.5 rounded border text-center transition ${
+                      columnLayout === '1-col'
+                        ? 'bg-theme-accent text-[#190839] border-theme-accent font-bold shadow'
+                        : 'bg-black/30 text-slate-300 border-white/10 hover:bg-white/5'
+                    }`}
+                  >
+                    1 Cột chuẩn
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { vibrateTap(); setColumnLayout('2-col'); }}
+                    className={`p-1.5 rounded border text-center transition ${
+                      columnLayout === '2-col'
+                        ? 'bg-theme-accent text-[#190839] border-theme-accent font-bold shadow'
+                        : 'bg-black/30 text-slate-300 border-white/10 hover:bg-white/5'
+                    }`}
+                  >
+                    2 Cột (Tiết kiệm giấy)
+                  </button>
+                </div>
+              </div>
+
+              {/* Section 3: Orientation, Paper Size & Margins */}
               <div className="bg-[#210c47]/80 p-3 rounded-[4px] border border-theme-accent/20 space-y-2.5">
                 <div className="text-[#F7CAC9] font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
                   <RotateCw className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Bố cục & Khổ giấy</span>
+                  <span>Khổ Giấy & Căn Lề</span>
                 </div>
                 
                 {/* Orientation toggle */}
@@ -1236,11 +1563,11 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                 </div>
               </div>
 
-              {/* Section 5: Density & Font Size */}
+              {/* Section 4: Density & Font Size */}
               <div className="bg-[#210c47]/80 p-3 rounded-[4px] border border-theme-accent/20 space-y-2.5">
                 <div className="text-[#F7CAC9] font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
                   <Maximize2 className="w-3.5 h-3.5 text-purple-400" />
-                  <span>Mật độ & Cỡ chữ</span>
+                  <span>Mật Độ & Cỡ Chữ</span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -1248,17 +1575,14 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                     <label className="text-[10.5px] text-slate-400 block mb-1">Số câu / trang:</label>
                     <select
                       value={itemsPerPage}
-                      onChange={(e) => {
-                        setItemsPerPage(Number(e.target.value));
-                        setCurrentPage(1);
-                      }}
+                      onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
                       className="w-full bg-black/40 border border-white/20 p-1.5 rounded text-white text-xs cursor-pointer outline-none font-mono"
                     >
-                      <option value={4} className="bg-[#190839]">4 câu (Thoáng)</option>
-                      <option value={5} className="bg-[#190839]">5 câu (Chuẩn A4)</option>
-                      <option value={6} className="bg-[#190839]">6 câu (Vừa)</option>
-                      <option value={8} className="bg-[#190839]">8 câu (Dày)</option>
-                      <option value={0} className="bg-[#190839]">In liên tục</option>
+                      <option value={0} className="bg-[#190839]">Tự động (Cuộn dài)</option>
+                      <option value={3} className="bg-[#190839]">3 câu / trang (Thoáng)</option>
+                      <option value={5} className="bg-[#190839]">5 câu / trang (Chuẩn)</option>
+                      <option value={8} className="bg-[#190839]">8 câu / trang (Dày)</option>
+                      <option value={10} className="bg-[#190839]">10 câu / trang</option>
                     </select>
                   </div>
 
@@ -1269,22 +1593,22 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                       onChange={(e) => setFontSize(e.target.value as FontSizeChoice)}
                       className="w-full bg-black/40 border border-white/20 p-1.5 rounded text-white text-xs cursor-pointer outline-none font-mono"
                     >
-                      <option value="compact" className="bg-[#190839]">Nhỏ gọn (11px)</option>
-                      <option value="standard" className="bg-[#190839]">Tiêu chuẩn (12.5px)</option>
-                      <option value="large" className="bg-[#190839]">Lớn rõ nét (14px)</option>
+                      <option value="compact" className="bg-[#190839]">Nhỏ (11pt)</option>
+                      <option value="standard" className="bg-[#190839]">Vừa (12.5pt)</option>
+                      <option value="large" className="bg-[#190839]">Lớn (14pt)</option>
                     </select>
                   </div>
                 </div>
               </div>
 
-              {/* Section 6: Content Display Options */}
-              <div className="bg-[#210c47]/80 p-3 rounded-[4px] border border-theme-accent/20 space-y-2">
+              {/* Section 5: Elements & Toggles */}
+              <div className="bg-[#210c47]/80 p-3 rounded-[4px] border border-theme-accent/20 space-y-2.5">
                 <div className="text-[#F7CAC9] font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Tùy chọn nội dung</span>
+                  <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Thành Phần Hiển Thị</span>
                 </div>
 
-                <div className="space-y-1.5 text-slate-300">
+                <div className="space-y-2 text-slate-300">
                   <label className="flex items-center gap-2 cursor-pointer hover:text-white">
                     <input
                       type="checkbox"
@@ -1292,7 +1616,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                       onChange={(e) => setShowAnswers(e.target.checked)}
                       className="accent-theme-accent cursor-pointer"
                     />
-                    <span>Hiện đáp án đúng</span>
+                    <span>Hiện đáp án đúng (Master Key)</span>
                   </label>
 
                   <label className="flex items-center gap-2 cursor-pointer hover:text-white">
@@ -1302,7 +1626,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                       onChange={(e) => setShowExplanations(e.target.checked)}
                       className="accent-theme-accent cursor-pointer"
                     />
-                    <span>Hiện lời giải / giải thích chi tiết</span>
+                    <span>Hiện lời giải & hướng dẫn chấm</span>
                   </label>
 
                   <label className="flex items-center gap-2 cursor-pointer hover:text-white">
@@ -1335,6 +1659,16 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                     <span>Tiêu đề đầu trang & Số trang chân trang</span>
                   </label>
 
+                  <label className="flex items-center gap-2 cursor-pointer hover:text-white">
+                    <input
+                      type="checkbox"
+                      checked={includeEndNote}
+                      onChange={(e) => setIncludeEndNote(e.target.checked)}
+                      className="accent-theme-accent cursor-pointer"
+                    />
+                    <span>Dòng kết thúc đề (--- HẾT ---)</span>
+                  </label>
+
                   <label className="flex items-center gap-2 cursor-pointer hover:text-white pt-1 border-t border-white/10">
                     <input
                       type="checkbox"
@@ -1347,16 +1681,16 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                 </div>
               </div>
 
-              {/* Section 7: Custom Exam Header Inputs */}
+              {/* Section 6: Custom Exam Header Inputs */}
               <div className="bg-[#210c47]/80 p-3 rounded-[4px] border border-theme-accent/20 space-y-2">
                 <div className="text-[#F7CAC9] font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
                   <GraduationCap className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Tiêu đề đề thi tùy chỉnh</span>
+                  <span>Tiêu Đề Đề Thi Tùy Chỉnh</span>
                 </div>
 
                 <div className="space-y-2">
                   <div>
-                    <label className="text-[10px] text-slate-400 block mb-0.5">Đơn vị / Trường:</label>
+                    <label className="text-[10px] text-slate-400 block mb-0.5">Đơn vị / Hội đồng thi:</label>
                     <input
                       type="text"
                       value={institutionName}
@@ -1376,11 +1710,22 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-slate-400 block mb-0.5">Mã đề / Thời gian:</label>
+                    <label className="text-[10px] text-slate-400 block mb-0.5">Mã đề / Thời gian làm bài:</label>
                     <input
                       type="text"
                       value={examSubtitle}
                       onChange={(e) => setExamSubtitle(e.target.value)}
+                      className="w-full bg-black/40 border border-white/20 px-2 py-1 rounded text-white text-xs outline-none focus:border-theme-accent font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-0.5">Dấu mờ bảo mật (Watermark):</label>
+                    <input
+                      type="text"
+                      value={watermarkText}
+                      onChange={(e) => setWatermarkText(e.target.value)}
+                      placeholder="Ví dụ: BTI 2026 - CHÍNH THỨC"
                       className="w-full bg-black/40 border border-white/20 px-2 py-1 rounded text-white text-xs outline-none focus:border-theme-accent font-mono"
                     />
                   </div>
@@ -1405,7 +1750,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                 className="flex-1 py-2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-bold text-xs rounded-[4px] shadow-lg shadow-amber-950/50 flex items-center justify-center gap-1.5 transition cursor-pointer"
               >
                 <Printer className="w-4 h-4 text-slate-950" />
-                <span>IN NGAY</span>
+                <span>IN PDF (Ctrl+P)</span>
               </button>
             </div>
           </div>

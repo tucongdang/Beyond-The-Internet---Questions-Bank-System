@@ -2,7 +2,7 @@ import { t } from '../utils/i18n';
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../hooks/useLanguage';
 import { createPortal } from 'react-dom';
-import { Heart, Flame, Zap, X, Activity, Sparkles, Trophy, Users } from 'lucide-react';
+import { Heart, Flame, Zap, X, Activity, Sparkles, Trophy, Users, Pin } from 'lucide-react';
 import { cheerService } from '../services/cheerService';
 import { UserInfo, CheerType, CheerIntensityData } from '../types';
 import { soundFx } from '../services/audioEffects';
@@ -28,6 +28,7 @@ export const AudienceCheerModal: React.FC<AudienceCheerModalProps> = ({
 
   const [mounted, setMounted] = useState(false);
   const [intensityData, setIntensityData] = useState<CheerIntensityData>(cheerService.getCurrentIntensityData());
+  const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -40,16 +41,22 @@ export const AudienceCheerModal: React.FC<AudienceCheerModalProps> = ({
   if (!isOpen || !mounted) return null;
 
   const modalContent = (
-    <div className="fluent-dialog-overlay z-[9999999] animate-fadeIn">
+    <div
+      className={`fluent-dialog-overlay z-[9999999] animate-fadeIn ${isAlwaysOnTop ? 'is-pinned always-on-top' : ''}`}
+      style={isAlwaysOnTop ? { zIndex: 2147483646 } : undefined}
+    >
       {/* Click outside to close */}
       <div className="absolute inset-0" onClick={onClose} />
 
       {/* Modal Dialog Card */}
       <div
-        className={`fluent-dialog p-5 sm:p-6 w-full max-w-lg animate-slideUpFade ${isHighContrast ? "bg-black/95 border-2 border-white text-white" : ""}`}
+        className={`fluent-dialog p-5 sm:p-6 w-full max-w-lg animate-fluent-dialog-spring ${isAlwaysOnTop ? 'is-pinned always-on-top z-[2147483647]' : ''} ${isHighContrast ? "bg-black/95 border-2 border-white text-white" : ""}`}
+        style={isAlwaysOnTop ? { zIndex: 2147483647 } : undefined}
+        data-pinned={isAlwaysOnTop}
+        data-always-on-top={isAlwaysOnTop}
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-white/10 relative z-10">
+        <div className="fluent-dialog-header flex items-center justify-between pb-3 border-b border-white/10 relative z-10 !cursor-default">
           <div className="flex items-center gap-2.5">
             <div
               className="w-10 h-10 rounded-[4px] flex items-center justify-center border"
@@ -74,17 +81,41 @@ export const AudienceCheerModal: React.FC<AudienceCheerModalProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              vibrateTap();
-              soundFx.playClick();
-              onClose();
-            }}
-            className="p-2 rounded-[4px] bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="fluent-dialog-header-actions flex items-center gap-1.5 ml-auto">
+            <button
+              type="button"
+              onClick={() => {
+                vibrateTap();
+                soundFx.playClick();
+                setIsAlwaysOnTop(prev => !prev);
+              }}
+              className={`fluent-dialog-pin-btn p-1.5 rounded-[4px] transition cursor-pointer flex items-center justify-center ${
+                isAlwaysOnTop
+                  ? 'active text-theme-accent bg-theme-accent/20 border border-theme-accent/40 shadow-[0_0_10px_rgba(var(--bti-accent-rgb,247,202,201),0.35)]'
+                  : 'text-white/60 hover:text-white hover:bg-white/10 border border-transparent'
+              }`}
+              title={isAlwaysOnTop ? "Bỏ ghim / Tắt Always on Top" : "Ghim lên đầu / Always on Top"}
+              aria-label="Always on Top"
+              aria-pressed={isAlwaysOnTop}
+              data-role="always-on-top"
+            >
+              <Pin className={`w-4 h-4 transition-transform duration-200 ${isAlwaysOnTop ? 'rotate-45 fill-current text-theme-accent' : ''}`} />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                vibrateTap();
+                soundFx.playClick();
+                onClose();
+              }}
+              className="fluent-dialog-close-btn p-1.5 rounded-[4px] text-white/60 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/15 transition cursor-pointer flex items-center justify-center"
+              title="Đóng"
+              aria-label="Close"
+              data-role="close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Body content */}

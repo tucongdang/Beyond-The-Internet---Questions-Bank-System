@@ -22,7 +22,7 @@ import {
 } from '../utils/hapticUtils';
 import { AccentTheme, THEMES, getAccentTheme, setAccentTheme } from '../utils/themeManager';
 import { Palette } from 'lucide-react';
-import { X, User, Globe, BarChart2, Edit3, Save, Activity, Camera, Smartphone, Vibrate, Check, Sliders, Sparkles, Contrast } from 'lucide-react';
+import { X, User, Globe, BarChart2, Edit3, Save, Activity, Camera, Smartphone, Vibrate, Check, Sliders, Sparkles, Contrast, Pin } from 'lucide-react';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 interface ProfileModalProps {
@@ -45,6 +45,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   useLockBodyScroll(isOpen);
   const { localLanguage, toggleLanguage } = useLanguage();
   const [tab, setTab] = useState<'stats' | 'edit' | 'settings'>('stats');
+  const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(false);
   
   // Edit state
   const [name, setName] = useState(user.name);
@@ -181,11 +182,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   return createPortal(
     <div
-      className="fluent-dialog-overlay animate-fadeIn"
+      className={`fluent-dialog-overlay animate-fadeIn ${isAlwaysOnTop ? 'is-pinned always-on-top' : ''}`}
+      style={isAlwaysOnTop ? { zIndex: 2147483646 } : undefined}
       onClick={onClose}
     >
       <div
-        className="fluent-dialog w-full max-w-lg"
+        className={`fluent-dialog w-full max-w-lg ${isAlwaysOnTop ? 'is-pinned always-on-top z-[2147483647]' : ''}`}
+        style={isAlwaysOnTop ? { zIndex: 2147483647 } : undefined}
+        data-pinned={isAlwaysOnTop}
+        data-always-on-top={isAlwaysOnTop}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -193,15 +198,39 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
             <User className="w-5 h-5 text-theme-accent" /> {t("prof_title", localLanguage)}
           </h2>
-          <button
-            onClick={() => {
-              vibrateTap();
-              onClose();
-            }}
-            className="p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-[4px] transition cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="fluent-dialog-header-actions flex items-center gap-1.5 ml-auto">
+            <button
+              type="button"
+              onClick={() => {
+                vibrateTap();
+                setIsAlwaysOnTop(prev => !prev);
+              }}
+              className={`fluent-dialog-pin-btn p-1.5 rounded-[4px] transition cursor-pointer flex items-center justify-center ${
+                isAlwaysOnTop
+                  ? 'active text-theme-accent bg-theme-accent/20 border border-theme-accent/40 shadow-[0_0_10px_rgba(var(--bti-accent-rgb,247,202,201),0.35)]'
+                  : 'text-white/60 hover:text-white hover:bg-white/10 border border-transparent'
+              }`}
+              title={isAlwaysOnTop ? "Bỏ ghim / Tắt Always on Top" : "Ghim lên đầu / Always on Top"}
+              aria-label="Always on Top"
+              aria-pressed={isAlwaysOnTop}
+              data-role="always-on-top"
+            >
+              <Pin className={`w-4 h-4 transition-transform duration-200 ${isAlwaysOnTop ? 'rotate-45 fill-current text-theme-accent' : ''}`} />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                vibrateTap();
+                onClose();
+              }}
+              className="fluent-dialog-close-btn p-1.5 text-white/60 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/15 rounded-[4px] transition cursor-pointer flex items-center justify-center"
+              title="Đóng"
+              aria-label="Close"
+              data-role="close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Avatar Section */}

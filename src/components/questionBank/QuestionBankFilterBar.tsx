@@ -1269,7 +1269,7 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
 
       {/* Mobile Filter Drawer (Bottom Sheet) */}
       {isMobileDrawerOpen && (
-        <div className="sm:hidden fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex flex-col justify-end animate-fadeIn">
+        <div className="sm:hidden fixed inset-0 z-[9999999] bg-black/80 backdrop-blur-sm flex flex-col justify-end animate-fadeIn">
           <div
             className="fixed inset-0"
             onClick={() => setIsMobileDrawerOpen(false)}

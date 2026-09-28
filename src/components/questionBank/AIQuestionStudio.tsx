@@ -26,7 +26,10 @@ import {
   ExternalLink,
   Award,
   Zap,
-  Info
+  Info,
+  Terminal,
+  Compass,
+  Cpu
 } from 'lucide-react';
 import { 
   CompetitionStage, 
@@ -48,13 +51,14 @@ import {
 } from '../../data/digitalCompetencyData';
 import { questionBankManager } from '../../services/questionBankManager';
 import { soundFx } from '../../services/audioEffects';
-import { vibrateTap, vibrateSuccess } from '../../utils/hapticUtils';
+import { vibrateTap, vibrateSuccess, vibrateError } from '../../utils/hapticUtils';
 import { NotebookLMChatView } from './NotebookLMChatView';
+import { BulkQuestionGeneratorModal } from './BulkQuestionGeneratorModal';
 
 interface AIQuestionStudioProps {
   onQuestionCreated?: () => void;
   onEditQuestion?: (q: QuestionItem) => void;
-  onOpenGeminiStudio?: (tab?: 'CHAT' | 'IMAGE' | 'VIDEO') => void;
+  onOpenGeminiStudio?: (tab?: 'CHAT' | 'ANTIGRAVITY' | 'DEEP_RESEARCH' | 'IMAGE' | 'VIDEO') => void;
 }
 
 const AI_KEYWORD_SUGGESTIONS: Record<string, string[]> = {
@@ -120,6 +124,7 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
   const [searchQueries, setSearchQueries] = useState<string[]>([]);
   const [showRuleDetails, setShowRuleDetails] = useState<boolean>(false);
   const [studioMode, setStudioMode] = useState<'GENERATOR' | 'CHAT'>('GENERATOR');
+  const [showBulkGeneratorModal, setShowBulkGeneratorModal] = useState<boolean>(false);
 
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generatedQuestions, setGeneratedQuestions] = useState<any[]>([]);
@@ -391,44 +396,80 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
             </button>
           </div>
 
-          {/* Gemini AI Studio Quick Shortcuts (Image / Video) */}
-          {onOpenGeminiStudio && (
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  vibrateTap();
-                  soundFx.playClick();
-                  setStudioMode('CHAT');
-                }}
-                className="px-2.5 py-1.5 rounded-[4px] bg-purple-500/15 hover:bg-purple-500/25 border border-purple-400/30 text-purple-300 text-[11px] font-mono font-medium flex items-center gap-1.5 transition cursor-pointer"
-                title="Mở Chat NotebookLM tra cứu căn cứ pháp lý & trích dẫn điều khoản"
-              >
-                <BookOpen className="w-3 h-3 text-amber-300" />
-                <span className="hidden sm:inline">NotebookLM</span>
-              </button>
+          {/* Gemini AI Studio Quick Shortcuts */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                vibrateTap();
+                soundFx.playClick();
+                setShowBulkGeneratorModal(true);
+              }}
+              className="px-2.5 py-1.5 rounded-[4px] bg-gradient-to-r from-sky-600/30 to-indigo-600/30 hover:from-sky-600/50 hover:to-indigo-600/50 border border-sky-400/40 text-sky-200 text-[11px] font-mono font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+              title="Mở hộp thoại Sinh câu hỏi hàng loạt tự động bằng Agent Antigravity"
+            >
+              <Zap className="w-3.5 h-3.5 text-sky-300 fill-current" />
+              <span>Sinh Hàng Loạt (Antigravity)</span>
+            </button>
 
-              <button
-                type="button"
-                onClick={() => onOpenGeminiStudio('IMAGE')}
-                className="px-2.5 py-1.5 rounded-[4px] bg-theme-accent/15 hover:bg-theme-accent/25 border border-theme-accent/30 text-theme-accent text-[11px] font-mono font-medium flex items-center gap-1.5 transition cursor-pointer"
-                title="Tạo ảnh minh họa câu hỏi với Gemini Flash Image"
-              >
-                <ImageIcon className="w-3 h-3 text-theme-accent" />
-                <span className="hidden sm:inline">Tạo Ảnh</span>
-              </button>
+            {onOpenGeminiStudio && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateTap();
+                    soundFx.playClick();
+                    setStudioMode('CHAT');
+                  }}
+                  className="px-2.5 py-1.5 rounded-[4px] bg-purple-500/15 hover:bg-purple-500/25 border border-purple-400/30 text-purple-300 text-[11px] font-mono font-medium flex items-center gap-1.5 transition cursor-pointer"
+                  title="Mở Chat NotebookLM tra cứu căn cứ pháp lý & trích dẫn điều khoản"
+                >
+                  <BookOpen className="w-3 h-3 text-amber-300" />
+                  <span className="hidden sm:inline">NotebookLM</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => onOpenGeminiStudio('VIDEO')}
-                className="px-2.5 py-1.5 rounded-[4px] bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/30 text-cyan-300 text-[11px] font-mono font-medium flex items-center gap-1.5 transition cursor-pointer"
-                title="Tạo video minh họa với Veo 3.1"
-              >
-                <Film className="w-3 h-3 text-cyan-300" />
-                <span className="hidden sm:inline">Video Veo</span>
-              </button>
-            </div>
-          )}
+                <button
+                  type="button"
+                  onClick={() => onOpenGeminiStudio('ANTIGRAVITY')}
+                  className="px-2.5 py-1.5 rounded-[4px] bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/30 text-sky-300 text-[11px] font-mono font-medium flex items-center gap-1.5 transition cursor-pointer"
+                  title="Thẩm định mã nguồn & thuật toán trong Remote Sandbox với Agent Antigravity"
+                >
+                  <Terminal className="w-3 h-3 text-sky-400" />
+                  <span className="hidden sm:inline">Agent Antigravity</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onOpenGeminiStudio('DEEP_RESEARCH')}
+                  className="px-2.5 py-1.5 rounded-[4px] bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/30 text-emerald-300 text-[11px] font-mono font-medium flex items-center gap-1.5 transition cursor-pointer"
+                  title="Khảo cứu học thuật & đối sánh pháp quy Thông tư 02 với Agent Deep Research Pro"
+                >
+                  <Compass className="w-3 h-3 text-emerald-400" />
+                  <span className="hidden sm:inline">Deep Research</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onOpenGeminiStudio('IMAGE')}
+                  className="px-2.5 py-1.5 rounded-[4px] bg-theme-accent/15 hover:bg-theme-accent/25 border border-theme-accent/30 text-theme-accent text-[11px] font-mono font-medium flex items-center gap-1.5 transition cursor-pointer"
+                  title="Tạo ảnh minh họa câu hỏi với Gemini Flash Image"
+                >
+                  <ImageIcon className="w-3 h-3 text-theme-accent" />
+                  <span className="hidden sm:inline">Tạo Ảnh</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onOpenGeminiStudio('VIDEO')}
+                  className="px-2.5 py-1.5 rounded-[4px] bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/30 text-cyan-300 text-[11px] font-mono font-medium flex items-center gap-1.5 transition cursor-pointer"
+                  title="Tạo video minh họa với Veo 3.1"
+                >
+                  <Film className="w-3 h-3 text-cyan-300" />
+                  <span className="hidden sm:inline">Video Veo</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1010,6 +1051,19 @@ export const AIQuestionStudio: React.FC<AIQuestionStudioProps> = ({ onQuestionCr
           })}
         </div>
       </div>
+      )}
+
+      {/* Bulk Question Generator Modal */}
+      {showBulkGeneratorModal && (
+        <BulkQuestionGeneratorModal
+          isOpen={showBulkGeneratorModal}
+          onClose={() => setShowBulkGeneratorModal(false)}
+          onQuestionsAdded={() => {
+            if (onQuestionCreated) {
+              onQuestionCreated();
+            }
+          }}
+        />
       )}
     </div>
   );

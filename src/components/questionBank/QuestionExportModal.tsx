@@ -239,11 +239,22 @@ export const QuestionExportModal: React.FC<QuestionExportModalProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-fadeIn">
+    <div 
+      className="fixed inset-0 z-[9999999] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-xl animate-fadeIn overflow-hidden modal-backdrop-isolated select-none"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Xuất Dữ Liệu Ngân Hàng Câu Hỏi"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+          vibrateTap();
+          soundFx.playClick();
+        }
+      }}
+    >
       <div 
-        className="w-full max-w-4xl max-h-[92vh] flex flex-col rounded-[8px] bg-gradient-to-b from-[#1E093D] via-[#16072D] to-[#0E031E] border border-theme-accent/40 shadow-2xl text-slate-100 overflow-hidden font-sans"
-        role="dialog"
-        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-4xl h-[92vh] max-h-[940px] flex flex-col rounded-[8px] bg-[#140827]/98 fluent-acrylic-surface border border-theme-accent/40 shadow-[0_24px_64px_rgba(0,0,0,0.85)] text-slate-100 overflow-hidden font-sans"
       >
         {/* Modal Header */}
         <div className="px-5 py-3.5 bg-[#250D4D] border-b border-theme-accent/30 flex items-center justify-between gap-3 shrink-0">

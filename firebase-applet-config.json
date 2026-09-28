@@ -1,11 +1,12 @@
 {
-  "projectId": "gen-lang-client-0094857112",
-  "appId": "1:36562876182:web:85cb80833ec579a30b8237",
-  "apiKey": "AIzaSyDH5FdOqZNBuJALMzIg_o_vQWZyh7D0zbQ",
-  "authDomain": "gen-lang-client-0094857112.firebaseapp.com",
-  "storageBucket": "gen-lang-client-0094857112.firebasestorage.app",
-  "messagingSenderId": "36562876182",
+  "projectId": "bti-question-bank-system",
+  "appId": "1:254304768464:web:3a49710e4d206d3fe229d5",
+  "apiKey": "AIzaSyDOiYUXT1qhVpieDP9OgL0rQb0aP6ttiCs",
+  "authDomain": "bti-question-bank-system.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-beyondtheinterne-3d14ffc5-ae48-4fa7-8722-7c4d09e9c349",
+  "storageBucket": "bti-question-bank-system.firebasestorage.app",
+  "messagingSenderId": "254304768464",
   "measurementId": "",
-  "oAuthClientId": "36562876182-087cquo3pl4v2qou5fn3i7ctt6rvfgh8.apps.googleusercontent.com",
+  "oAuthClientId": "254304768464-kfdsv4tjee4i7g1flott7t7h2cq3hko9.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

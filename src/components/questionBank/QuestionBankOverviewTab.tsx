@@ -18,7 +18,9 @@ import {
   Clock,
   CheckCircle2,
   CheckCircle,
-  FileEdit
+  FileEdit,
+  Terminal,
+  Award
 } from 'lucide-react';
 import { QuestionItem, BtiRoundGroupKey, DigitalCompetencyDomainKey } from '../../types';
 import { DIGITAL_COMPETENCY_DOMAINS } from '../../data/digitalCompetencyData';
@@ -39,6 +41,9 @@ interface QuestionBankOverviewTabProps {
   onOpenBulkImport: () => void;
   onOpenExamGenerator: () => void;
   onOpenDuplicateChecker?: () => void;
+  onOpenBulkGenerator?: () => void;
+  onOpenSimulator?: () => void;
+  onOpenCertificate?: () => void;
 }
 
 export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = ({
@@ -52,7 +57,10 @@ export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = (
   onOpenAddQuestion,
   onOpenBulkImport,
   onOpenExamGenerator,
-  onOpenDuplicateChecker
+  onOpenDuplicateChecker,
+  onOpenBulkGenerator,
+  onOpenSimulator,
+  onOpenCertificate
 }) => {
   const totalQuestions = questions.length;
 
@@ -177,6 +185,19 @@ export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = (
         onOpenBulkImport();
       }
     },
+    ...(onOpenBulkGenerator ? [{
+      id: 'antigravity_bulk',
+      title: 'Sinh Hàng Loạt Sandbox',
+      subtitle: 'Agent Antigravity tạo & kiểm thử',
+      icon: Terminal,
+      colorClass: 'text-sky-300 bg-sky-500/15 border-sky-500/30 hover:border-sky-400 hover:bg-sky-500/25',
+      iconBg: 'bg-sky-500/20 text-sky-300',
+      onClick: () => {
+        vibrateTap();
+        soundFx.playClick();
+        onOpenBulkGenerator();
+      }
+    }] : []),
     {
       id: 'exam_gen',
       title: 'Tạo Đề Thi Thử AI',
@@ -216,6 +237,32 @@ export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = (
         onNavigateTab('EXCEL_HUB');
       }
     },
+    ...(onOpenSimulator ? [{
+      id: 'simulator',
+      title: 'Giả Lập An Toàn Số',
+      subtitle: 'Mô phỏng Phishing & NĐ 13/2023',
+      icon: ShieldAlert,
+      colorClass: 'text-sky-300 bg-sky-500/10 border-sky-500/25 hover:border-sky-400 hover:bg-sky-500/20',
+      iconBg: 'bg-sky-500/20 text-sky-300',
+      onClick: () => {
+        vibrateTap();
+        soundFx.playClick();
+        onOpenSimulator();
+      }
+    }] : []),
+    ...(onOpenCertificate ? [{
+      id: 'certificate',
+      title: 'Chứng Nhận Năng Lực Số',
+      subtitle: 'Cấp chứng chỉ BTI kèm mã QR',
+      icon: Award,
+      colorClass: 'text-amber-300 bg-amber-500/10 border-amber-500/25 hover:border-amber-400 hover:bg-amber-500/20',
+      iconBg: 'bg-amber-500/20 text-amber-300',
+      onClick: () => {
+        vibrateTap();
+        soundFx.playClick();
+        onOpenCertificate();
+      }
+    }] : []),
     ...(onOpenDuplicateChecker ? [{
       id: 'duplicate_checker',
       title: 'Rà Soát Trùng Lặp',

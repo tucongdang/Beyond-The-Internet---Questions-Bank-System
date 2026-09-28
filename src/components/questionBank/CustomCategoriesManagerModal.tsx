@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   X, 
   FolderPlus, 
@@ -41,6 +42,7 @@ import {
 
 import { soundFx } from '../../services/audioEffects';
 import { vibrateTap, vibrateSuccess, vibrateError } from '../../utils/hapticUtils';
+import { useLockBodyScroll } from '../../hooks/useLockBodyScroll';
 
 interface CustomCategoriesManagerModalProps {
   isOpen: boolean;
@@ -56,6 +58,8 @@ export const CustomCategoriesManagerModal: React.FC<CustomCategoriesManagerModal
   onClose,
   questions = questionBankManager.getQuestions()
 }) => {
+  useLockBodyScroll(isOpen);
+
   const [categories, setCategories] = useState<CustomCategory[]>(() => questionBankManager.getCustomCategories());
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<FilterTab>('ALL');
@@ -371,9 +375,11 @@ export const CustomCategoriesManagerModal: React.FC<CustomCategoriesManagerModal
   const categoriesWithQuestionsCount = categories.filter(c => (categoryUsageMap[c.name] || 0) > 0).length;
   const emptyCategoriesCount = totalCategoriesCount - categoriesWithQuestionsCount;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-4xl bg-[#14062E] border border-purple-500/30 rounded-[4px] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] text-slate-100 font-sans">
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-fadeIn modal-backdrop-isolated select-none">
+      <div className="relative w-full max-w-4xl bg-[#14062E] border border-purple-500/30 rounded-[6px] shadow-[0_24px_64px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col max-h-[92vh] text-slate-100 font-sans">
         
         {/* Fluent UI Header Banner */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-purple-500/20 bg-[#1A083B]/90 backdrop-blur-md">
@@ -1277,6 +1283,7 @@ export const CustomCategoriesManagerModal: React.FC<CustomCategoriesManagerModal
         )}
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -481,8 +481,23 @@ export const GeminiCameraDocumentScannerModal: React.FC<GeminiCameraDocumentScan
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-[#190839] border border-amber-400/40 rounded-[6px] w-full max-w-5xl h-[90vh] max-h-[850px] flex flex-col shadow-2xl overflow-hidden text-slate-100">
+    <div 
+      className="fixed inset-0 z-[9999999] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-xl animate-fadeIn overflow-hidden modal-backdrop-isolated select-none"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Quét Đề Thi Thông Minh Bằng Gemini AI"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isScanning) {
+          onClose();
+          vibrateTap();
+          soundFx.playClick();
+        }
+      }}
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-5xl h-[92vh] max-h-[940px] bg-[#140827]/98 fluent-acrylic-surface border border-amber-400/40 rounded-[8px] shadow-[0_24px_64px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden text-slate-100"
+      >
         
         {/* MODAL HEADER */}
         <div className="p-4 sm:px-6 border-b border-purple-500/30 flex items-center justify-between bg-[#120424]">

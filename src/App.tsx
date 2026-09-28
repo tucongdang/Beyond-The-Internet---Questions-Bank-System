@@ -15,6 +15,7 @@ import { UserRoleManagerModal } from './components/questionBank/UserRoleManagerM
 import { WorkspaceSettingsModal } from './components/WorkspaceSettingsModal';
 import { FontSettingsModal } from './components/FontSettingsModal';
 import { GeminiAiStudioModal, GeminiStudioTabKey } from './components/gemini/GeminiAiStudioModal';
+import { AllInOneAuthoringSuiteModal } from './components/questionBank/AllInOneAuthoringSuiteModal';
 import { AppFooter } from './components/AppFooter';
 import { PasswordGate } from './components/PasswordGate';
 import { AdminUser, AppUser, TECHNICAL_ROLES } from './types';
@@ -69,6 +70,7 @@ export default function App() {
   const [isApiKeyConfigOpen, setIsApiKeyConfigOpen] = useState<boolean>(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [isGeminiStudioOpen, setIsGeminiStudioOpen] = useState<boolean>(false);
+  const [isAuthoringSuiteOpen, setIsAuthoringSuiteOpen] = useState<boolean>(false);
   const [geminiStudioTab, setGeminiStudioTab] = useState<GeminiStudioTabKey>('CHAT');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [isOfflineBannerDismissed, setIsOfflineBannerDismissed] = useState<boolean>(false);
@@ -231,6 +233,7 @@ export default function App() {
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenFontModal={() => setIsFontModalOpen(true)}
           onOpenGeminiStudio={handleOpenGeminiStudio}
+          onOpenAuthoringSuite={() => setIsAuthoringSuiteOpen(true)}
         />
       )}
 
@@ -241,6 +244,7 @@ export default function App() {
         }`}>
           <QuestionBankDashboard 
             onOpenGeminiStudio={handleOpenGeminiStudio}
+            onOpenAuthoringSuite={() => setIsAuthoringSuiteOpen(true)}
             isFocusMode={isFocusMode}
             onToggleFocusMode={handleToggleFocusMode}
           />
@@ -254,11 +258,20 @@ export default function App() {
         )}
       </main>
 
-      {/* Gemini AI Studio Modal (Chatbot, Image Generation/Edit, Veo Video) */}
+      {/* Gemini AI Studio Modal (Chatbot, Image Generation/Edit, Veo Video, AutoPilot) */}
       <GeminiAiStudioModal
         isOpen={isGeminiStudioOpen}
         onClose={() => setIsGeminiStudioOpen(false)}
         defaultTab={geminiStudioTab}
+      />
+
+      {/* AutoPilot 1-Click Master Authoring Suite Modal (Same Root Level as Gemini AI Studio) */}
+      <AllInOneAuthoringSuiteModal
+        isOpen={isAuthoringSuiteOpen}
+        onClose={() => setIsAuthoringSuiteOpen(false)}
+        onSuccessAdded={(count) => {
+          setIsFirebaseConnected(syncService.getIsFirebaseConnected());
+        }}
       />
 
       {/* Unified API Key & Firebase Config Modal */}

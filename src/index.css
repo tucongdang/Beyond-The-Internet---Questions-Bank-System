@@ -1083,15 +1083,81 @@ body.battery-saver-active,
   margin: auto;
 }
 
+/* Subtle 'Spring' Entrance Animation for Fluent Dialog (scales from 0.95 to 1.0 with a slight bounce) */
+@keyframes fluentDialogSpringEntrance {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.015);
+  }
+  82% {
+    transform: scale(0.995);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fluentDialogSpring {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.015);
+  }
+  82% {
+    transform: scale(0.995);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes springEntrance {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.015);
+  }
+  82% {
+    transform: scale(0.995);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fluent-dialog-spring,
+.animate-dialog-spring,
+.fluent-dialog-spring {
+  animation: fluentDialogSpringEntrance 0.36s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
 .fluent-dialog {
   background: rgba(25, 10, 48, 0.95);
   backdrop-filter: blur(32px) saturate(160%);
   -webkit-backdrop-filter: blur(32px) saturate(160%);
   border: 1px solid rgba(var(--bti-accent-rgb, 247, 202, 201), 0.25);
   border-radius: 8px;
-  box-shadow: 0 16px 48px -8px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(var(--bti-accent-rgb, 247, 202, 201), 0.15);
+  box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.85), 0 8px 24px -4px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(var(--bti-accent-rgb, 247, 202, 201), 0.15);
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.45));
   position: relative;
+  resize: both;
   overflow: hidden;
+  min-width: 320px;
+  max-width: min(96vw, calc(100vw - 2rem));
+  min-height: 200px;
   max-height: min(90vh, calc(100dvh - 2rem));
   height: auto;
   display: flex;
@@ -1099,6 +1165,34 @@ body.battery-saver-active,
   overscroll-behavior: contain;
   touch-action: auto;
   isolation: isolate;
+  animation: fluentDialogSpringEntrance 0.36s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  will-change: transform, opacity;
+}
+
+.fluent-dialog::-webkit-resizer {
+  background-color: transparent;
+  border-bottom: 2px solid rgba(var(--bti-accent-rgb, 247, 202, 201), 0.45);
+  border-right: 2px solid rgba(var(--bti-accent-rgb, 247, 202, 201), 0.45);
+}
+
+/* Always on Top / Pinned Dialog State (Higher than all other UI elements) */
+.fluent-dialog.is-pinned,
+.fluent-dialog.always-on-top,
+.fluent-dialog[data-pinned="true"],
+.fluent-dialog[data-always-on-top="true"],
+.fluent-dialog.z-always-on-top {
+  z-index: 2147483647 !important;
+  position: relative;
+  box-shadow: 0 28px 72px -8px rgba(0, 0, 0, 0.95), 0 0 0 1.5px var(--bti-accent, #F7CAC9), 0 0 24px rgba(var(--bti-accent-rgb, 247, 202, 201), 0.4), inset 0 1px 0 rgba(var(--bti-accent-rgb, 247, 202, 201), 0.3) !important;
+}
+
+.fluent-dialog-overlay:has(.is-pinned),
+.fluent-dialog-overlay:has(.always-on-top),
+.fluent-dialog-overlay:has([data-pinned="true"]),
+.fluent-dialog-overlay:has([data-always-on-top="true"]),
+.fluent-dialog-overlay.is-pinned,
+.fluent-dialog-overlay.always-on-top {
+  z-index: 2147483646 !important;
 }
 
 .fluent-dialog::before {
@@ -1132,6 +1226,62 @@ body.battery-saver-active,
   cursor: grabbing;
 }
 
+/* Fluent Dialog Dragging & Snap-to-Edge Visual Feedback with Ghost Outline */
+.fluent-dialog-dragging,
+.fluent-dialog.fluent-dialog-dragging,
+.fluent-dialog.fluent-dialog-ghost-active {
+  user-select: none !important;
+  opacity: 0.65;
+  transition: opacity 0.15s ease !important;
+  cursor: grabbing !important;
+}
+
+/* Lightweight Ghost Outline rendered during dragging to eliminate rendering lag on slower devices */
+.fluent-dialog-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 2147483647;
+  border: 2px dashed var(--bti-accent, #F7CAC9);
+  background: rgba(var(--bti-accent-rgb, 247, 202, 201), 0.1);
+  border-radius: 8px;
+  box-shadow: 0 0 24px rgba(var(--bti-accent-rgb, 247, 202, 201), 0.35), inset 0 0 16px rgba(var(--bti-accent-rgb, 247, 202, 201), 0.08);
+  box-sizing: border-box;
+  will-change: transform;
+  transform-origin: top left;
+  transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.fluent-dialog-ghost-header {
+  height: 48px;
+  border-bottom: 1px dashed rgba(var(--bti-accent-rgb, 247, 202, 201), 0.4);
+  background: rgba(var(--bti-accent-rgb, 247, 202, 201), 0.12);
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+}
+
+.fluent-dialog-ghost-header-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bti-accent, #F7CAC9);
+  box-shadow: 0 0 8px var(--bti-accent, #F7CAC9);
+}
+
+.fluent-dialog-ghost.snapping,
+.fluent-dialog-ghost.fluent-dialog-ghost-snapping {
+  border-style: solid;
+  border-color: #ffffff;
+  background: rgba(var(--bti-accent-rgb, 247, 202, 201), 0.22);
+  box-shadow: 0 0 32px rgba(var(--bti-accent-rgb, 247, 202, 201), 0.65), inset 0 0 20px rgba(255, 255, 255, 0.18);
+}
+
+.fluent-dialog-snapped {
+  box-shadow: 0 24px 64px -8px rgba(0, 0, 0, 0.92), 0 0 0 2px var(--bti-accent, #F7CAC9), 0 0 24px rgba(var(--bti-accent-rgb, 247, 202, 201), 0.45) !important;
+}
+
 /* Interactive elements inside header should have normal pointer and touch behavior */
 .fluent-dialog-header button,
 .fluent-dialog-header a,
@@ -1151,6 +1301,91 @@ body.battery-saver-active,
 .fluent-dialog-header input,
 .fluent-dialog-header select {
   cursor: text !important;
+}
+
+/* Always on Top Pin Button in .fluent-dialog-header */
+.fluent-dialog-pin-btn,
+.fluent-dialog-header .pin-btn,
+.fluent-dialog-header button[data-role="always-on-top"],
+.fluent-dialog-header button[aria-label="Always on Top"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.375rem;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.fluent-dialog-pin-btn:hover,
+.fluent-dialog-header .pin-btn:hover,
+.fluent-dialog-header button[data-role="always-on-top"]:hover,
+.fluent-dialog-header button[aria-label="Always on Top"]:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.fluent-dialog-pin-btn.active,
+.fluent-dialog-pin-btn[aria-pressed="true"],
+.fluent-dialog-header .pin-btn.active,
+.fluent-dialog-header button[data-role="always-on-top"].active,
+.fluent-dialog-header button[data-role="always-on-top"][aria-pressed="true"],
+.fluent-dialog-header button[aria-label="Always on Top"][aria-pressed="true"] {
+  color: var(--bti-accent, #F7CAC9);
+  background: rgba(var(--bti-accent-rgb, 247, 202, 201), 0.2);
+  border-color: rgba(var(--bti-accent-rgb, 247, 202, 201), 0.45);
+  box-shadow: 0 0 12px rgba(var(--bti-accent-rgb, 247, 202, 201), 0.35);
+}
+
+/* Close (X) Button in .fluent-dialog-header styled to match pin button */
+.fluent-dialog-close-btn,
+.fluent-dialog-header .close-btn,
+.fluent-dialog-header button[data-role="close"],
+.fluent-dialog-header button[aria-label="Close"],
+.fluent-dialog-header button[aria-label="Đóng"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.375rem;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  margin-left: auto; /* Ensures right-alignment in header */
+}
+
+.fluent-dialog-close-btn:hover,
+.fluent-dialog-header .close-btn:hover,
+.fluent-dialog-header button[data-role="close"]:hover,
+.fluent-dialog-header button[aria-label="Close"]:hover,
+.fluent-dialog-header button[aria-label="Đóng"]:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.fluent-dialog-close-btn:active,
+.fluent-dialog-header .close-btn:active,
+.fluent-dialog-header button[data-role="close"]:active {
+  background: rgba(244, 63, 94, 0.2);
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.4);
+}
+
+/* Header Action Controls Group (stays right-aligned in header area) */
+.fluent-dialog-header-actions,
+.fluent-dialog-header-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-left: auto; /* Guarantees right alignment in header flexbox */
 }
 
 /* Body Area (Smooth, Dedicated Vertical Scroll - Completely Separated from Dragging) */

@@ -17,7 +17,8 @@ import {
   Target,
   Key,
   Users,
-  LogOut
+  LogOut,
+  Zap
 } from 'lucide-react';
 import { GameState, PingInfo } from '../types';
 import { soundFx } from '../services/audioEffects';
@@ -46,7 +47,8 @@ interface NavbarProps {
   onOpenUserRoles?: () => void;
   onOpenSettings?: () => void;
   onOpenFontModal?: () => void;
-  onOpenGeminiStudio?: (tab?: 'CHAT' | 'IMAGE' | 'VIDEO') => void;
+  onOpenGeminiStudio?: (tab?: 'CHAT' | 'AUTOPILOT' | 'ANTIGRAVITY' | 'DEEP_RESEARCH' | 'IMAGE' | 'VIDEO') => void;
+  onOpenAuthoringSuite?: () => void;
   isFocusMode?: boolean;
   onToggleFocusMode?: () => void;
 }
@@ -63,6 +65,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenSettings,
   onOpenFontModal,
   onOpenGeminiStudio,
+  onOpenAuthoringSuite,
   isFocusMode = false,
   onToggleFocusMode
 }) => {
@@ -303,6 +306,29 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Sparkles className="w-3.5 h-3.5 text-theme-accent group-hover:scale-110 transition-transform animate-pulse" />
               <span className="hidden xl:inline">Gemini Studio</span>
+            </button>
+          )}
+
+          {/* AutoPilot 1-Click Master Authoring Suite Button (Level with Gemini AI Studio) */}
+          {(onOpenAuthoringSuite || onOpenGeminiStudio) && (
+            <button
+              id="btn-navbar-autopilot-suite"
+              onClick={() => {
+                vibrateTap();
+                soundFx.playClick();
+                if (onOpenAuthoringSuite) {
+                  onOpenAuthoringSuite();
+                } else if (onOpenGeminiStudio) {
+                  onOpenGeminiStudio('AUTOPILOT');
+                }
+              }}
+              data-tooltip="Mở AutoPilot 1-Click Master Authoring Suite: Soạn đề, sinh đáp án nhiễu, đối soát pháp lý, chuẩn ma trận"
+              data-tooltip-title="AutoPilot Soạn Đề"
+              data-tooltip-placement="bottom"
+              className="has-tooltip flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-amber-600/30 via-orange-600/30 to-amber-700/30 hover:from-amber-600/50 hover:to-orange-600/50 border border-amber-400/50 rounded-[4px] text-xs font-bold text-amber-300 shadow-md shadow-amber-950/40 transition cursor-pointer shrink-0 group"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform animate-pulse" />
+              <span className="hidden xl:inline">AutoPilot Soạn Đề</span>
             </button>
           )}
 

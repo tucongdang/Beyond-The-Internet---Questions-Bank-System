@@ -6,17 +6,23 @@ import {
   Image as ImageIcon, 
   Film, 
   X, 
-  Maximize2,
-  Minimize2,
-  Cpu
+  Maximize2, 
+  Minimize2, 
+  Cpu, 
+  Compass, 
+  Terminal,
+  Zap
 } from 'lucide-react';
 import { GeminiChatTab } from './GeminiChatTab';
 import { GeminiImageStudioTab } from './GeminiImageStudioTab';
 import { VeoVideoStudioTab } from './VeoVideoStudioTab';
+import { AntigravityStudioTab } from './AntigravityStudioTab';
+import { DeepResearchStudioTab } from './DeepResearchStudioTab';
+import { AutopilotStudioTab } from './AutopilotStudioTab';
 import { soundFx } from '../../services/audioEffects';
 import { vibrateTap } from '../../utils/hapticUtils';
 
-export type GeminiStudioTabKey = 'CHAT' | 'IMAGE' | 'VIDEO';
+export type GeminiStudioTabKey = 'CHAT' | 'AUTOPILOT' | 'ANTIGRAVITY' | 'DEEP_RESEARCH' | 'IMAGE' | 'VIDEO';
 
 interface GeminiAiStudioModalProps {
   isOpen: boolean;
@@ -116,10 +122,10 @@ export const GeminiAiStudioModal: React.FC<GeminiAiStudioModalProps> = ({
           </div>
 
           {/* Center: Fluent Tablist */}
-          <div className="flex items-center p-0.5 bg-[#0D0420]/80 rounded-[4px] border border-theme-accent/20 shadow-inner max-w-full overflow-x-auto no-scrollbar order-3 sm:order-2 w-full sm:w-auto justify-center sm:justify-start">
+          <div className="flex items-center p-0.5 bg-[#0D0420]/80 rounded-[4px] border border-theme-accent/20 shadow-inner max-w-full overflow-x-auto no-scrollbar order-3 sm:order-2 w-full sm:w-auto justify-center sm:justify-start gap-1">
             <button
               onClick={() => handleTabChange('CHAT')}
-              className={`px-3 py-1.5 rounded-[4px] text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+              className={`px-2.5 py-1.5 rounded-[4px] text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'CHAT'
                   ? 'fluent-btn-primary shadow-sm'
                   : 'text-white/70 hover:text-white hover:bg-white/5'
@@ -130,20 +136,59 @@ export const GeminiAiStudioModal: React.FC<GeminiAiStudioModalProps> = ({
             </button>
 
             <button
+              onClick={() => handleTabChange('AUTOPILOT')}
+              className={`px-2.5 py-1.5 rounded-[4px] text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                activeTab === 'AUTOPILOT'
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-bold shadow-sm'
+                  : 'text-white/70 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-300" />
+              <span>AutoPilot Soạn Đề</span>
+              <span className="text-[9px] px-1 py-0.2 rounded-[2px] bg-black/30 font-mono text-amber-200">1-Click</span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange('ANTIGRAVITY')}
+              className={`px-2.5 py-1.5 rounded-[4px] text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                activeTab === 'ANTIGRAVITY'
+                  ? 'bg-gradient-to-r from-sky-500 to-indigo-500 text-white font-bold shadow-sm'
+                  : 'text-white/70 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Terminal className="w-3.5 h-3.5 text-sky-300" />
+              <span>Agent Antigravity</span>
+              <span className="text-[9px] px-1 py-0.2 rounded-[2px] bg-black/30 font-mono text-sky-200">Sandbox</span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange('DEEP_RESEARCH')}
+              className={`px-2.5 py-1.5 rounded-[4px] text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                activeTab === 'DEEP_RESEARCH'
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold shadow-sm'
+                  : 'text-white/70 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5 text-emerald-300" />
+              <span>Deep Research</span>
+              <span className="text-[9px] px-1 py-0.2 rounded-[2px] bg-black/30 font-mono text-emerald-200">Pro</span>
+            </button>
+
+            <button
               onClick={() => handleTabChange('IMAGE')}
-              className={`px-3 py-1.5 rounded-[4px] text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+              className={`px-2.5 py-1.5 rounded-[4px] text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'IMAGE'
                   ? 'fluent-btn-primary shadow-sm'
                   : 'text-white/70 hover:text-white hover:bg-white/5'
               }`}
             >
               <ImageIcon className="w-3.5 h-3.5" />
-              <span>Tạo & Sửa Ảnh</span>
+              <span>Tạo &amp; Sửa Ảnh</span>
             </button>
 
             <button
               onClick={() => handleTabChange('VIDEO')}
-              className={`px-3 py-1.5 rounded-[4px] text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+              className={`px-2.5 py-1.5 rounded-[4px] text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'VIDEO'
                   ? 'bg-gradient-to-r from-cyan-400 to-sky-400 text-[#0c031d] font-bold shadow-sm'
                   : 'text-white/70 hover:text-white hover:bg-white/5'
@@ -190,6 +235,9 @@ export const GeminiAiStudioModal: React.FC<GeminiAiStudioModalProps> = ({
         {/* Modal Body Container - Scales flexibly with flex-1 and min-h-0 */}
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col p-2 sm:p-3 md:p-4 bg-[#0e041f]/75">
           {activeTab === 'CHAT' && <GeminiChatTab />}
+          {activeTab === 'AUTOPILOT' && <AutopilotStudioTab />}
+          {activeTab === 'ANTIGRAVITY' && <AntigravityStudioTab />}
+          {activeTab === 'DEEP_RESEARCH' && <DeepResearchStudioTab />}
           {activeTab === 'IMAGE' && (
             <GeminiImageStudioTab onSendToVideo={handleSendImageToVideo} />
           )}

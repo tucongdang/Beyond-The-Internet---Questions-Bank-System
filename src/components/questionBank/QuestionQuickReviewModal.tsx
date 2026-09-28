@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   ShieldCheck, 
   CheckCircle2, 
@@ -28,6 +29,7 @@ import { difficultySuggestionService, DifficultySuggestionResult } from '../../s
 import { COGNITIVE_LEVELS } from '../../data/digitalCompetencyData';
 import { soundFx } from '../../services/audioEffects';
 import { vibrateTap, vibrateSuccess, vibrateWarning } from '../../utils/hapticUtils';
+import { useLockBodyScroll } from '../../hooks/useLockBodyScroll';
 
 interface QuestionQuickReviewModalProps {
   isOpen: boolean;
@@ -42,7 +44,10 @@ export const QuestionQuickReviewModal: React.FC<QuestionQuickReviewModalProps> =
   onClose,
   onReviewSaved
 }) => {
+  useLockBodyScroll(isOpen);
+
   if (!isOpen || !question) return null;
+  if (typeof document === 'undefined') return null;
 
   const existingReview = questionReviewService.getReview(question.id);
   
@@ -137,13 +142,22 @@ export const QuestionQuickReviewModal: React.FC<QuestionQuickReviewModalProps> =
   const currentStatusConfig = getStatusInfo(selectedStatus);
   const historyList = existingReview?.history || [];
 
-  return (
+  return createPortal(
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200"
-      onClick={onClose}
+      className="fixed inset-0 z-[9999999] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-xl animate-fadeIn overflow-hidden modal-backdrop-isolated select-none font-sans"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Review Nhanh Câu Hỏi"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isSaving) {
+          onClose();
+          vibrateTap();
+          soundFx.playClick();
+        }
+      }}
     >
       <div 
-        className="w-full max-w-2xl bg-[#190839] border border-theme-accent/40 rounded-[6px] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] text-slate-100"
+        className="w-full max-w-2xl bg-[#140827]/98 fluent-acrylic-surface border border-theme-accent/40 rounded-[8px] shadow-[0_24px_64px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col max-h-[92vh] text-slate-100"
         onClick={e => e.stopPropagation()}
       >
         {/* MODAL HEADER */}
@@ -458,6 +472,7 @@ export const QuestionQuickReviewModal: React.FC<QuestionQuickReviewModalProps> =
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

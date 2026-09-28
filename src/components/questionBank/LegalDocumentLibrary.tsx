@@ -31,14 +31,16 @@ import {
   RefreshCw,
   Info,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  Compass,
+  Zap
 } from 'lucide-react';
 import { LegalDocument, PickedDriveFile, QuestionItem } from '../../types';
 import { questionBankManager } from '../../services/questionBankManager';
 import { googlePickerService } from '../../services/googlePickerService';
 import { GooglePickerTriggerButton } from '../common/GooglePickerTriggerButton';
 import { soundFx } from '../../services/audioEffects';
-import { vibrateTap, vibrateSuccess } from '../../utils/hapticUtils';
+import { vibrateTap, vibrateSuccess, vibrateError } from '../../utils/hapticUtils';
 import { useLockBodyScroll } from '../../hooks/useLockBodyScroll';
 import { 
   notebookLMService, 
@@ -52,7 +54,7 @@ interface LegalDocumentLibraryProps {
   onSelectForAI?: (doc: LegalDocument) => void;
 }
 
-type NotebookLMMode = 'INSPECTOR' | 'STUDY_GUIDE' | 'AUDIO';
+type NotebookLMMode = 'INSPECTOR' | 'STUDY_GUIDE' | 'AUDIO' | 'DEEP_RESEARCH';
 
 export const LegalDocumentLibrary: React.FC<LegalDocumentLibraryProps> = ({ onSelectForAI }) => {
   const [documents, setDocuments] = useState<LegalDocument[]>(() => questionBankManager.getDocuments());
@@ -84,6 +86,17 @@ export const LegalDocumentLibrary: React.FC<LegalDocumentLibraryProps> = ({ onSe
   const [isGeneratingStudyGuide, setIsGeneratingStudyGuide] = useState<boolean>(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
+  // 3. Deep Research Pro State
+  const [deepResearchTopic, setDeepResearchTopic] = useState<string>('');
+  const [deepResearchDetails, setDeepResearchDetails] = useState<string>('');
+  const [deepResearchDepth, setDeepResearchDepth] = useState<'fast' | 'max'>('fast');
+  const [isResearching, setIsResearching] = useState<boolean>(false);
+  const [researchReport, setResearchReport] = useState<string | null>(null);
+  const [researchSteps, setResearchSteps] = useState<any[]>([]);
+  const [researchStatusMsg, setResearchStatusMsg] = useState<string>('');
+  const [copiedResearch, setCopiedResearch] = useState<boolean>(false);
+  const researchPollTimerRef = useRef<any>(null);
+
   // Citation Preview Modal / Tooltip
   const [activeCitation, setActiveCitation] = useState<NotebookLMCitation | null>(null);
 
@@ -113,8 +126,120 @@ export const LegalDocumentLibrary: React.FC<LegalDocumentLibraryProps> = ({ onSe
   useEffect(() => {
     return () => {
       notebookLMService.stopAudioPlayback();
+      if (researchPollTimerRef.current) clearInterval(researchPollTimerRef.current);
     };
   }, []);
+
+  // 3. Deep Research Pro Execution Handler
+  const handleLaunchDeepResearch = async (customTopic?: string, customDetails?: string) => {
+    const targetDoc = currentDoc;
+    const t = customTopic || deepResearchTopic || (targetDoc ? `Nghiên cứu đối sánh văn bản: ${targetDoc.documentNumber} - ${targetDoc.title}` : 'Khảo cứu pháp quy BTI 2026');
+    const d = customDetails || deepResearchDetails || (targetDoc ? `Phân tích toàn diện ${targetDoc.documentNumber} (${targetDoc.title}), các điều khoản trọng yếu liên quan đến ${targetDoc.relatedDomains?.join(', ')} và đối chiếu với Thông tư 02/2025/TT-BGDĐT cùng chuẩn năng lực số BTI 2026.` : '');
+
+    vibrateTap();
+    soundFx.playClick();
+    setIsResearching(true);
+    setResearchReport(null);
+    setResearchSteps([]);
+    setResearchStatusMsg('Đang khởi chạy Agent Deep Research Pro...');
+
+    try {
+      const res = await fetch('/api/ai/deep-research/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: t,
+          prompt: d,
+          depth: deepResearchDepth
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Lỗi khởi chạy Deep Research.');
+      }
+
+      setResearchStatusMsg('Agent Deep Research đang thu thập án lệ, văn bản liên tịch và đối sánh...');
+
+      if (researchPollTimerRef.current) clearInterval(researchPollTimerRef.current);
+      let attempts = 0;
+      researchPollTimerRef.current = setInterval(async () => {
+        attempts++;
+        try {
+          const pollRes = await fetch(`/api/ai/deep-research/status/${data.researchId}`);
+          const pollData = await pollRes.json();
+          if (pollData.success) {
+            if (pollData.steps) setResearchSteps(pollData.steps);
+            if (pollData.status === 'completed') {
+              clearInterval(researchPollTimerRef.current);
+              setResearchReport(pollData.report);
+              setIsResearching(false);
+              setResearchStatusMsg('Khảo cứu hoàn tất.');
+              soundFx.playPacingChime('complete');
+              vibrateSuccess();
+            } else if (pollData.status === 'failed' || pollData.status === 'cancelled') {
+              clearInterval(researchPollTimerRef.current);
+              setIsResearching(false);
+              setResearchReport(pollData.error || 'Không thể hoàn tất tác vụ nghiên cứu.');
+              soundFx.playError();
+              vibrateError();
+            } else {
+              setResearchStatusMsg(`Đang nghiên cứu đa bước giai đoạn ${Math.min(4, Math.floor(attempts / 2) + 1)}/4...`);
+            }
+          }
+        } catch (e) {
+          console.warn('Poll error:', e);
+        }
+
+        if (attempts > 30) {
+          clearInterval(researchPollTimerRef.current);
+          if (isResearching) {
+            try {
+              setResearchStatusMsg('Đang tổng hợp báo cáo trực tiếp...');
+              const syncRes = await fetch('/api/ai/deep-research/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topic: t, prompt: d })
+              });
+              const syncData = await syncRes.json();
+              setResearchReport(syncData.report);
+              setResearchSteps(syncData.steps || []);
+              soundFx.playPacingChime('complete');
+            } finally {
+              setIsResearching(false);
+            }
+          }
+        }
+      }, 5000);
+    } catch (err: any) {
+      console.error(err);
+      soundFx.playError();
+      vibrateError();
+      setResearchReport(`❌ Lỗi: ${err?.message || 'Không thể kết nối với Agent Deep Research.'}`);
+      setIsResearching(false);
+    }
+  };
+
+  const handleCopyResearch = () => {
+    if (!researchReport) return;
+    navigator.clipboard.writeText(researchReport);
+    setCopiedResearch(true);
+    vibrateSuccess();
+    setTimeout(() => setCopiedResearch(false), 2000);
+  };
+
+  const handleDownloadResearch = () => {
+    if (!researchReport) return;
+    const blob = new Blob([researchReport], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `BTI2026_Legal_Deep_Research_${currentDoc?.documentNumber || 'Report'}.md`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    vibrateSuccess();
+  };
 
   // Source selection toggles
   const toggleSource = (id: string, e?: React.MouseEvent) => {
@@ -726,6 +851,28 @@ export const LegalDocumentLibrary: React.FC<LegalDocumentLibraryProps> = ({ onSe
                 <FileText className="w-3.5 h-3.5 text-amber-400" />
                 <span>Soi Chi Tiết Điều Khoản</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateTap();
+                  soundFx.playClick();
+                  setActiveMode('DEEP_RESEARCH');
+                  if (!deepResearchTopic && currentDoc) {
+                    setDeepResearchTopic(`Nghiên cứu đối sánh văn bản: ${currentDoc.documentNumber} - ${currentDoc.title}`);
+                    setDeepResearchDetails(`Khảo cứu đối sánh ${currentDoc.documentNumber} với Thông tư 02/2025/TT-BGDĐT, chuẩn DigComp 2.2 và đề xuất các tình huống khảo thí trắc nghiệm cho cuộc thi BTI 2026.`);
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-[4px] text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                  activeMode === 'DEEP_RESEARCH'
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md'
+                    : 'text-emerald-300 hover:text-white hover:bg-emerald-950/40'
+                }`}
+              >
+                <Compass className="w-3.5 h-3.5 text-emerald-300 animate-spin-slow" />
+                <span>Deep Research Pro</span>
+                <span className="text-[9px] px-1 py-0.2 rounded bg-black/30 text-emerald-200">AI</span>
+              </button>
             </div>
 
             {/* Current Active Sources Count */}
@@ -1204,6 +1351,244 @@ export const LegalDocumentLibrary: React.FC<LegalDocumentLibraryProps> = ({ onSe
                   Chưa chọn văn bản nào
                 </div>
               )}
+            </div>
+          )}
+
+          {/* =========================================================================
+              TAB 4: AGENT DEEP RESEARCH PRO (KHẢO CỨU ĐỐI SÁNH PHÁP QUY & BTI MATRIX)
+              ========================================================================= */}
+          {activeMode === 'DEEP_RESEARCH' && (
+            <div className="fluent-box p-5 rounded-[6px] border border-emerald-500/30 bg-[#120529] space-y-5">
+              {/* Header Banner */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 text-emerald-300 font-mono text-xs font-bold bg-emerald-950/50 px-2.5 py-0.5 rounded border border-emerald-500/30 mb-1">
+                    <Compass className="w-3.5 h-3.5 text-emerald-400 animate-spin-slow" />
+                    <span>Agent Deep Research Pro Preview</span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-black text-white">
+                    Viện Khảo Cứu Pháp Lý &amp; Đối Sánh Chuẩn Năng Lực Số BTI 2026
+                  </h3>
+                  <p className="text-xs text-slate-300 font-sans mt-0.5">
+                    Tự động đối chiếu văn bản pháp lý đang chọn với Thông tư 02/2025/TT-BGDĐT, chuẩn DigComp 2.2 và xây dựng hồ sơ học thuật hoàn chỉnh cho Hội đồng Đề thi.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-center">
+                  <div className="flex items-center gap-1 p-1 bg-black/40 rounded border border-white/10 text-xs font-mono">
+                    <button
+                      type="button"
+                      onClick={() => setDeepResearchDepth('fast')}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                        deepResearchDepth === 'fast' ? 'bg-emerald-600 text-white' : 'text-white/60 hover:text-white'
+                      }`}
+                    >
+                      Nhanh (Preview)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeepResearchDepth('max')}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                        deepResearchDepth === 'max' ? 'bg-emerald-600 text-white' : 'text-white/60 hover:text-white'
+                      }`}
+                    >
+                      Toàn Diện (Max)
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Research Controls */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div className="md:col-span-5 space-y-3">
+                  <div className="p-3 bg-white/[0.03] border border-white/10 rounded-[4px] space-y-2 text-xs">
+                    <span className="font-mono font-bold text-amber-300 text-[11px] block">
+                      Văn bản mục tiêu hiện tại:
+                    </span>
+                    <div className="font-bold text-white text-xs leading-snug">
+                      {currentDoc ? `${currentDoc.documentNumber} - ${currentDoc.title}` : 'Chưa chọn văn bản'}
+                    </div>
+                    {currentDoc?.relatedDomains && (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {currentDoc.relatedDomains.map((dm: string) => (
+                          <span key={dm} className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-200 border border-purple-400/30">
+                            {dm}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Research Presets */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono uppercase font-bold text-white/50 tracking-wider flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-emerald-400" />
+                      <span>Mẫu Nghiên Cứu Pháp Quy Nhanh</span>
+                    </label>
+                    <div className="space-y-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const topic = `Đối sánh ${currentDoc?.documentNumber || 'Thông tư 02/2025/TT-BGDĐT'} với Khung năng lực số DigComp 2.2 và UNESCO`;
+                          const details = `Khảo cứu chuyên sâu: Phân tích 6 miền năng lực số trong ${currentDoc?.documentNumber || 'Thông tư 02/2025/TT-BGDĐT'}, đối chiếu với Khung năng lực số châu Âu DigComp 2.2 và Khung UNESCO. Đề xuất ma trận câu hỏi khảo thí phù hợp cho cuộc thi BTI 2026.`;
+                          setDeepResearchTopic(topic);
+                          setDeepResearchDetails(details);
+                          handleLaunchDeepResearch(topic, details);
+                        }}
+                        disabled={isResearching}
+                        className="w-full text-left p-2 rounded-[2px] bg-white/[0.03] hover:bg-emerald-500/10 border border-white/10 hover:border-emerald-500/40 transition group cursor-pointer text-xs font-mono"
+                      >
+                        <div className="font-bold text-white group-hover:text-emerald-300 transition flex items-center justify-between">
+                          <span>Đối sánh Chuẩn Châu Âu DigComp 2.2</span>
+                          <Zap className="w-3 h-3 text-emerald-400 opacity-0 group-hover:opacity-100 transition" />
+                        </div>
+                        <div className="text-[10px] text-white/50 line-clamp-1 mt-0.5 font-sans">
+                          So sánh cấu trúc 6 miền năng lực số với tiêu chuẩn quốc tế
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const topic = `Tra cứu văn bản liên tịch & án lệ an toàn số cho ${currentDoc?.documentNumber || 'Nghị định 13/2023/NĐ-CP'}`;
+                          const details = `Tra cứu các văn bản quy phạm pháp luật liên quan đến xử phạt vi phạm an toàn thông tin, quyền riêng tư dữ liệu cá nhân theo Nghị định 13/2023/NĐ-CP và Luật An ninh mạng. Đề xuất các tình huống đề thi thực tế.`;
+                          setDeepResearchTopic(topic);
+                          setDeepResearchDetails(details);
+                          handleLaunchDeepResearch(topic, details);
+                        }}
+                        disabled={isResearching}
+                        className="w-full text-left p-2 rounded-[2px] bg-white/[0.03] hover:bg-emerald-500/10 border border-white/10 hover:border-emerald-500/40 transition group cursor-pointer text-xs font-mono"
+                      >
+                        <div className="font-bold text-white group-hover:text-emerald-300 transition flex items-center justify-between">
+                          <span>Án lệ &amp; Tình huống Thực tiễn</span>
+                          <Zap className="w-3 h-3 text-emerald-400 opacity-0 group-hover:opacity-100 transition" />
+                        </div>
+                        <div className="text-[10px] text-white/50 line-clamp-1 mt-0.5 font-sans">
+                          Tìm kiếm vụ việc vi phạm thực tế để đưa vào câu hỏi Vận Dụng Cao
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Form */}
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-[10px] font-mono uppercase font-bold text-white/60 tracking-wider mb-1 block">
+                        Đề tài nghiên cứu:
+                      </label>
+                      <input
+                        type="text"
+                        value={deepResearchTopic}
+                        onChange={e => setDeepResearchTopic(e.target.value)}
+                        placeholder="Nhập đề tài hoặc câu hỏi pháp quy..."
+                        disabled={isResearching}
+                        className="w-full p-2 rounded-[2px] bg-black/50 border border-white/15 focus:border-emerald-400 text-xs font-mono text-white outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-mono uppercase font-bold text-white/60 tracking-wider mb-1 block">
+                        Chi tiết yêu cầu đối sánh:
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={deepResearchDetails}
+                        onChange={e => setDeepResearchDetails(e.target.value)}
+                        placeholder="Yêu cầu cụ thể: Trích dẫn điều khoản, tìm dẫn chứng số liệu, đề xuất ma trận câu hỏi..."
+                        disabled={isResearching}
+                        className="w-full p-2 rounded-[2px] bg-black/50 border border-white/15 focus:border-emerald-400 text-xs font-mono text-white outline-none resize-none placeholder:text-white/30"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleLaunchDeepResearch()}
+                      disabled={isResearching}
+                      className="w-full py-2.5 px-3 rounded-[2px] bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold font-mono uppercase tracking-wider transition shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                    >
+                      {isResearching ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                          <span>Đang thực hiện Deep Research...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Compass className="w-4 h-4" />
+                          <span>Khởi Chạy Deep Research Pháp Lý</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Report Panel */}
+                <div className="md:col-span-7 flex flex-col min-h-[420px] bg-black/50 border border-white/10 rounded-[4px] overflow-hidden">
+                  <div className="px-3 py-2 bg-white/[0.02] border-b border-white/10 flex items-center justify-between text-xs font-mono">
+                    <span className="font-bold text-emerald-300 text-[11px] flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5" />
+                      Hồ Sơ Khảo Cứu Pháp Quy Chi Tiết
+                    </span>
+
+                    {researchReport && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleCopyResearch}
+                          className="p-1 px-2 rounded bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition flex items-center gap-1 text-[10px] cursor-pointer"
+                          title="Sao chép toàn bộ báo cáo"
+                        >
+                          {copiedResearch ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          <span>{copiedResearch ? 'Đã chép' : 'Sao chép'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDownloadResearch}
+                          className="p-1 px-2 rounded bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1 text-[10px] cursor-pointer"
+                          title="Tải báo cáo Markdown (.md)"
+                        >
+                          <Download className="w-3 h-3" />
+                          <span>Tải .MD</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 p-3.5 overflow-y-auto custom-scrollbar font-sans text-xs leading-relaxed text-white/90">
+                    {isResearching && (
+                      <div className="h-full flex flex-col items-center justify-center gap-3 text-center text-white/60 py-12">
+                        <div className="w-10 h-10 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+                        <div className="space-y-1">
+                          <div className="text-emerald-300 font-bold text-sm">Agent Deep Research đang thu thập dẫn chứng</div>
+                          <div className="text-[11px] text-white/50">{researchStatusMsg || 'Đang quét văn bản pháp quy và cơ sở học thuật...'}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {!isResearching && !researchReport && (
+                      <div className="h-full flex flex-col items-center justify-center gap-2 text-center text-white/40 py-12">
+                        <Compass className="w-8 h-8 text-white/20" />
+                        <p className="text-xs">Chọn mẫu nghiên cứu hoặc nhập đề tài pháp lý bên trái để khởi chạy Agent Deep Research Pro.</p>
+                      </div>
+                    )}
+
+                    {!isResearching && researchReport && (
+                      <div className="space-y-3">
+                        <div className="p-3 rounded-[2px] bg-emerald-950/30 border border-emerald-500/30 text-emerald-200 text-xs font-mono flex items-center justify-between">
+                          <span className="flex items-center gap-1.5">
+                            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                            <span>Báo Cáo Khảo Cứu Pháp Lý Chuẩn Hóa</span>
+                          </span>
+                          <span className="text-[10px] text-white/40">Grounded via Deep Research Pro</span>
+                        </div>
+
+                        <div className="whitespace-pre-wrap leading-relaxed select-text p-3 bg-[#05000C] border border-white/10 rounded font-sans text-xs text-white/90 shadow-inner">
+                          {researchReport}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>

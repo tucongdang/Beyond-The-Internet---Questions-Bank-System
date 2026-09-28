@@ -1120,7 +1120,7 @@ export const BtiCompetencyVisualDashboard: React.FC<BtiCompetencyVisualDashboard
 
       {/* 5. SKILL DETAIL POPUP MODAL (When clicking any bar or pie slice) */}
       {selectedSkillModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn modal-backdrop-isolated select-none">
           <div className="bg-[#1C093B] border border-amber-400/50 rounded-[4px] max-w-lg w-full p-4 sm:p-5 shadow-2xl space-y-4 text-slate-100">
             {/* Modal Header */}
             <div className="flex items-start justify-between gap-3 border-b border-purple-500/30 pb-3">
