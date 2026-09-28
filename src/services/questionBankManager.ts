@@ -1531,13 +1531,14 @@ class QuestionBankManager {
     return this.users.filter(x => x.status !== 'PENDING' && x.status !== 'REJECTED');
   }
 
-  public approveUser(userId: string, approvedRole?: UserRole, approverName?: string): boolean {
+  public approveUser(userId: string, approvedRole?: UserRole, approverName?: string, assignedDomains?: DigitalCompetencyDomainKey[]): boolean {
     const u = this.users.find(x => x.id === userId);
     if (!u) return false;
     u.status = 'APPROVED';
     u.approvedAt = Date.now();
     u.approvedBy = approverName || this.currentUser.name;
     if (approvedRole) u.role = approvedRole;
+    if (assignedDomains && assignedDomains.length > 0) u.assignedDomains = assignedDomains;
     this.saveUsers();
     this.notify();
 

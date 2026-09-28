@@ -144,7 +144,7 @@ export const QuestionQuickReviewModal: React.FC<QuestionQuickReviewModalProps> =
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[9999999] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-xl animate-fadeIn overflow-hidden modal-backdrop-isolated select-none font-sans"
+      className="fluent-dialog-overlay fixed inset-0 z-[9999999] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-xl animate-fadeIn overflow-hidden modal-backdrop-isolated select-none font-sans"
       role="dialog"
       aria-modal="true"
       aria-label="Review Nhanh Câu Hỏi"
@@ -157,28 +157,28 @@ export const QuestionQuickReviewModal: React.FC<QuestionQuickReviewModalProps> =
       }}
     >
       <div 
-        className="w-full max-w-2xl bg-[#140827]/98 fluent-acrylic-surface border border-theme-accent/40 rounded-[8px] shadow-[0_24px_64px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col max-h-[92vh] text-slate-100"
+        className="fluent-dialog w-full max-w-2xl bg-[#190839] text-[#F5EFF9] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] select-text"
         onClick={e => e.stopPropagation()}
       >
         {/* MODAL HEADER */}
-        <div className="p-4 sm:p-5 border-b border-theme-accent/25 bg-[#241148] flex items-center justify-between gap-3 shrink-0">
+        <div className="fluent-dialog-header p-4 sm:p-5 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-[4px] bg-theme-accent/20 border border-theme-accent/40 flex items-center justify-center text-theme-accent">
-              <ShieldCheck className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-[4px] bg-[#f7cac9] flex items-center justify-center text-[#190839] font-bold shadow-sm">
+              <ShieldCheck className="w-4 h-4 text-[#190839]" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-bold text-base sm:text-lg text-white">
+                <h3 className="font-bold text-base sm:text-lg text-white font-mono">
                   Review Nhanh Câu Hỏi
                 </h3>
-                <span className="font-mono text-xs font-bold text-theme-accent bg-[#190839] px-2 py-0.5 rounded border border-theme-accent/30">
+                <span className="fluent-badge fluent-badge-accent">
                   {question.id}
                 </span>
-                <span className="text-[11px] font-mono text-[#B6A6D8] bg-white/5 px-2 py-0.5 rounded">
+                <span className="fluent-badge text-[#B6A6D8]">
                   {question.round_name || 'BTI 2026'}
                 </span>
               </div>
-              <p className="text-xs text-[#B6A6D8] mt-0.5">
+              <p className="text-xs text-[#B6A6D8] mt-0.5 font-sans">
                 Cập nhật trạng thái phê duyệt &amp; ghi chú thẩm định đồng bộ tức thì vào Firestore
               </p>
             </div>
@@ -187,19 +187,19 @@ export const QuestionQuickReviewModal: React.FC<QuestionQuickReviewModalProps> =
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded transition cursor-pointer"
+            className="fluent-dialog-close-btn"
             title="Đóng cửa sổ"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* MODAL BODY */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-4">
+        <div className="fluent-dialog-body p-4 sm:p-5 overflow-y-auto space-y-4 custom-scrollbar">
           {/* Question Summary Banner */}
-          <div className="p-3.5 bg-[#14062E] rounded-[4px] border border-theme-accent/20 space-y-2">
+          <div className="fluent-box-nested p-3.5 space-y-2">
             <div className="flex items-center justify-between gap-2 text-xs">
-              <span className="text-theme-accent font-semibold flex items-center gap-1.5">
+              <span className="text-theme-accent font-semibold flex items-center gap-1.5 font-mono">
                 <FileEdit className="w-3.5 h-3.5 text-theme-accent" />
                 Nội dung câu hỏi:
               </span>
@@ -363,12 +363,12 @@ export const QuestionQuickReviewModal: React.FC<QuestionQuickReviewModalProps> =
               onChange={e => setNotes(e.target.value)}
               placeholder="Nhập ghi chú nhận xét, lưu ý thẩm định, hoặc lý do yêu cầu sửa câu hỏi..."
               rows={3}
-              className="w-full bg-[#14062E] border border-theme-accent/30 focus:border-theme-accent rounded-[4px] p-3 text-xs sm:text-sm text-slate-100 placeholder:text-slate-500 focus:outline-hidden transition resize-y font-sans leading-relaxed"
+              className="w-full fluent-textarea p-3 text-xs sm:text-sm text-slate-100 placeholder:text-slate-500 transition resize-y font-sans leading-relaxed"
             />
 
             {/* PRESET CHIPS */}
             <div className="space-y-1.5 pt-1">
-              <span className="text-[11px] text-[#B6A6D8] flex items-center gap-1 font-semibold">
+              <span className="text-[11px] text-[#B6A6D8] flex items-center gap-1 font-semibold font-mono">
                 <Tag className="w-3 h-3 text-theme-accent" />
                 Gợi ý nhận xét nhanh (nhấp để chèn):
               </span>
@@ -378,7 +378,7 @@ export const QuestionQuickReviewModal: React.FC<QuestionQuickReviewModalProps> =
                     key={idx}
                     type="button"
                     onClick={() => handleAddPresetNote(preset)}
-                    className="px-2 py-1 rounded-[3px] bg-[#241148] hover:bg-[#2e155b] text-[#F5EFF9]/85 hover:text-white border border-theme-accent/20 text-[11px] font-sans transition cursor-pointer flex items-center gap-1"
+                    className="fluent-btn-secondary px-2.5 py-1 text-[11px] font-sans flex items-center gap-1 cursor-pointer"
                   >
                     <span>{preset}</span>
                   </button>
@@ -389,7 +389,7 @@ export const QuestionQuickReviewModal: React.FC<QuestionQuickReviewModalProps> =
 
           {/* FIRESTORE AUDIT TRAIL ACCORDION */}
           {historyList.length > 0 && (
-            <div className="border border-theme-accent/20 rounded-[4px] bg-[#14062E]/70 overflow-hidden">
+            <div className="fluent-box-nested rounded-[4px] overflow-hidden">
               <button
                 type="button"
                 onClick={() => setShowHistory(!showHistory)}
@@ -403,9 +403,9 @@ export const QuestionQuickReviewModal: React.FC<QuestionQuickReviewModalProps> =
               </button>
 
               {showHistory && (
-                <div className="p-3 border-t border-theme-accent/15 space-y-2 max-h-40 overflow-y-auto">
+                <div className="p-3 border-t border-white/10 space-y-2 max-h-40 overflow-y-auto">
                   {historyList.map((h, i) => (
-                    <div key={i} className="p-2 rounded bg-[#190839] border border-theme-accent/15 text-xs space-y-1">
+                    <div key={i} className="p-2 rounded bg-[#190839] border border-white/10 text-xs space-y-1">
                       <div className="flex items-center justify-between text-[11px] font-mono">
                         <span className={`px-1.5 py-0.2 rounded font-bold ${getStatusInfo(h.status).badgeClass}`}>
                           {getStatusInfo(h.status).label}
@@ -444,7 +444,7 @@ export const QuestionQuickReviewModal: React.FC<QuestionQuickReviewModalProps> =
         </div>
 
         {/* MODAL FOOTER */}
-        <div className="p-3.5 sm:p-4 bg-[#241148] border-t border-theme-accent/25 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="fluent-dialog-footer p-3.5 sm:p-4 flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2 text-xs font-mono text-[#B6A6D8]">
             <Cloud className="w-4 h-4 text-sky-400" />
             <span>Bộ sưu tập: <strong className="text-white">/question_reviews/{question.id}</strong></span>
@@ -455,7 +455,7 @@ export const QuestionQuickReviewModal: React.FC<QuestionQuickReviewModalProps> =
               type="button"
               onClick={onClose}
               disabled={isSaving}
-              className="px-3.5 py-1.5 rounded-[4px] bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition cursor-pointer"
+              className="fluent-btn-secondary px-3.5 py-1.5 text-xs font-semibold"
             >
               Hủy
             </button>
@@ -464,7 +464,7 @@ export const QuestionQuickReviewModal: React.FC<QuestionQuickReviewModalProps> =
               type="button"
               onClick={handleSave}
               disabled={isSaving}
-              className="px-4 py-1.5 rounded-[4px] bg-theme-accent hover:bg-theme-accent-hover text-[#190839] font-bold text-xs font-mono flex items-center gap-1.5 transition cursor-pointer shadow-md disabled:opacity-50"
+              className="fluent-btn-primary px-4 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5 shadow-md disabled:opacity-50"
             >
               <Save className="w-3.5 h-3.5" />
               <span>{isSaving ? 'Đang lưu Firestore...' : 'Lưu & Đồng Bộ Firestore'}</span>

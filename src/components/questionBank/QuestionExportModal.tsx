@@ -240,7 +240,7 @@ export const QuestionExportModal: React.FC<QuestionExportModalProps> = ({
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[9999999] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-xl animate-fadeIn overflow-hidden modal-backdrop-isolated select-none"
+      className="fluent-dialog-overlay fixed inset-0 z-[9999999] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-xl animate-fadeIn overflow-hidden modal-backdrop-isolated select-none"
       role="dialog"
       aria-modal="true"
       aria-label="Xuất Dữ Liệu Ngân Hàng Câu Hỏi"
@@ -254,22 +254,22 @@ export const QuestionExportModal: React.FC<QuestionExportModalProps> = ({
     >
       <div 
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-4xl h-[92vh] max-h-[940px] flex flex-col rounded-[8px] bg-[#140827]/98 fluent-acrylic-surface border border-theme-accent/40 shadow-[0_24px_64px_rgba(0,0,0,0.85)] text-slate-100 overflow-hidden font-sans"
+        className="fluent-dialog w-full max-w-4xl h-[92vh] max-h-[940px] flex flex-col rounded-[8px] bg-[#190839] text-[#F5EFF9] shadow-[0_24px_64px_rgba(0,0,0,0.85)] overflow-hidden font-sans select-text"
       >
         {/* Modal Header */}
-        <div className="px-5 py-3.5 bg-[#250D4D] border-b border-theme-accent/30 flex items-center justify-between gap-3 shrink-0">
+        <div className="fluent-dialog-header px-5 py-3.5 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-[4px] bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 flex items-center justify-center font-bold shadow">
+            <div className="w-8 h-8 rounded-[4px] bg-[#f7cac9] text-[#190839] flex items-center justify-center font-bold shadow">
               <Download className="w-4 h-4 stroke-[2.5]" />
             </div>
             <div>
               <h2 className="text-sm font-bold font-mono tracking-wide text-white flex items-center gap-2">
-                <span>XUẤT ĐỀ THI & DỮ LIỆU CÂU HỎI (EXPORT HUB)</span>
-                <span className="px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 text-[10px] font-mono border border-amber-400/30">
+                <span>XUẤT ĐỀ THI &amp; DỮ LIỆU CÂU HỎI (EXPORT HUB)</span>
+                <span className="fluent-badge fluent-badge-accent">
                   BTI 2026
                 </span>
               </h2>
-              <p className="text-[11px] text-purple-200/80">
+              <p className="text-[11px] text-[#B6A6D8]">
                 Chia sẻ ngoại tuyến, in ấn đề thi chuẩn khảo thí (PDF) hoặc sao lưu dữ liệu ngân hàng đề (JSON)
               </p>
             </div>
@@ -281,7 +281,7 @@ export const QuestionExportModal: React.FC<QuestionExportModalProps> = ({
               vibrateTap();
               onClose();
             }}
-            className="w-8 h-8 rounded-[4px] bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white flex items-center justify-center transition cursor-pointer border border-white/10"
+            className="fluent-dialog-close-btn"
             title="Đóng (Esc)"
           >
             <X className="w-4 h-4" />
@@ -289,7 +289,7 @@ export const QuestionExportModal: React.FC<QuestionExportModalProps> = ({
         </div>
 
         {/* Format Selector Tabs */}
-        <div className="px-5 pt-3 bg-[#1D093B] border-b border-white/10 flex items-center gap-2 shrink-0">
+        <div className="px-5 py-2 bg-[#241148] border-b border-white/10 flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => {
@@ -297,14 +297,10 @@ export const QuestionExportModal: React.FC<QuestionExportModalProps> = ({
               soundFx.playClick();
               setActiveTab('PDF');
             }}
-            className={`px-4 py-2 text-xs font-mono font-bold flex items-center gap-2 border-b-2 transition cursor-pointer ${
-              activeTab === 'PDF'
-                ? 'border-amber-400 text-amber-300 bg-amber-500/10'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
+            className={`fluent-subtab-btn ${activeTab === 'PDF' ? 'active' : ''}`}
           >
             <Printer className="w-4 h-4" />
-            <span>📄 Xuất Bản In & Tệp PDF</span>
+            <span>📄 Xuất Bản In &amp; Tệp PDF</span>
           </button>
 
           <button
@@ -314,11 +310,7 @@ export const QuestionExportModal: React.FC<QuestionExportModalProps> = ({
               soundFx.playClick();
               setActiveTab('JSON');
             }}
-            className={`px-4 py-2 text-xs font-mono font-bold flex items-center gap-2 border-b-2 transition cursor-pointer ${
-              activeTab === 'JSON'
-                ? 'border-sky-400 text-sky-300 bg-sky-500/10'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
+            className={`fluent-subtab-btn ${activeTab === 'JSON' ? 'active' : ''}`}
           >
             <FileCode className="w-4 h-4" />
             <span>🗄️ Xuất Tệp Dữ Liệu JSON</span>
@@ -326,7 +318,7 @@ export const QuestionExportModal: React.FC<QuestionExportModalProps> = ({
         </div>
 
         {/* Scrollable Modal Body */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-4 text-xs">
+        <div className="fluent-dialog-body flex-1 overflow-y-auto custom-scrollbar p-5 space-y-4 text-xs">
           
           {/* 1. QUESTION SCOPE SELECTOR */}
           <div className="p-3.5 rounded-[6px] bg-black/40 border border-theme-accent/30 space-y-2.5">
@@ -698,10 +690,10 @@ export const QuestionExportModal: React.FC<QuestionExportModalProps> = ({
         </div>
 
         {/* Modal Bottom Actions Footer */}
-        <div className="px-5 py-3.5 bg-[#190839] border-t border-theme-accent/30 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
-          <div className="flex items-center gap-2 text-xs font-mono text-purple-200">
+        <div className="fluent-dialog-footer px-5 py-3.5 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 text-xs font-mono text-[#B6A6D8]">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Sẵn sàng xuất: <strong>{targetQuestions.length}</strong> câu hỏi</span>
+            <span>Sẵn sàng xuất: <strong className="text-white tabular-nums">{targetQuestions.length}</strong> câu hỏi</span>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap ml-auto">
@@ -716,7 +708,7 @@ export const QuestionExportModal: React.FC<QuestionExportModalProps> = ({
                       onClose();
                       onOpenPrintPreview();
                     }}
-                    className="px-3 py-1.5 rounded-[4px] bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/20 text-xs font-mono transition cursor-pointer flex items-center gap-1.5"
+                    className="fluent-btn-secondary px-3 py-1.5 text-xs font-mono flex items-center gap-1.5"
                     title="Mở toàn màn hình giao diện xem trước bản in khổ A4 tương tác"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -727,7 +719,7 @@ export const QuestionExportModal: React.FC<QuestionExportModalProps> = ({
                 <button
                   type="button"
                   onClick={handleDownloadHtml}
-                  className="px-3.5 py-1.5 rounded-[4px] bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-400/40 text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5"
+                  className="fluent-btn-secondary px-3.5 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5"
                   title="Tải tệp HTML độc lập để mở và in trên mọi máy tính ngoại tuyến"
                 >
                   <Download className="w-3.5 h-3.5 text-purple-300" />
@@ -737,7 +729,7 @@ export const QuestionExportModal: React.FC<QuestionExportModalProps> = ({
                 <button
                   type="button"
                   onClick={handleDownloadWord}
-                  className="px-3.5 py-1.5 rounded-[4px] bg-sky-600/30 hover:bg-sky-600/50 text-sky-200 border border-sky-400/40 text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5"
+                  className="fluent-btn-secondary px-3.5 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5 text-sky-200"
                   title="Tải file Microsoft Word (.doc) chuẩn để mở và biên tập trực tiếp trong Word / Docs"
                 >
                   <FileText className="w-3.5 h-3.5 text-sky-300" />
@@ -747,11 +739,11 @@ export const QuestionExportModal: React.FC<QuestionExportModalProps> = ({
                 <button
                   type="button"
                   onClick={handlePrintPdf}
-                  className="px-4 py-1.5 rounded-[4px] bg-gradient-to-r from-amber-400 to-amber-500 hover:brightness-110 text-slate-950 text-xs font-mono font-black transition cursor-pointer flex items-center gap-1.5 shadow-lg active:scale-95"
+                  className="fluent-btn-primary px-4 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5 shadow-lg active:scale-95"
                   title="Mở hộp thoại in của trình duyệt để in ra giấy hoặc Lưu thành file PDF"
                 >
-                  <Printer className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
-                  <span>IN / LƯU PDF NGAY (Save as PDF)</span>
+                  <Printer className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>IN / LƯU PDF NGAY</span>
                 </button>
               </>
             ) : (
@@ -759,7 +751,7 @@ export const QuestionExportModal: React.FC<QuestionExportModalProps> = ({
                 <button
                   type="button"
                   onClick={handleCopyJson}
-                  className="px-3.5 py-1.5 rounded-[4px] bg-white/10 hover:bg-white/20 text-slate-200 border border-white/20 text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5"
+                  className="fluent-btn-secondary px-3.5 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5"
                 >
                   {copiedJson ? (
                     <>
@@ -777,9 +769,9 @@ export const QuestionExportModal: React.FC<QuestionExportModalProps> = ({
                 <button
                   type="button"
                   onClick={handleDownloadJson}
-                  className="px-4 py-1.5 rounded-[4px] bg-gradient-to-r from-sky-400 to-blue-500 hover:brightness-110 text-slate-950 text-xs font-mono font-black transition cursor-pointer flex items-center gap-1.5 shadow-lg active:scale-95"
+                  className="fluent-btn-primary px-4 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5 shadow-lg active:scale-95"
                 >
-                  <Download className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
+                  <Download className="w-3.5 h-3.5 stroke-[2.5]" />
                   <span>TẢI TỆP JSON ({targetQuestions.length} CÂU)</span>
                 </button>
               </>

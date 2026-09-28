@@ -366,10 +366,10 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
               soundFx.playClick();
               onRoundGroupChange('ALL');
             }}
-            className={`px-2 py-0.5 rounded-[4px] text-[11px] font-bold border transition cursor-pointer shrink-0 ${
+            className={`fluent-subtab-btn text-[11px] font-bold transition cursor-pointer shrink-0 ${
               filterRoundGroup === 'ALL'
-                ? 'bg-theme-accent text-[#190839] border-theme-accent shadow-sm'
-                : 'bg-[#241148] text-slate-300 border-white/10 hover:bg-white/5 hover:text-white'
+                ? 'fluent-btn-primary shadow-sm'
+                : 'fluent-btn-secondary text-slate-300'
             }`}
           >
             Tất cả ({questions.length})
@@ -386,10 +386,10 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
                   soundFx.playClick();
                   onRoundGroupChange(isSelected ? 'ALL' : grp.key);
                 }}
-                className={`px-2 py-0.5 rounded-[4px] text-[11px] font-bold border transition cursor-pointer shrink-0 flex items-center gap-1 ${
+                className={`fluent-subtab-btn text-[11px] font-bold transition cursor-pointer shrink-0 flex items-center gap-1 ${
                   isSelected
-                    ? 'bg-theme-accent text-[#190839] border-theme-accent shadow-sm'
-                    : 'bg-[#241148] text-slate-300 border-white/10 hover:bg-white/5 hover:text-white'
+                    ? 'fluent-btn-primary shadow-sm'
+                    : 'fluent-btn-secondary text-slate-300'
                 }`}
               >
                 <span>{grp.name}</span>
@@ -408,8 +408,8 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
           }}
           className={`sm:hidden px-2.5 py-1 rounded-[4px] text-[11px] font-mono font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 border ${
             totalActiveFilters > 0
-              ? 'bg-theme-accent text-[#190839] border-theme-accent shadow-sm'
-              : 'bg-[#241148] text-theme-accent border-theme-accent/30 hover:bg-[#3E1D74]'
+              ? 'fluent-btn-primary shadow-sm'
+              : 'fluent-btn-secondary text-theme-accent'
           }`}
           title="Mở Bảng Bộ Lọc Di Động (Bottom Sheet)"
         >
@@ -425,14 +425,14 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
             soundFx.playClick();
             setIsMatrixFilterOpen(prev => !prev);
           }}
-          className={`hidden sm:flex px-2.5 py-1 rounded-[4px] text-[11px] font-mono font-bold items-center gap-1.5 transition cursor-pointer shrink-0 border ${
+          className={`hidden sm:flex fluent-btn-secondary px-2.5 py-1 rounded-[4px] text-[11px] font-mono font-bold items-center gap-1.5 transition cursor-pointer shrink-0 ${
             isMatrixFilterOpen || filterDomain !== 'ALL' || filterMatrixStatus !== 'ALL' || filterSubCompetency !== 'ALL'
-              ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm font-bold'
-              : 'bg-[#241148] text-amber-300 border-amber-400/30 hover:text-white hover:bg-white/10'
+              ? 'border-amber-400 text-amber-300 bg-amber-950/40 shadow-sm'
+              : 'text-amber-300/80 hover:text-amber-200'
           }`}
           title="Bật/Tắt Bộ Lọc Ma Trận Độ Phủ Khung Năng Lực BTI 2026 (TT 02/2025/TT-BGDĐT)"
         >
-          <Target className="w-3.5 h-3.5" />
+          <Target className="w-3.5 h-3.5 text-amber-400" />
           <span className="hidden xs:inline sm:inline">Ma Trận BTI</span>
           {(filterDomain !== 'ALL' || filterMatrixStatus !== 'ALL' || filterSubCompetency !== 'ALL') && (
             <span className="w-2 h-2 rounded-full bg-rose-500 inline-block animate-pulse" />
@@ -448,17 +448,17 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
             soundFx.playClick();
             setIsPillsOpen(!isPillsOpen);
           }}
-          className={`hidden sm:flex px-2.5 py-1 rounded-[4px] text-[11px] font-mono font-bold items-center gap-1.5 transition cursor-pointer shrink-0 border ${
+          className={`hidden sm:flex fluent-btn-secondary px-2.5 py-1 rounded-[4px] text-[11px] font-mono font-bold items-center gap-1.5 transition cursor-pointer shrink-0 ${
             isPillsOpen || activePillsCount > 0
-              ? 'bg-purple-600/30 text-purple-200 border-purple-400 shadow-sm'
-              : 'bg-[#241148] text-purple-300 border-purple-500/30 hover:text-white hover:bg-white/10'
+              ? 'border-purple-400 text-purple-200 bg-purple-950/40 shadow-sm'
+              : 'text-purple-300/80 hover:text-purple-200'
           }`}
           title="Bật/Tắt Khung Danh Mục & Nhãn Phân Loại (Tags)"
         >
-          <Tag className="w-3.5 h-3.5" />
+          <Tag className="w-3.5 h-3.5 text-purple-400" />
           <span>Chủ đề &amp; Nhãn</span>
           {activePillsCount > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full bg-purple-500 text-white text-[9px] font-black">
+            <span className="fluent-badge text-purple-300 text-[9px] font-black">
               {activePillsCount}
             </span>
           )}
@@ -473,17 +473,17 @@ export const QuestionBankFilterBar: React.FC<QuestionBankFilterBarProps> = ({
             soundFx.playClick();
             setIsAdvancedOpen(!isAdvancedOpen);
           }}
-          className={`hidden sm:flex px-2.5 py-1 rounded-[4px] text-[11px] font-mono font-bold items-center gap-1.5 transition cursor-pointer shrink-0 border ${
+          className={`hidden sm:flex fluent-btn-secondary px-2.5 py-1 rounded-[4px] text-[11px] font-mono font-bold items-center gap-1.5 transition cursor-pointer shrink-0 ${
             isAdvancedOpen || activeAdvancedCount > 0
-              ? 'bg-theme-accent/20 text-theme-accent border-theme-accent/40 shadow-sm'
-              : 'bg-[#241148] text-slate-300 border-white/10 hover:text-white hover:bg-white/10'
+              ? 'border-theme-accent text-theme-accent bg-theme-accent/15 shadow-sm'
+              : 'text-slate-300 hover:text-white'
           }`}
           title={isAdvancedOpen ? 'Thu gọn bộ lọc nâng cao' : 'Mở rộng thêm bộ lọc miền năng lực, sắp xếp'}
         >
-          <SlidersHorizontal className="w-3.5 h-3.5" />
+          <SlidersHorizontal className="w-3.5 h-3.5 text-theme-accent" />
           <span className="hidden sm:inline">{isAdvancedOpen ? 'Thu gọn lọc' : 'Lọc nâng cao'}</span>
           {activeAdvancedCount > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full bg-theme-accent text-[#190839] text-[9px] font-black">
+            <span className="fluent-badge fluent-badge-accent text-[9px] font-black">
               {activeAdvancedCount}
             </span>
           )}

@@ -331,19 +331,19 @@ export const DashboardOverviewHeader: React.FC<DashboardOverviewHeaderProps> = (
   return (
     <div
       id="dashboard-overview-header"
-      className={`rounded-[6px] bg-gradient-to-b from-[#1c083e] to-[#120427] border border-theme-accent/30 shadow-lg transition-all ${className}`}
+      className={`fluent-card fluent-box rounded-[6px] overflow-hidden transition-all ${className}`}
     >
       {/* 1. Header Control Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-white/10 bg-[#16062f]/80">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-white/10 bg-[#241148]">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-[4px] bg-theme-accent/20 border border-theme-accent/40 flex items-center justify-center text-theme-accent shadow-inner">
             <BarChart3 className="w-4 h-4 text-theme-accent" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-white tracking-wide flex items-center gap-1.5">
+              <h3 className="text-sm font-bold text-white tracking-wide flex items-center gap-1.5 font-mono">
                 <span>Tổng Quan Cơ Cấu Ngân Hàng Đề</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-[3px] bg-theme-accent text-[#190839] font-mono font-black">
+                <span className="fluent-badge fluent-badge-accent tabular-nums">
                   {totalQuestions} Câu Hỏi
                 </span>
               </h3>
@@ -386,7 +386,7 @@ export const DashboardOverviewHeader: React.FC<DashboardOverviewHeaderProps> = (
           )}
 
           {/* Tab Selector */}
-          <div className="inline-flex rounded-[4px] bg-[#0c021c] p-0.5 border border-white/10 text-[11px] font-mono">
+          <div className="inline-flex rounded-[4px] bg-[#140827] p-0.5 border border-white/10 text-[11px] font-mono">
             <button
               type="button"
               id="tab-overview-combined"
@@ -395,11 +395,7 @@ export const DashboardOverviewHeader: React.FC<DashboardOverviewHeaderProps> = (
                 soundFx.playClick();
                 setActiveTab('COMBINED');
               }}
-              className={`px-2.5 py-1 rounded-[3px] font-bold transition flex items-center gap-1 cursor-pointer ${
-                activeTab === 'COMBINED'
-                  ? 'bg-theme-accent text-[#190839] shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-white/5'
-              }`}
+              className={`fluent-subtab-btn ${activeTab === 'COMBINED' ? 'active' : ''}`}
             >
               <Activity className="w-3 h-3" />
               <span>Toàn cảnh</span>
@@ -412,11 +408,7 @@ export const DashboardOverviewHeader: React.FC<DashboardOverviewHeaderProps> = (
                 soundFx.playClick();
                 setActiveTab('DIFFICULTY');
               }}
-              className={`px-2.5 py-1 rounded-[3px] font-bold transition flex items-center gap-1 cursor-pointer ${
-                activeTab === 'DIFFICULTY'
-                  ? 'bg-theme-accent text-[#190839] shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-white/5'
-              }`}
+              className={`fluent-subtab-btn ${activeTab === 'DIFFICULTY' ? 'active' : ''}`}
             >
               <Target className="w-3 h-3" />
               <span>Độ khó</span>
@@ -429,11 +421,7 @@ export const DashboardOverviewHeader: React.FC<DashboardOverviewHeaderProps> = (
                 soundFx.playClick();
                 setActiveTab('DIFFICULTY_TREND_30D');
               }}
-              className={`px-2.5 py-1 rounded-[3px] font-bold transition flex items-center gap-1 cursor-pointer ${
-                activeTab === 'DIFFICULTY_TREND_30D'
-                  ? 'bg-theme-accent text-[#190839] shadow-sm font-black'
-                  : 'text-amber-300/80 hover:text-amber-200 hover:bg-white/5'
-              }`}
+              className={`fluent-subtab-btn ${activeTab === 'DIFFICULTY_TREND_30D' ? 'active' : ''}`}
               title="Biểu đồ đường biến thiên độ khó trung bình 30 ngày qua"
             >
               <TrendingUp className="w-3 h-3 text-amber-400" />
@@ -447,11 +435,7 @@ export const DashboardOverviewHeader: React.FC<DashboardOverviewHeaderProps> = (
                 soundFx.playClick();
                 setActiveTab('STATUS');
               }}
-              className={`px-2.5 py-1 rounded-[3px] font-bold transition flex items-center gap-1 cursor-pointer ${
-                activeTab === 'STATUS'
-                  ? 'bg-theme-accent text-[#190839] shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-white/5'
-              }`}
+              className={`fluent-subtab-btn ${activeTab === 'STATUS' ? 'active' : ''}`}
             >
               <ShieldCheck className="w-3 h-3" />
               <span>Trạng thái</span>
@@ -464,11 +448,7 @@ export const DashboardOverviewHeader: React.FC<DashboardOverviewHeaderProps> = (
                 soundFx.playClick();
                 setActiveTab('STACKED_MATRIX');
               }}
-              className={`px-2.5 py-1 rounded-[3px] font-bold transition flex items-center gap-1 cursor-pointer ${
-                activeTab === 'STACKED_MATRIX'
-                  ? 'bg-theme-accent text-[#190839] shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-white/5'
-              }`}
+              className={`fluent-subtab-btn ${activeTab === 'STACKED_MATRIX' ? 'active' : ''}`}
             >
               <Layers className="w-3 h-3" />
               <span>Ma trận chồng</span>
@@ -492,65 +472,86 @@ export const DashboardOverviewHeader: React.FC<DashboardOverviewHeaderProps> = (
         </div>
       </div>
 
-      {/* 2. Top Quick KPI Summary Cards */}
+      {/* 2. Top Quick KPI Summary Cards Synchronized with Image 1 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3.5 bg-black/20 border-b border-white/5">
         {/* KPI 1: Tổng số câu */}
-        <div className="p-2.5 rounded-[4px] bg-[#1d0a3d]/70 border border-white/10 flex items-center justify-between gap-2">
-          <div>
-            <span className="text-[10px] text-[#B6A6D8] font-mono block">Tổng số câu hỏi</span>
-            <span className="text-lg font-black text-white font-mono">{totalQuestions}</span>
+        <div className="fluent-card p-3 sm:p-3.5 rounded-[6px] bg-[#1C093B]/80 border border-purple-500/40 space-y-1 shadow-md">
+          <div className="flex items-center justify-between text-xs font-mono text-purple-200">
+            <span className="font-semibold text-slate-200">Tổng Số Câu Hỏi</span>
+            <Layers className="w-4 h-4 text-purple-400" />
           </div>
-          <div className="p-2 rounded-[4px] bg-purple-500/20 text-purple-300 border border-purple-500/30">
-            <Layers className="w-4 h-4" />
+          <div className="flex items-baseline gap-2">
+            <strong className="text-2xl font-black text-white font-mono tracking-tight tabular-nums">
+              {totalQuestions}
+            </strong>
+            <span className="text-[11px] font-mono text-slate-400">câu hỏi</span>
           </div>
+          <p className="text-[10px] text-purple-200/80 font-mono truncate">
+            Toàn bộ dữ liệu ngân hàng đề
+          </p>
         </div>
 
         {/* KPI 2: Tỷ lệ phê duyệt / Published */}
         <div 
           onClick={() => handleStatusClick('APPROVED')}
-          className="p-2.5 rounded-[4px] bg-[#1d0a3d]/70 border border-emerald-500/30 flex items-center justify-between gap-2 cursor-pointer hover:bg-emerald-950/20 transition"
+          className="fluent-card p-3 sm:p-3.5 rounded-[6px] bg-emerald-950/25 border border-emerald-500/40 hover:border-emerald-400/70 hover:translate-y-[-1px] transition-all duration-200 cursor-pointer shadow-md space-y-1 group"
           title="Bấm để lọc câu hỏi Đã phê duyệt"
         >
-          <div>
-            <span className="text-[10px] text-emerald-300 font-mono block">Đã duyệt (Phát hành)</span>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-lg font-black text-emerald-400 font-mono">{approvedCount}</span>
-              <span className="text-[10px] text-emerald-300/80 font-mono">({publishedRate}%)</span>
-            </div>
+          <div className="flex items-center justify-between text-xs font-mono text-emerald-300">
+            <span className="font-semibold text-slate-200">Đã Duyệt (Phát Hành)</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="p-2 rounded-[4px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-            <CheckCircle2 className="w-4 h-4" />
+          <div className="flex items-baseline gap-2">
+            <strong className="text-2xl font-black text-emerald-400 font-mono tracking-tight tabular-nums">
+              {approvedCount}
+            </strong>
+            <span className="text-[11px] font-mono text-emerald-300/80">({publishedRate}%)</span>
           </div>
+          <p className="text-[10px] text-emerald-200/80 font-mono truncate">
+            Đã thẩm định sẵn sàng thi
+          </p>
         </div>
 
         {/* KPI 3: Chờ kiểm duyệt / Pending */}
         <div 
           onClick={() => handleStatusClick('PENDING_REVIEW')}
-          className="p-2.5 rounded-[4px] bg-[#1d0a3d]/70 border border-amber-500/30 flex items-center justify-between gap-2 cursor-pointer hover:bg-amber-950/20 transition"
+          className="fluent-card p-3 sm:p-3.5 rounded-[6px] bg-amber-950/25 border border-amber-500/40 hover:border-amber-400/70 hover:translate-y-[-1px] transition-all duration-200 cursor-pointer shadow-md space-y-1 group"
           title="Bấm để lọc câu hỏi Đang chờ kiểm duyệt"
         >
-          <div>
-            <span className="text-[10px] text-amber-300 font-mono block">Chờ duyệt (Review)</span>
-            <span className="text-lg font-black text-amber-400 font-mono">{pendingCount}</span>
+          <div className="flex items-center justify-between text-xs font-mono text-amber-300">
+            <span className="font-semibold text-slate-200">Chờ Duyệt (Review)</span>
+            <Clock className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="p-2 rounded-[4px] bg-amber-500/20 text-amber-300 border border-amber-500/30">
-            <Clock className="w-4 h-4" />
+          <div className="flex items-baseline gap-2">
+            <strong className="text-2xl font-black text-amber-400 font-mono tracking-tight tabular-nums">
+              {pendingCount}
+            </strong>
+            <span className="text-[11px] font-mono text-slate-400">câu</span>
           </div>
+          <p className="text-[10px] text-amber-200/80 font-mono truncate">
+            Cần Ban Thư ký thẩm định
+          </p>
         </div>
 
         {/* KPI 4: Bản nháp / Draft */}
         <div 
           onClick={() => handleStatusClick('DRAFT')}
-          className="p-2.5 rounded-[4px] bg-[#1d0a3d]/70 border border-sky-500/30 flex items-center justify-between gap-2 cursor-pointer hover:bg-sky-950/20 transition"
+          className="fluent-card p-3 sm:p-3.5 rounded-[6px] bg-sky-950/25 border border-sky-500/40 hover:border-sky-400/70 hover:translate-y-[-1px] transition-all duration-200 cursor-pointer shadow-md space-y-1 group"
           title="Bấm để lọc câu hỏi Bản nháp"
         >
-          <div>
-            <span className="text-[10px] text-sky-300 font-mono block">Bản nháp (Draft)</span>
-            <span className="text-lg font-black text-sky-400 font-mono">{draftCount}</span>
+          <div className="flex items-center justify-between text-xs font-mono text-sky-300">
+            <span className="font-semibold text-slate-200">Bản Nháp (Draft)</span>
+            <FileEdit className="w-4 h-4 text-sky-400 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="p-2 rounded-[4px] bg-sky-500/20 text-sky-300 border border-sky-500/30">
-            <FileEdit className="w-4 h-4" />
+          <div className="flex items-baseline gap-2">
+            <strong className="text-2xl font-black text-sky-400 font-mono tracking-tight tabular-nums">
+              {draftCount}
+            </strong>
+            <span className="text-[11px] font-mono text-slate-400">câu</span>
           </div>
+          <p className="text-[10px] text-sky-200/80 font-mono truncate">
+            Đang soạn thảo &amp; lưu nháp
+          </p>
         </div>
       </div>
 

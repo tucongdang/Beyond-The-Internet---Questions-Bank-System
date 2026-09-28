@@ -7,25 +7,22 @@ import {
   CheckCircle2, 
   KeyRound, 
   Plus, 
-  Mail, 
-  Briefcase,
-  LogOut,
-  Trash2,
-  Edit3,
-  Eye,
-  EyeOff,
-  AlertTriangle,
-  RefreshCw,
-  Sparkles,
-  Save,
-  Check,
-  User,
-  Shield,
-  Clock,
-  XCircle,
-  Info
+  LogOut, 
+  Trash2, 
+  Edit3, 
+  Eye, 
+  EyeOff, 
+  AlertTriangle, 
+  RefreshCw, 
+  Save, 
+  Check, 
+  Clock, 
+  XCircle, 
+  Info,
+  BookOpen
 } from 'lucide-react';
-import { AppUser, UserRole } from '../../types';
+import { AppUser, UserRole, DigitalCompetencyDomainKey } from '../../types';
+import { DIGITAL_COMPETENCY_DOMAINS } from '../../data/digitalCompetencyData';
 import { questionBankManager } from '../../services/questionBankManager';
 import { soundFx } from '../../services/audioEffects';
 import { vibrateTap, vibrateSuccess, vibrateError } from '../../utils/hapticUtils';
@@ -36,6 +33,8 @@ interface UserRoleManagerModalProps {
   onUserChanged?: () => void;
   onLogout?: () => void;
 }
+
+const DOMAIN_KEYS: DigitalCompetencyDomainKey[] = ['MIEN_1', 'MIEN_2', 'MIEN_3', 'MIEN_4', 'MIEN_5', 'MIEN_6'];
 
 export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({ 
   onClose,
@@ -52,6 +51,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
   const [activeTab, setActiveTab] = useState<'MEMBERS' | 'PENDING'>('MEMBERS');
   const [approvalMode, setApprovalMode] = useState<boolean>(() => questionBankManager.isApprovalModeActive());
   const [pendingRoleMap, setPendingRoleMap] = useState<Record<string, UserRole>>({});
+  const [pendingDomainsMap, setPendingDomainsMap] = useState<Record<string, DigitalCompetencyDomainKey[]>>({});
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   const approvedUsers = users.filter(u => u.status !== 'PENDING' && u.status !== 'REJECTED');
@@ -71,7 +71,8 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
   // Approve Pending User
   const handleApproveUser = (userId: string, userName: string) => {
     const roleToAssign = pendingRoleMap[userId] || 'CONTRIBUTOR';
-    questionBankManager.approveUser(userId, roleToAssign, currentUser.name);
+    const domainsToAssign = pendingDomainsMap[userId];
+    questionBankManager.approveUser(userId, roleToAssign, currentUser.name, domainsToAssign);
     vibrateSuccess();
     soundFx.playPacingChime('complete');
     setUsers(questionBankManager.getUsers());
@@ -114,6 +115,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
   const [editDepartment, setEditDepartment] = useState('');
   const [editTitle, setEditTitle] = useState('');
   const [editRole, setEditRole] = useState<UserRole>('CONTRIBUTOR');
+  const [editAssignedDomains, setEditAssignedDomains] = useState<DigitalCompetencyDomainKey[]>([]);
 
   // Change Password Form State
   const [currentPassword, setCurrentPassword] = useState('');
@@ -132,6 +134,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
   const [newUserOrg, setNewUserOrg] = useState<string>('Tổ Biên Soạn Đề Thi');
   const [newUserPassword, setNewUserPassword] = useState<string>('BTI2026Admin');
   const [newUserTitle, setNewUserTitle] = useState<string>('');
+  const [newUserAssignedDomains, setNewUserAssignedDomains] = useState<DigitalCompetencyDomainKey[]>([]);
 
   // Open Edit Profile
   const handleOpenEditProfile = (target?: AppUser) => {
@@ -144,6 +147,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
     setEditDepartment(userToEdit.department || '');
     setEditTitle(userToEdit.title || '');
     setEditRole(userToEdit.role || 'CONTRIBUTOR');
+    setEditAssignedDomains(userToEdit.assignedDomains || []);
     setShowEditProfile(true);
     setShowChangePassword(false);
     setShowAddUser(false);
@@ -163,6 +167,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
       email: editEmail.trim(),
       department: editDepartment.trim(),
       title: editTitle.trim(),
+      assignedDomains: editAssignedDomains,
       ...(isSuperAdmin ? { role: editRole } : {})
     };
 
@@ -280,7 +285,8 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
       title: newUserTitle.trim() || undefined,
       department: newUserOrg.trim() || 'Ban Đề Thi BTI 2026',
       status: 'APPROVED',
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      assignedDomains: newUserAssignedDomains.length > 0 ? newUserAssignedDomains : undefined
     };
 
     questionBankManager.addUser(newUser);
@@ -311,6 +317,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
     setNewUserEmail('');
     setNewUserTitle('');
     setNewUserPassword('BTI2026Admin');
+    setNewUserAssignedDomains([]);
     if (onUserChanged) onUserChanged();
   };
 
@@ -328,14 +335,109 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
   const getRoleBadge = (role: UserRole) => {
     switch (role) {
       case 'SUPER_ADMIN':
-        return <span className="text-[10px] font-mono font-semibold text-rose-300 bg-rose-950/60 border border-rose-500/40 px-2 py-0.5 rounded-[3px]">Super Admin</span>;
+        return <span className="fluent-badge fluent-badge-danger">Super Admin</span>;
       case 'HEAD_EDITOR':
-        return <span className="text-[10px] font-mono font-semibold text-amber-300 bg-amber-950/60 border border-amber-500/40 px-2 py-0.5 rounded-[3px]">Trưởng Ban Đề Thi</span>;
+        return <span className="fluent-badge fluent-badge-warning">Trưởng Ban Đề Thi</span>;
       case 'EXAMINER':
-        return <span className="text-[10px] font-mono font-semibold text-sky-300 bg-sky-950/60 border border-sky-500/40 px-2 py-0.5 rounded-[3px]">Ban Giám Khảo</span>;
+        return <span className="fluent-badge fluent-badge-accent">Ban Giám Khảo</span>;
       case 'CONTRIBUTOR':
-        return <span className="text-[10px] font-mono font-semibold text-emerald-300 bg-emerald-950/60 border border-emerald-500/40 px-2 py-0.5 rounded-[3px]">Người Biên Soạn</span>;
+        return <span className="fluent-badge fluent-badge-success">Người Biên Soạn</span>;
     }
+  };
+
+  // Reusable domain selector component for RBAC & Domain Assignment
+  const renderDomainSelector = (
+    selected: DigitalCompetencyDomainKey[], 
+    onChange: (domains: DigitalCompetencyDomainKey[]) => void
+  ) => {
+    const toggle = (k: DigitalCompetencyDomainKey) => {
+      vibrateTap();
+      if (selected.includes(k)) {
+        onChange(selected.filter(x => x !== k));
+      } else {
+        onChange([...selected, k]);
+      }
+    };
+
+    return (
+      <div className="space-y-1.5 pt-1">
+        <div className="flex items-center justify-between">
+          <label className="block text-[11px] text-[#B6A6D8] font-mono">
+            Phân bổ chuyên môn theo lĩnh vực (Feature #8):
+          </label>
+          <span className="text-[10px] text-white/50 font-mono">
+            Đã chọn: <strong className="text-theme-accent tabular-nums">{selected.length}</strong> / 6 miền
+          </span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+          {DOMAIN_KEYS.map(domKey => {
+            const isSel = selected.includes(domKey);
+            const info = DIGITAL_COMPETENCY_DOMAINS[domKey];
+            return (
+              <button
+                key={domKey}
+                type="button"
+                onClick={() => toggle(domKey)}
+                className={`p-2 rounded-[4px] border text-left flex items-start gap-2 transition cursor-pointer active:scale-[0.985] ${
+                  isSel
+                    ? 'bg-purple-950/70 border-purple-400/60 shadow-[0_0_8px_rgba(168,85,247,0.25)] text-white'
+                    : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <div
+                  className={`w-3.5 h-3.5 rounded-[2px] border flex items-center justify-center shrink-0 mt-0.5 text-[9px] ${
+                    isSel
+                      ? 'bg-purple-500 border-purple-400 text-white'
+                      : 'border-white/30 text-transparent'
+                  }`}
+                >
+                  <Check className="w-2.5 h-2.5 stroke-[3]" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-mono text-[10.5px] font-bold truncate" style={{ color: isSel ? '#F7CAC9' : undefined }}>
+                    {info.code}
+                  </div>
+                  <div className="text-[9.5px] text-white/60 truncate" title={info.name}>
+                    {info.name}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // Helper to render domain tags on user list items
+  const renderAssignedDomainTags = (domains?: DigitalCompetencyDomainKey[]) => {
+    if (!domains || domains.length === 0) return null;
+    return (
+      <div className="flex items-center gap-1 flex-wrap mt-1">
+        <span className="text-[10px] text-white/50 font-mono flex items-center gap-0.5">
+          <BookOpen className="w-2.5 h-2.5 text-purple-300" />
+          Miền:
+        </span>
+        {domains.map(domKey => {
+          const info = DIGITAL_COMPETENCY_DOMAINS[domKey];
+          if (!info) return null;
+          return (
+            <span
+              key={domKey}
+              className="text-[9.5px] px-1.5 py-0.5 rounded-[3px] font-mono font-medium border"
+              style={{
+                backgroundColor: info.bgLight,
+                borderColor: info.borderColor,
+                color: info.color
+              }}
+              title={`${info.code}: ${info.name}`}
+            >
+              {info.code}
+            </span>
+          );
+        })}
+      </div>
+    );
   };
 
   if (typeof document === 'undefined') return null;
@@ -343,18 +445,18 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
   return createPortal(
     <div 
       id="user-role-modal-overlay"
-      className="fixed inset-0 z-[9999999] bg-black/85 backdrop-blur-xl flex items-center justify-center p-3 sm:p-5 md:p-6 overflow-hidden animate-fadeIn modal-backdrop-isolated select-none"
+      className="fluent-dialog-overlay fixed inset-0 z-[9999999] bg-black/85 backdrop-blur-xl flex items-center justify-center p-3 sm:p-5 md:p-6 overflow-hidden animate-fadeIn modal-backdrop-isolated select-none"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div 
         id="user-role-modal-dialog"
-        className="border border-white/20 rounded-[8px] max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden bg-[#190839] text-[#F5EFF9] overscroll-contain select-text"
+        className="fluent-dialog max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden bg-[#190839] text-[#F5EFF9] overscroll-contain select-text"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="px-5 sm:px-6 py-4 bg-[#241148] border-b border-white/10 flex items-center justify-between shrink-0">
+        <div className="fluent-dialog-header px-5 sm:px-6 py-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-[6px] bg-[#f7cac9] flex items-center justify-center text-[#190839] shadow-sm font-bold shrink-0">
               <ShieldCheck className="w-5 h-5 text-[#190839]" />
@@ -364,7 +466,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                 Phân Quyền &amp; Quản Lý Thành Viên Ban Đề Thi
               </h3>
               <p className="text-xs text-[#B6A6D8] mt-0.5">
-                Hỗ trợ 4 cấp vai trò: Admin, Trưởng ban đề thi, Giám khảo, Người biên soạn
+                Hỗ trợ 4 cấp vai trò RBAC &amp; phân quyền chuyên môn 6 miền năng lực số
               </p>
             </div>
           </div>
@@ -372,19 +474,19 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-[4px] text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center transition cursor-pointer"
+            className="fluent-dialog-close-btn"
             title="Đóng cửa sổ"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modal Content */}
-        <div className="p-5 sm:px-6 py-5 overflow-y-auto space-y-5 flex-1 text-xs custom-scrollbar modal-scroll-isolated overscroll-contain">
+        <div className="fluent-dialog-body p-5 sm:px-6 py-5 overflow-y-auto space-y-4 flex-1 text-xs custom-scrollbar modal-scroll-isolated overscroll-contain">
           
           {/* Action Notice Toast Banner */}
           {actionNotice && (
-            <div className="p-3 bg-emerald-950/80 border border-emerald-500/50 rounded-[6px] text-emerald-200 text-xs font-mono flex items-center justify-between gap-2 animate-fadeIn shadow-lg">
+            <div className="p-3 bg-emerald-950/80 border border-emerald-500/50 rounded-[4px] text-emerald-200 text-xs font-mono flex items-center justify-between gap-2 animate-fadeIn shadow-lg">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>{actionNotice}</span>
@@ -400,7 +502,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
           )}
 
           {/* Active User Card with Edit Profile & Change Password Buttons */}
-          <div className="p-4 bg-[#241148]/80 border border-white/10 rounded-[6px] flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 shadow-md">
+          <div className="fluent-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 shadow-md">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-11 h-11 rounded-[6px] bg-[#f7cac9] flex items-center justify-center text-[#190839] font-black text-base shadow-sm shrink-0">
                 {currentUser.name.charAt(0)}
@@ -413,6 +515,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                 <p className="text-[#B6A6D8] text-[11px] mt-0.5 truncate font-mono">
                   • {currentUser.email} {currentUser.department ? `(${currentUser.department})` : ''}
                 </p>
+                {renderAssignedDomainTags(currentUser.assignedDomains)}
               </div>
             </div>
 
@@ -421,7 +524,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleOpenEditProfile()}
-                className="px-2.5 py-1 rounded-[4px] bg-white/5 hover:bg-white/15 border border-white/15 text-white/90 hover:text-white font-mono text-[11px] flex items-center gap-1 transition cursor-pointer"
+                className="fluent-btn-secondary px-2.5 py-1 text-[11px] font-mono flex items-center gap-1"
                 title="Sửa thông tin cá nhân"
               >
                 <Edit3 className="w-3 h-3 text-sky-300" />
@@ -439,7 +542,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                   setPassError(null);
                   setPassSuccess(null);
                 }}
-                className="px-2.5 py-1 rounded-[4px] bg-white/5 hover:bg-white/15 border border-white/15 text-sky-200 hover:text-sky-100 font-mono text-[11px] flex items-center gap-1 transition cursor-pointer"
+                className="fluent-btn-secondary px-2.5 py-1 text-[11px] font-mono flex items-center gap-1 text-sky-200"
                 title="Đổi mật khẩu tài khoản"
               >
                 <KeyRound className="w-3 h-3 text-sky-400" />
@@ -454,7 +557,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                     soundFx.playClick();
                     onLogout();
                   }}
-                  className="px-2.5 py-1 rounded-[4px] bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/40 text-rose-300 hover:text-rose-100 font-mono text-[11px] flex items-center gap-1 transition cursor-pointer shadow-sm ml-1"
+                  className="fluent-badge fluent-badge-danger px-2.5 py-1 text-[11px] font-mono flex items-center gap-1 cursor-pointer hover:brightness-125 transition ml-1"
                   title="Đăng xuất khỏi hệ thống"
                 >
                   <LogOut className="w-3 h-3" />
@@ -466,7 +569,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
 
           {/* Super Admin Strict Approval Mode Settings Card */}
           {isSuperAdmin && (
-            <div className="p-3.5 bg-[#241148]/60 border border-white/10 rounded-[6px] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+            <div className="fluent-box-nested p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
               <div className="flex items-start sm:items-center gap-3 min-w-0">
                 <div className={`w-9 h-9 rounded-[4px] flex items-center justify-center font-bold text-xs shrink-0 ${approvalMode ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}`}>
                   <ShieldCheck className="w-5 h-5" />
@@ -474,7 +577,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-white font-mono text-xs">Chế Độ Duyệt Thành Viên (Strict Approval Mode)</span>
-                    <span className={`px-2 py-0.5 rounded-[3px] text-[10px] font-mono font-bold ${approvalMode ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-white/10 text-white/60 border border-white/15'}`}>
+                    <span className={approvalMode ? "fluent-badge fluent-badge-warning" : "fluent-badge"}>
                       {approvalMode ? 'ĐANG BẬT' : 'ĐANG TẮT'}
                     </span>
                   </div>
@@ -489,11 +592,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
               <button
                 type="button"
                 onClick={handleToggleApprovalMode}
-                className={`px-3 py-1.5 rounded-[4px] font-mono text-xs font-bold transition flex items-center gap-1.5 shrink-0 self-start sm:self-center cursor-pointer ${
-                  approvalMode 
-                    ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40' 
-                    : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 border border-emerald-500/40'
-                }`}
+                className={approvalMode ? "fluent-btn-secondary border-amber-500/40 text-amber-200" : "fluent-btn-primary"}
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>{approvalMode ? 'Tắt Kiểm Duyệt' : 'Bật Kiểm Duyệt'}</span>
@@ -503,7 +602,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
 
           {/* Form: Sửa Thông Tin Cá Nhân (Edit Profile Form) */}
           {showEditProfile && (
-            <form onSubmit={handleSaveProfile} className="p-4 bg-[#0D0420]/95 border border-sky-500/40 rounded-[6px] space-y-3 animate-fadeIn shadow-xl text-left">
+            <form onSubmit={handleSaveProfile} className="fluent-box-nested p-4 space-y-3 animate-fadeIn shadow-xl text-left border border-sky-500/40">
               <div className="flex items-center justify-between border-b border-white/10 pb-2">
                 <div className="flex items-center gap-2 text-sky-300 font-bold font-mono text-xs">
                   <Edit3 className="w-4 h-4 text-sky-400" />
@@ -578,7 +677,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                   <select
                     value={editRole}
                     onChange={e => setEditRole(e.target.value as UserRole)}
-                    className="w-full fluent-input px-2.5 py-1.5 text-xs font-mono bg-[#190839]"
+                    className="w-full fluent-input fluent-select px-2.5 py-1.5 text-xs font-mono bg-[#190839]"
                   >
                     <option value="SUPER_ADMIN">Super Admin (Quản trị viên tối cao)</option>
                     <option value="HEAD_EDITOR">Trưởng Ban Đề Thi (Phê duyệt)</option>
@@ -587,6 +686,9 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                   </select>
                 </div>
               )}
+
+              {/* Domain assignment (Feature #8) */}
+              {renderDomainSelector(editAssignedDomains, setEditAssignedDomains)}
 
               <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
                 <button
@@ -612,7 +714,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
 
           {/* Form: Đổi Mật Khẩu (Change Password Form) */}
           {showChangePassword && (
-            <form onSubmit={handleChangePasswordSubmit} className="p-4 bg-[#0D0420]/95 border border-sky-500/40 rounded-[6px] space-y-3 animate-fadeIn shadow-xl text-left">
+            <form onSubmit={handleChangePasswordSubmit} className="fluent-box-nested p-4 space-y-3 animate-fadeIn shadow-xl text-left border border-sky-500/40">
               <div className="flex items-center justify-between border-b border-white/10 pb-2">
                 <div className="flex items-center gap-2 text-sky-300 font-bold font-mono text-xs">
                   <KeyRound className="w-4 h-4 text-sky-400" />
@@ -656,7 +758,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                     placeholder="Nhập mật khẩu hiện tại..."
                     value={currentPassword}
                     onChange={e => setCurrentPassword(e.target.value)}
-                    className="w-full bg-[#190839] border border-white/20 focus:border-sky-400 px-3 py-1.5 pr-9 rounded-[4px] text-xs font-mono text-white outline-none"
+                    className="w-full fluent-input px-3 py-1.5 pr-9 text-xs font-mono text-white"
                     autoFocus
                   />
                   <button
@@ -679,7 +781,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                       placeholder="Mật khẩu mới..."
                       value={newPassword}
                       onChange={e => setNewPassword(e.target.value)}
-                      className="w-full bg-[#190839] border border-white/20 focus:border-sky-400 px-3 py-1.5 pr-9 rounded-[4px] text-xs font-mono text-white outline-none"
+                      className="w-full fluent-input px-3 py-1.5 pr-9 text-xs font-mono text-white"
                     />
                     <button
                       type="button"
@@ -699,7 +801,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                     placeholder="Nhập lại mật khẩu mới..."
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
-                    className="w-full bg-[#190839] border border-white/20 focus:border-sky-400 px-3 py-1.5 rounded-[4px] text-xs font-mono text-white outline-none"
+                    className="w-full fluent-input px-3 py-1.5 text-xs font-mono text-white"
                   />
                 </div>
               </div>
@@ -747,14 +849,11 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                     vibrateTap();
                     setActiveTab('MEMBERS');
                   }}
-                  className={`px-3 py-1.5 rounded-[4px] font-mono text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
-                    activeTab === 'MEMBERS'
-                      ? 'bg-sky-500 text-white shadow-sm'
-                      : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10'
-                  }`}
+                  className={`fluent-subtab-btn ${activeTab === 'MEMBERS' ? 'active' : ''}`}
                 >
                   <Users className="w-3.5 h-3.5" />
-                  <span>Thành Viên Đã Duyệt ({approvedUsers.length})</span>
+                  <span>Thành Viên Đã Duyệt</span>
+                  <span className="fluent-badge ml-1">{approvedUsers.length}</span>
                 </button>
 
                 <button
@@ -763,17 +862,13 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                     vibrateTap();
                     setActiveTab('PENDING');
                   }}
-                  className={`px-3 py-1.5 rounded-[4px] font-mono text-xs font-bold flex items-center gap-1.5 transition cursor-pointer relative ${
-                    activeTab === 'PENDING'
-                      ? 'bg-amber-500 text-slate-950 shadow-sm'
-                      : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10'
-                  }`}
+                  className={`fluent-subtab-btn ${activeTab === 'PENDING' ? 'active' : ''}`}
                 >
                   <Clock className="w-3.5 h-3.5" />
-                  <span>Yêu Cầu Chờ Duyệt ({pendingUsers.length})</span>
-                  {pendingUsers.length > 0 && (
-                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block ml-0.5" />
-                  )}
+                  <span>Yêu Cầu Chờ Duyệt</span>
+                  <span className={`fluent-badge ml-1 ${pendingUsers.length > 0 ? 'fluent-badge-warning' : ''}`}>
+                    {pendingUsers.length}
+                  </span>
                 </button>
               </div>
 
@@ -785,7 +880,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                     setShowEditProfile(false);
                     setShowChangePassword(false);
                   }}
-                  className="text-[11px] font-mono text-theme-accent hover:text-white flex items-center gap-1 cursor-pointer bg-white/5 hover:bg-white/10 px-2.5 py-1 rounded-[4px] border border-white/10 transition self-start sm:self-auto"
+                  className="fluent-btn-secondary px-2.5 py-1 text-[11px] font-mono flex items-center gap-1 self-start sm:self-auto text-theme-accent"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Thêm thành viên</span>
@@ -798,7 +893,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
               <div className="space-y-3">
                 {/* Add Member Form (Super Admin only) */}
                 {showAddUser && isSuperAdmin && (
-                  <form onSubmit={handleCreateUser} className="p-4 bg-[#0D0420]/90 border border-theme-accent/30 rounded-[6px] space-y-3 animate-fadeIn shadow-lg text-left">
+                  <form onSubmit={handleCreateUser} className="fluent-box-nested p-4 space-y-3 animate-fadeIn shadow-lg text-left border border-theme-accent/30">
                     <div className="font-bold text-xs text-white font-mono flex items-center justify-between border-b border-white/10 pb-2">
                       <div className="flex items-center gap-1.5">
                         <Plus className="w-3.5 h-3.5 text-theme-accent" />
@@ -844,7 +939,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                         <select
                           value={newUserRole}
                           onChange={e => setNewUserRole(e.target.value as UserRole)}
-                          className="w-full fluent-input px-2.5 py-1.5 text-xs font-mono bg-[#190839]"
+                          className="w-full fluent-input fluent-select px-2.5 py-1.5 text-xs font-mono bg-[#190839]"
                         >
                           <option value="SUPER_ADMIN">Super Admin (Quản trị viên tối cao)</option>
                           <option value="HEAD_EDITOR">Trưởng Ban Đề Thi (Phê duyệt)</option>
@@ -887,6 +982,9 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                       </div>
                     </div>
 
+                    {/* Domain assignment for new user */}
+                    {renderDomainSelector(newUserAssignedDomains, setNewUserAssignedDomains)}
+
                     <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
                       <button
                         type="button"
@@ -913,10 +1011,10 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                     return (
                       <div
                         key={u.id}
-                        className={`p-3 rounded-[6px] border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition ${
+                        className={`fluent-box-nested p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition ${
                           isActive
                             ? 'border-theme-accent bg-[#3E1D74]/40 shadow-sm'
-                            : 'border-white/10 bg-[#241148]/50 hover:border-white/20'
+                            : 'hover:border-white/20'
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
@@ -928,16 +1026,17 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                               <span className="font-semibold text-white truncate">{u.name}</span>
                               {getRoleBadge(u.role)}
                             </div>
-                            <span className="text-[11px] text-[#B6A6D8] font-mono truncate block">
+                            <span className="text-[11px] text-[#B6A6D8] font-mono truncate block mt-0.5">
                               {u.email} {u.department ? `• ${u.department}` : ''}
                             </span>
+                            {renderAssignedDomainTags(u.assignedDomains)}
                           </div>
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                           {/* Active indicator */}
                           {isActive && (
-                            <div className="flex items-center gap-1 text-theme-accent font-mono text-[11px] font-bold px-2 py-1 bg-theme-accent/10 border border-theme-accent/30 rounded-[3px]">
+                            <div className="fluent-badge fluent-badge-accent flex items-center gap-1">
                               <CheckCircle2 className="w-3.5 h-3.5" />
                               <span>Đang sử dụng</span>
                             </div>
@@ -949,7 +1048,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleOpenEditProfile(u)}
-                                className="p-1.5 text-white/70 hover:text-sky-300 hover:bg-white/10 rounded-[3px] transition cursor-pointer border border-white/10 flex items-center gap-1 text-[10px] font-mono"
+                                className="fluent-btn-secondary px-2 py-1 text-[10px] font-mono flex items-center gap-1"
                                 title="Sửa thông tin thành viên này"
                               >
                                 <Edit3 className="w-3 h-3 text-sky-400" />
@@ -959,7 +1058,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleDeleteUser(u.id, u.name)}
-                                className="p-1.5 text-rose-300/70 hover:text-rose-200 hover:bg-rose-950/60 rounded-[3px] transition cursor-pointer border border-rose-500/30 flex items-center gap-1 text-[10px] font-mono"
+                                className="fluent-badge fluent-badge-danger px-2 py-1 text-[10px] font-mono flex items-center gap-1 cursor-pointer hover:brightness-125 transition"
                                 title="Xóa thành viên khỏi danh sách"
                               >
                                 <Trash2 className="w-3 h-3" />
@@ -979,7 +1078,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
             {activeTab === 'PENDING' && (
               <div className="space-y-3">
                 {pendingUsers.length === 0 ? (
-                  <div className="p-8 text-center bg-[#241148]/30 border border-white/10 rounded-[6px] space-y-2">
+                  <div className="fluent-box-nested p-8 text-center space-y-2">
                     <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-300 mx-auto">
                       <Clock className="w-6 h-6" />
                     </div>
@@ -1001,7 +1100,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                       return (
                         <div
                           key={p.id}
-                          className="p-3.5 rounded-[6px] border border-amber-500/40 bg-amber-950/20 flex flex-col gap-3 shadow-md"
+                          className="fluent-box-nested p-3.5 border border-amber-500/40 bg-amber-950/20 flex flex-col gap-3 shadow-md"
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                             <div className="flex items-center gap-3 min-w-0">
@@ -1011,7 +1110,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="font-bold text-white text-xs sm:text-sm truncate">{p.name}</span>
-                                  <span className="text-[10px] font-mono font-semibold text-amber-300 bg-amber-950/80 border border-amber-500/50 px-2 py-0.5 rounded-[3px]">
+                                  <span className="fluent-badge fluent-badge-warning">
                                     ⏳ Chờ Phê Duyệt
                                   </span>
                                 </div>
@@ -1032,7 +1131,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                                       const nextRole = e.target.value as UserRole;
                                       setPendingRoleMap(prev => ({ ...prev, [p.id]: nextRole }));
                                     }}
-                                    className="fluent-input px-2 py-1 text-xs font-mono bg-[#190839] border border-amber-500/40 text-amber-200"
+                                    className="fluent-input fluent-select py-1 px-2 text-xs font-mono bg-[#190839] border-amber-500/40 text-amber-200"
                                   >
                                     <option value="CONTRIBUTOR">Người Biên Soạn</option>
                                     <option value="EXAMINER">Ban Giám Khảo</option>
@@ -1044,7 +1143,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleApproveUser(p.id, p.name)}
-                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[4px] font-mono text-xs font-bold flex items-center gap-1 transition cursor-pointer shadow-sm"
+                                  className="fluent-btn-primary px-3 py-1 text-xs font-mono font-bold flex items-center gap-1 shadow-sm"
                                   title="Phê duyệt tài khoản và cấp vai trò này"
                                 >
                                   <CheckCircle2 className="w-3.5 h-3.5" />
@@ -1054,7 +1153,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleRejectUser(p.id, p.name)}
-                                  className="px-2 py-1 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-500/40 text-rose-300 rounded-[4px] font-mono text-xs flex items-center gap-1 transition cursor-pointer"
+                                  className="fluent-btn-secondary border-rose-500/40 text-rose-300 px-2 py-1 text-xs font-mono flex items-center gap-1"
                                   title="Từ chối yêu cầu"
                                 >
                                   <XCircle className="w-3.5 h-3.5" />
@@ -1127,7 +1226,7 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
                     <td className="p-2.5 text-center text-rose-400 font-bold">✗</td>
                   </tr>
                   <tr>
-                    <td className="p-2.5">Quản lý &amp; Phân quyền user</td>
+                    <td className="p-2.5">Quản lý &amp; Phân quyền user (RBAC)</td>
                     <td className="p-2.5 text-center text-emerald-400 font-bold">✓</td>
                     <td className="p-2.5 text-center text-rose-400 font-bold">✗</td>
                     <td className="p-2.5 text-center text-rose-400 font-bold">✗</td>
@@ -1140,9 +1239,9 @@ export const UserRoleManagerModal: React.FC<UserRoleManagerModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 bg-[#241148] border-t border-white/10 flex items-center justify-between">
+        <div className="fluent-dialog-footer px-5 py-3.5 bg-[#241148] border-t border-white/10 flex items-center justify-between">
           <div className="text-[11px] text-white/50 font-mono">
-            {isSuperAdmin ? '🛡️ Bạn có quyền Quản trị tối cao (Super Admin)' : '🔒 Bạn đang ở vai trò tiêu chuẩn'}
+            {isSuperAdmin ? '🛡️ Quyền Quản trị tối cao (Super Admin)' : '🔒 Vai trò cộng tác viên'}
           </div>
           <button
             type="button"

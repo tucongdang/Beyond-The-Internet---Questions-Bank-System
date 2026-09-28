@@ -27,25 +27,47 @@ interface StatCardProps {
   value: number | string;
   sub?: string;
   icon: React.ReactNode;
-  color: string;
+  cardBg?: string;
   borderColor?: string;
+  valueColor?: string;
+  description?: string;
+  onClick?: () => void;
 }
 
-// ─── Fluent 2 Stat Card ───────────────────────────────────────────────────────
+// ─── Fluent 2 Stat Card Synchronized with Image 1 ─────────────────────────────
 
-const StatCard: React.FC<StatCardProps> = ({ label, value, sub, icon, color }) => (
-  <div className="fluent-card p-4 rounded-[6px] relative overflow-hidden space-y-2 cursor-default group hover:translate-y-[-1px] transition-all duration-200">
-    <div className={`absolute top-0 left-0 right-0 h-[2px] ${color} opacity-85`} />
-    <div className="relative flex items-center justify-between">
-      <span className="text-[11px] font-mono font-bold text-white/60 uppercase tracking-wider">{label}</span>
-      <div className={`p-1.5 rounded-[4px] ${color} bg-opacity-20 shadow-sm transition-transform duration-200 group-hover:scale-105`}>
+const StatCard: React.FC<StatCardProps> = ({
+  label,
+  value,
+  sub,
+  icon,
+  cardBg = 'bg-[#1C093B]/80',
+  borderColor = 'border-purple-500/40 hover:border-purple-400/70',
+  valueColor = 'text-white',
+  description,
+  onClick
+}) => (
+  <div 
+    onClick={onClick}
+    className={`fluent-card p-4 rounded-[6px] relative overflow-hidden space-y-1 shadow-md transition-all duration-200 group hover:translate-y-[-1px] ${cardBg} border ${borderColor} ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
+  >
+    <div className="flex items-center justify-between text-xs font-mono text-slate-300">
+      <span className="font-semibold text-slate-200">{label}</span>
+      <div className="shrink-0 transition-transform duration-200 group-hover:scale-110">
         {icon}
       </div>
     </div>
-    <div className="relative">
-      <span className="text-2xl font-black text-white tabular-nums tracking-tight">{value}</span>
-      {sub && <span className="text-[11px] text-white/50 ml-2 font-mono">{sub}</span>}
+    <div className="flex items-baseline gap-2">
+      <strong className={`text-2xl font-black font-mono tracking-tight tabular-nums ${valueColor}`}>
+        {value}
+      </strong>
+      {sub && <span className="text-[11px] font-mono text-slate-400">{sub}</span>}
     </div>
+    {description && (
+      <p className="text-[10.5px] text-slate-300/80 font-mono truncate">
+        {description}
+      </p>
+    )}
   </div>
 );
 
@@ -185,46 +207,67 @@ export const QuestionBankStatsView: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Cards Row - Fluent 2 Cards */}
+      {/* KPI Cards Row - Fluent 2 Cards Synchronized with Image 1 */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard
           label="Đã Duyệt"
           value={approvedCount}
           sub={`${total > 0 ? Math.round((approvedCount / total) * 100) : 0}%`}
           icon={<CheckCircle2 className="w-4 h-4 text-emerald-400" />}
-          color="bg-emerald-500"
+          cardBg="bg-emerald-950/25"
+          borderColor="border-emerald-500/40 hover:border-emerald-400/70"
+          valueColor="text-emerald-300"
+          description="Đã thẩm định sẵn sàng thi"
         />
         <StatCard
           label="Chờ Duyệt"
           value={pendingCount}
+          sub="câu"
           icon={<Clock className="w-4 h-4 text-amber-400" />}
-          color="bg-amber-500"
+          cardBg="bg-amber-950/25"
+          borderColor="border-amber-500/40 hover:border-amber-400/70"
+          valueColor="text-amber-300"
+          description="Đang chờ Hội đồng duyệt"
         />
         <StatCard
           label="Bản Nháp"
           value={draftCount}
+          sub="câu"
           icon={<FileText className="w-4 h-4 text-sky-400" />}
-          color="bg-sky-500"
+          cardBg="bg-sky-950/25"
+          borderColor="border-sky-500/40 hover:border-sky-400/70"
+          valueColor="text-sky-300"
+          description="Biên soạn & lưu nháp"
         />
         <StatCard
           label="Từ Chối / Sửa"
           value={rejectedCount + needsRevisionCount}
+          sub="câu"
           icon={<XCircle className="w-4 h-4 text-rose-400" />}
-          color="bg-rose-500"
+          cardBg="bg-rose-950/25"
+          borderColor="border-rose-500/40 hover:border-rose-400/70"
+          valueColor="text-rose-300"
+          description="Cần bổ sung, chỉnh sửa"
         />
         <StatCard
           label="7 Ngày Qua"
           value={last7d}
           sub="câu mới"
           icon={<TrendingUp className="w-4 h-4 text-purple-400" />}
-          color="bg-purple-500"
+          cardBg="bg-[#1C093B]/80"
+          borderColor="border-purple-500/40 hover:border-purple-400/70"
+          valueColor="text-purple-300"
+          description="Cập nhật tuần gần nhất"
         />
         <StatCard
           label="30 Ngày Qua"
           value={last30d}
           sub="câu mới"
           icon={<Sparkles className="w-4 h-4 text-indigo-400" />}
-          color="bg-indigo-500"
+          cardBg="bg-indigo-950/25"
+          borderColor="border-indigo-500/40 hover:border-indigo-400/70"
+          valueColor="text-indigo-300"
+          description="Cập nhật tháng gần nhất"
         />
       </div>
 

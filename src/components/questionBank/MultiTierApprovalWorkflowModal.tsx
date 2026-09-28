@@ -67,7 +67,7 @@ export const MultiTierApprovalWorkflowModal: React.FC<MultiTierApprovalWorkflowM
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[9999999] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn"
+      className="fluent-dialog-overlay fixed inset-0 z-[9999999] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-xl animate-fadeIn modal-backdrop-isolated select-none"
       role="dialog"
       aria-modal="true"
       onClick={(e) => {
@@ -76,22 +76,22 @@ export const MultiTierApprovalWorkflowModal: React.FC<MultiTierApprovalWorkflowM
     >
       <div 
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl bg-[#140827] border border-emerald-500/40 rounded-[6px] shadow-2xl overflow-hidden text-white font-sans flex flex-col max-h-[90vh]"
+        className="fluent-dialog w-full max-w-2xl bg-[#190839] text-[#F5EFF9] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] select-text"
       >
         {/* Header */}
-        <div className="h-14 px-4 bg-[#0d041c] border-b border-emerald-500/20 flex items-center justify-between">
+        <div className="fluent-dialog-header px-5 py-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-[4px] bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300">
-              <Stamp className="w-4 h-4 text-emerald-400" />
+            <div className="w-8 h-8 rounded-[4px] bg-[#f7cac9] flex items-center justify-center text-[#190839] font-bold shadow-sm">
+              <Stamp className="w-4 h-4 text-[#190839]" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white tracking-wide flex items-center gap-2">
+              <h2 className="text-sm font-bold text-white tracking-wide flex items-center gap-2 font-mono">
                 <span>Quy Trình Kiểm Duyệt 3 Cấp &amp; Ký Số Điện Tử</span>
-                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                <span className="fluent-badge fluent-badge-accent">
                   Hội Đồng BTI 2026
                 </span>
               </h2>
-              <p className="text-[11px] text-white/60 truncate">
+              <p className="text-xs text-[#B6A6D8] truncate font-sans">
                 Kiểm định phản biện chuyên môn và ký số xác thực đề thi trước khi đưa vào ngân hàng chính thức
               </p>
             </div>
@@ -99,14 +99,15 @@ export const MultiTierApprovalWorkflowModal: React.FC<MultiTierApprovalWorkflowM
 
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-white/10 text-white/60 hover:text-white transition"
+            className="fluent-dialog-close-btn"
+            title="Đóng cửa sổ"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* 3-Tier Step Indicator */}
-        <div className="grid grid-cols-3 p-3 bg-black/40 border-b border-white/10 text-xs font-mono">
+        <div className="grid grid-cols-3 p-3 bg-black/30 border-b border-white/10 text-xs font-mono">
           <div className="flex items-center gap-2 text-white/60">
             <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold">1</div>
             <div>
@@ -133,14 +134,14 @@ export const MultiTierApprovalWorkflowModal: React.FC<MultiTierApprovalWorkflowM
         </div>
 
         {/* Body */}
-        <div className="p-4 sm:p-5 overflow-y-auto custom-scrollbar space-y-4 text-xs">
+        <div className="fluent-dialog-body p-4 sm:p-5 overflow-y-auto custom-scrollbar space-y-4 text-xs">
           {/* Question Summary */}
-          <div className="p-3 rounded bg-white/[0.03] border border-white/10 space-y-1.5">
+          <div className="fluent-box-nested p-3.5 space-y-1.5">
             <div className="flex items-center justify-between text-[11px] font-mono text-emerald-300">
-              <span>Mã câu hỏi: {question.id}</span>
-              <span>Trạng thái hiện tại: {question.approval_status || 'PENDING_REVIEW'}</span>
+              <span className="fluent-badge fluent-badge-accent">Mã: {question.id}</span>
+              <span className="fluent-badge">{question.approval_status || 'PENDING_REVIEW'}</span>
             </div>
-            <p className="font-semibold text-white leading-relaxed">{question.question_text}</p>
+            <p className="font-semibold text-white leading-relaxed font-sans">{question.question_text}</p>
           </div>
 
           {/* Review Form */}
@@ -151,7 +152,7 @@ export const MultiTierApprovalWorkflowModal: React.FC<MultiTierApprovalWorkflowM
                 type="text"
                 value={reviewerName}
                 onChange={e => setReviewerName(e.target.value)}
-                className="w-full p-2 bg-black/60 border border-white/15 rounded text-white text-xs outline-none focus:border-emerald-400 font-mono"
+                className="w-full fluent-input px-3 py-2 text-xs font-mono"
               />
             </div>
 
@@ -161,12 +162,12 @@ export const MultiTierApprovalWorkflowModal: React.FC<MultiTierApprovalWorkflowM
                 rows={3}
                 value={reviewNote}
                 onChange={e => setReviewNote(e.target.value)}
-                className="w-full p-2 bg-black/60 border border-white/15 rounded text-white text-xs outline-none focus:border-emerald-400"
+                className="w-full fluent-textarea p-3 text-xs leading-relaxed"
               />
             </div>
 
             {/* Digital Stamp Simulation */}
-            <div className="p-3.5 rounded bg-emerald-950/20 border border-emerald-500/40 flex items-center justify-between gap-3 font-mono text-xs">
+            <div className="fluent-box-nested p-3.5 border-emerald-500/40 flex items-center justify-between gap-3 font-mono text-xs">
               <div className="space-y-0.5">
                 <div className="text-emerald-300 font-bold flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4 text-emerald-400" />
@@ -175,7 +176,7 @@ export const MultiTierApprovalWorkflowModal: React.FC<MultiTierApprovalWorkflowM
                 <div className="text-[10px] text-white/60 truncate">{digitalSignatureKey}</div>
               </div>
               <div className="text-right text-[10px] text-emerald-400">
-                <span>SHA-256 Verified</span>
+                <span className="fluent-badge fluent-badge-success">SHA-256 Verified</span>
               </div>
             </div>
           </div>
@@ -185,7 +186,7 @@ export const MultiTierApprovalWorkflowModal: React.FC<MultiTierApprovalWorkflowM
             <button
               type="button"
               onClick={() => handleApplyApproval('REVISE_REQUESTED')}
-              className="flex-1 py-2 px-3 rounded bg-amber-600/20 hover:bg-amber-600 border border-amber-500/40 text-amber-200 hover:text-white font-mono font-bold text-xs transition cursor-pointer"
+              className="fluent-btn-secondary flex-1 py-2 px-3 text-amber-200 border-amber-500/40 font-mono text-xs font-bold"
             >
               Yêu Cầu Chỉnh Sửa
             </button>
@@ -193,7 +194,7 @@ export const MultiTierApprovalWorkflowModal: React.FC<MultiTierApprovalWorkflowM
             <button
               type="button"
               onClick={() => handleApplyApproval('APPROVED')}
-              className="flex-1 py-2 px-3 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-mono font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-lg"
+              className="fluent-btn-primary flex-1 py-2 px-3 text-xs font-mono font-bold flex items-center justify-center gap-1.5 shadow-lg"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>Phê Duyệt &amp; Ký Số Chính Thức</span>

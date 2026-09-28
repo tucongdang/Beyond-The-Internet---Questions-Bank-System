@@ -2,6 +2,7 @@ import { LegalDocument, QuestionItem } from '../types';
 import { geminiKeyService } from './geminiKeyService';
 
 export interface NotebookLMCitation {
+  documentId?: string;
   sourceTitle: string;
   documentNumber: string;
   article: string;
@@ -147,6 +148,32 @@ class NotebookLMService {
       throw new Error(data.error || 'Lỗi khi hỏi đáp với NotebookLM Agent.');
     }
     return data.result;
+  }
+
+  /**
+   * Truy vấn có kiểm chứng pháp lý (Grounded Query)
+   */
+  async queryGroundedAnswer(params: {
+    query: string;
+    sourceDocuments: LegalDocument[];
+    focusArticle?: { article: string; content: string } | null;
+  }): Promise<{
+    answer: string;
+    citations: NotebookLMCitation[];
+    keyTakeaway: string;
+    suggestedQuestions: string[];
+  }> {
+    const result = await this.askChat({
+      sources: params.sourceDocuments,
+      query: params.query,
+      focusArticle: params.focusArticle
+    });
+    return {
+      answer: result.answer,
+      citations: result.citations,
+      keyTakeaway: result.keyTakeaway,
+      suggestedQuestions: result.suggestedFollowUps || []
+    };
   }
 
   /**

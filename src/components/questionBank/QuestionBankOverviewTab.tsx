@@ -20,7 +20,9 @@ import {
   CheckCircle,
   FileEdit,
   Terminal,
-  Award
+  Award,
+  PlayCircle,
+  TrendingUp
 } from 'lucide-react';
 import { QuestionItem, BtiRoundGroupKey, DigitalCompetencyDomainKey } from '../../types';
 import { DIGITAL_COMPETENCY_DOMAINS } from '../../data/digitalCompetencyData';
@@ -32,7 +34,7 @@ import { vibrateTap } from '../../utils/hapticUtils';
 interface QuestionBankOverviewTabProps {
   questions: QuestionItem[];
   stats: any;
-  onNavigateTab: (tab: 'QUESTIONS' | 'MODERATION' | 'AI_STUDIO' | 'EXCEL_HUB' | 'SCENARIOS' | 'LEGAL_DOCS' | 'MATRIX') => void;
+  onNavigateTab: (tab: 'QUESTIONS' | 'MODERATION' | 'AI_STUDIO' | 'EXCEL_HUB' | 'SCENARIOS' | 'LEGAL_DOCS' | 'MATRIX' | 'STATS' | 'PRACTICE') => void;
   onFilterRound: (round: BtiRoundGroupKey) => void;
   onFilterLevel: (level: string) => void;
   onFilterDomain?: (domain: string) => void;
@@ -277,6 +279,32 @@ export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = (
       }
     }] : []),
     {
+      id: 'stats_dashboard',
+      title: 'Thống Kê Toàn Diện',
+      subtitle: 'Ma trận nhiệt 6x4 & KPI',
+      icon: TrendingUp,
+      colorClass: 'text-purple-300 bg-purple-500/10 border-purple-500/25 hover:border-purple-400 hover:bg-purple-500/20',
+      iconBg: 'bg-purple-500/20 text-purple-300',
+      onClick: () => {
+        vibrateTap();
+        soundFx.playClick();
+        onNavigateTab('STATS');
+      }
+    },
+    {
+      id: 'practice_exam',
+      title: 'Thi Thử BTI 2026',
+      subtitle: 'Luyện tập ngẫu nhiên có bấm giờ',
+      icon: PlayCircle,
+      colorClass: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/25 hover:border-emerald-400 hover:bg-emerald-500/20',
+      iconBg: 'bg-emerald-500/20 text-emerald-300',
+      onClick: () => {
+        vibrateTap();
+        soundFx.playClick();
+        onNavigateTab('PRACTICE');
+      }
+    },
+    {
       id: 'matrix',
       title: 'Ma Trận 6x4 Toàn Diện',
       subtitle: 'Chi tiết 24 ô chuẩn Bộ GD&ĐT',
@@ -293,7 +321,7 @@ export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = (
 
   return (
     <div className="space-y-4 animate-fadeIn">
-      {/* 1. TOURNAMENT STAGE KPI BAR */}
+      {/* 1. TOURNAMENT STAGE KPI BAR - Fluent 2 Cards Synchronized with Image 1 */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
         {/* Card 1: Tổng câu hỏi */}
         <div 
@@ -302,13 +330,23 @@ export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = (
             soundFx.playClick();
             onNavigateTab('QUESTIONS');
           }}
-          className="fluent-stat-card p-3 cursor-pointer hover:border-theme-accent/50 transition-all hover:bg-[#241148]/90"
+          className="fluent-card p-4 rounded-[6px] bg-[#1C093B]/80 border border-purple-500/40 hover:border-purple-400/70 hover:translate-y-[-1px] transition-all duration-200 cursor-pointer shadow-lg space-y-1 group"
         >
-          <span className="text-[#B6A6D8] block text-[10px] font-mono">Tổng câu hỏi:</span>
-          <span className="text-xl font-bold text-theme-accent">{stats.total}</span>
-          <span className="text-[10px] text-emerald-400 block mt-0.5 font-mono">
-            {stats.byStatus?.APPROVED || 0} đã duyệt
-          </span>
+          <div className="flex items-center justify-between text-xs font-mono text-purple-200">
+            <span className="font-semibold text-slate-200">Tổng Câu Hỏi</span>
+            <Layers className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="flex items-baseline gap-2">
+            <strong className="text-2xl font-black text-white group-hover:text-purple-300 font-mono tracking-tight tabular-nums">
+              {stats.total}
+            </strong>
+            <span className="text-[11px] font-mono text-emerald-400">
+              ({stats.byStatus?.APPROVED || 0} đã duyệt)
+            </span>
+          </div>
+          <p className="text-[10.5px] text-purple-200/80 font-mono truncate">
+            Sẵn sàng xuất đề thi tự động
+          </p>
         </div>
 
         {/* Card 2: Vòng Loại Bộ GD&ĐT */}
@@ -318,11 +356,21 @@ export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = (
             soundFx.playClick();
             onFilterRound('VONG_LOAI' as any);
           }}
-          className="fluent-stat-card p-3 cursor-pointer hover:border-theme-accent/50 transition-all hover:bg-[#241148]/90"
+          className="fluent-card p-4 rounded-[6px] bg-indigo-950/30 border border-indigo-500/40 hover:border-indigo-400/70 hover:translate-y-[-1px] transition-all duration-200 cursor-pointer shadow-lg space-y-1 group"
         >
-          <span className="text-[#B6A6D8] block text-[10px] font-mono">Vòng Loại Bộ GD&ĐT:</span>
-          <span className="text-xl font-bold text-theme-accent">{stats.byStage?.VONG_LOAI || 0}</span>
-          <span className="text-[10px] text-[#B6A6D8] block mt-0.5 font-mono">Chuẩn 28 câu</span>
+          <div className="flex items-center justify-between text-xs font-mono text-indigo-300">
+            <span className="font-semibold text-slate-200">Vòng Loại BGD</span>
+            <Zap className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="flex items-baseline gap-2">
+            <strong className="text-2xl font-black text-white group-hover:text-indigo-300 font-mono tracking-tight tabular-nums">
+              {stats.byStage?.VONG_LOAI || 0}
+            </strong>
+            <span className="text-[11px] font-mono text-slate-400">câu</span>
+          </div>
+          <p className="text-[10.5px] text-indigo-200/80 font-mono truncate">
+            Chuẩn 28 câu trắc nghiệm &amp; điền
+          </p>
         </div>
 
         {/* Card 3: 3 Vòng Bán Kết */}
@@ -332,13 +380,21 @@ export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = (
             soundFx.playClick();
             onFilterRound('BAN_KET' as any);
           }}
-          className="fluent-stat-card p-3 cursor-pointer hover:border-theme-accent/50 transition-all hover:bg-[#241148]/90"
+          className="fluent-card p-4 rounded-[6px] bg-sky-950/30 border border-sky-500/40 hover:border-sky-400/70 hover:translate-y-[-1px] transition-all duration-200 cursor-pointer shadow-lg space-y-1 group"
         >
-          <span className="text-[#B6A6D8] block text-[10px] font-mono">3 Vòng Bán Kết:</span>
-          <span className="text-xl font-bold text-[#B6A6D8]">
-            {(stats.byStage?.BAN_KET_1 || 0) + (stats.byStage?.BAN_KET_2 || 0) + (stats.byStage?.BAN_KET_3 || 0)}
-          </span>
-          <span className="text-[10px] text-[#B6A6D8] block mt-0.5 font-mono">Lượt riêng &amp; chung</span>
+          <div className="flex items-center justify-between text-xs font-mono text-sky-300">
+            <span className="font-semibold text-slate-200">3 Vòng Bán Kết</span>
+            <Compass className="w-4 h-4 text-sky-400 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="flex items-baseline gap-2">
+            <strong className="text-2xl font-black text-white group-hover:text-sky-300 font-mono tracking-tight tabular-nums">
+              {(stats.byStage?.BAN_KET_1 || 0) + (stats.byStage?.BAN_KET_2 || 0) + (stats.byStage?.BAN_KET_3 || 0)}
+            </strong>
+            <span className="text-[11px] font-mono text-slate-400">câu</span>
+          </div>
+          <p className="text-[10.5px] text-sky-200/80 font-mono truncate">
+            Lượt riêng &amp; chung 3 trận
+          </p>
         </div>
 
         {/* Card 4: Đêm Chung Kết */}
@@ -348,11 +404,21 @@ export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = (
             soundFx.playClick();
             onFilterRound('CHUNG_KET' as any);
           }}
-          className="fluent-stat-card p-3 cursor-pointer hover:border-theme-accent/50 transition-all hover:bg-[#241148]/90"
+          className="fluent-card p-4 rounded-[6px] bg-rose-950/30 border border-rose-500/40 hover:border-rose-400/70 hover:translate-y-[-1px] transition-all duration-200 cursor-pointer shadow-lg space-y-1 group"
         >
-          <span className="text-[#B6A6D8] block text-[10px] font-mono">Đêm Chung Kết:</span>
-          <span className="text-xl font-bold text-[#E39A96]">{stats.byStage?.CHUNG_KET || 0}</span>
-          <span className="text-[10px] text-[#B6A6D8] block mt-0.5 font-mono">Tăng tốc &amp; Về đích</span>
+          <div className="flex items-center justify-between text-xs font-mono text-rose-300">
+            <span className="font-semibold text-slate-200">Đêm Chung Kết</span>
+            <Award className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="flex items-baseline gap-2">
+            <strong className="text-2xl font-black text-white group-hover:text-rose-300 font-mono tracking-tight tabular-nums">
+              {stats.byStage?.CHUNG_KET || 0}
+            </strong>
+            <span className="text-[11px] font-mono text-slate-400">câu</span>
+          </div>
+          <p className="text-[10.5px] text-rose-200/80 font-mono truncate">
+            Tăng tốc &amp; Về đích trực tiếp
+          </p>
         </div>
 
         {/* Card 5: Kịch Bản Tương Tác */}
@@ -362,11 +428,21 @@ export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = (
             soundFx.playClick();
             onNavigateTab('SCENARIOS');
           }}
-          className="fluent-stat-card p-3 cursor-pointer hover:border-amber-500/50 transition-all hover:bg-[#241148]/90"
+          className="fluent-card p-4 rounded-[6px] bg-amber-950/30 border border-amber-500/40 hover:border-amber-400/70 hover:translate-y-[-1px] transition-all duration-200 cursor-pointer shadow-lg space-y-1 group"
         >
-          <span className="text-[#B6A6D8] block text-[10px] font-mono">Kịch Bản Tương Tác:</span>
-          <span className="text-xl font-bold text-amber-300">{stats.scenariosCount || 0}</span>
-          <span className="text-[10px] text-[#B6A6D8] block mt-0.5 font-mono">Kèm 4 kịch bản rẽ nhánh</span>
+          <div className="flex items-center justify-between text-xs font-mono text-amber-300">
+            <span className="font-semibold text-slate-200">Kịch Bản Tình Huống</span>
+            <Theater className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="flex items-baseline gap-2">
+            <strong className="text-2xl font-black text-amber-300 font-mono tracking-tight tabular-nums">
+              {stats.scenariosCount || 0}
+            </strong>
+            <span className="text-[11px] font-mono text-slate-400">kịch bản</span>
+          </div>
+          <p className="text-[10.5px] text-amber-200/80 font-mono truncate">
+            4 kịch bản rẽ nhánh thực tế
+          </p>
         </div>
 
         {/* Card 6: Văn Bản Pháp Lý */}
@@ -376,11 +452,21 @@ export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = (
             soundFx.playClick();
             onNavigateTab('LEGAL_DOCS');
           }}
-          className="fluent-stat-card p-3 cursor-pointer hover:border-emerald-500/50 transition-all hover:bg-[#241148]/90"
+          className="fluent-card p-4 rounded-[6px] bg-emerald-950/30 border border-emerald-500/40 hover:border-emerald-400/70 hover:translate-y-[-1px] transition-all duration-200 cursor-pointer shadow-lg space-y-1 group"
         >
-          <span className="text-[#B6A6D8] block text-[10px] font-mono">Văn Bản Pháp Lý:</span>
-          <span className="text-xl font-bold text-emerald-400">{stats.documentsCount || 0}</span>
-          <span className="text-[10px] text-[#B6A6D8] block mt-0.5 font-mono">Căn cứ tham chiếu</span>
+          <div className="flex items-center justify-between text-xs font-mono text-emerald-300">
+            <span className="font-semibold text-slate-200">Văn Bản Pháp Lý</span>
+            <BookOpen className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="flex items-baseline gap-2">
+            <strong className="text-2xl font-black text-emerald-300 font-mono tracking-tight tabular-nums">
+              {stats.documentsCount || 0}
+            </strong>
+            <span className="text-[11px] font-mono text-slate-400">văn bản</span>
+          </div>
+          <p className="text-[10.5px] text-emerald-200/80 font-mono truncate">
+            Căn cứ TT 02 &amp; NĐ 13
+          </p>
         </div>
       </div>
 
@@ -400,7 +486,7 @@ export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = (
       />
 
       {/* 3. PHÂN BỔ 4 PHẦN THI GAMESHOW BTI 2026 (Streamlined 4-Round Grid) */}
-      <div className="fluent-card p-3.5 sm:p-4 border border-theme-accent/25 bg-gradient-to-r from-[#241148]/90 via-[#1c0a36]/90 to-[#241148]/90 backdrop-blur-md rounded-[6px] space-y-3">
+      <div className="fluent-box p-4 rounded-[8px] space-y-3.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-[4px] bg-theme-accent/15 text-theme-accent shrink-0">
@@ -539,7 +625,7 @@ export const QuestionBankOverviewTab: React.FC<QuestionBankOverviewTabProps> = (
       />
 
       {/* 5. TÁC VỤ NHANH BIÊN TẬP & QUẢN TRỊ (BTI Toolkit Hub) */}
-      <div className="fluent-card p-3.5 sm:p-4 rounded-[6px] bg-[#1b083a]/90 border border-theme-accent/25 backdrop-blur-md space-y-3">
+      <div className="fluent-box p-4 rounded-[8px] space-y-3.5">
         <div className="flex items-center justify-between pb-2.5 border-b border-white/10">
           <div className="flex items-center gap-2">
             <div className="p-1 rounded-[4px] bg-amber-400/15 text-amber-400 shrink-0">

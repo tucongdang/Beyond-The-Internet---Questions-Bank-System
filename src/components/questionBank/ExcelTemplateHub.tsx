@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { 
   FileSpreadsheet, 
   Download, 
@@ -85,6 +85,29 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
   const [exportMode, setExportMode] = useState<'BTI_OFFICIAL' | 'CUSTOM_ADAPTIVE'>('BTI_OFFICIAL');
   const [exportStage, setExportStage] = useState<CompetitionStage | 'ALL'>('ALL');
   const [isExporting, setIsExporting] = useState<boolean>(false);
+
+  // Bank questions & stage statistics for export
+  const allBankQuestions = useMemo(() => questionBankManager.getQuestions(), [activeSubTab]);
+  const stageStats = useMemo(() => {
+    const counts: Record<string, number> = {
+      ALL: allBankQuestions.length,
+      VONG_LOAI: 0,
+      BAN_KET_1: 0,
+      BAN_KET_2: 0,
+      BAN_KET_3: 0,
+      CHUNG_KET: 0,
+    };
+    allBankQuestions.forEach(q => {
+      if (q.stage && counts[q.stage] !== undefined) {
+        counts[q.stage]++;
+      }
+    });
+    return counts;
+  }, [allBankQuestions]);
+
+  const questionsToExportCount = exportStage === 'ALL' 
+    ? allBankQuestions.length 
+    : (stageStats[exportStage] || 0);
 
   // Handle Download Blank Template
   const handleDownloadBlankTemplate = () => {
@@ -1483,238 +1506,460 @@ export const ExcelTemplateHub: React.FC<ExcelTemplateHubProps> = ({ onImportComp
         </div>
       )}
 
-      {/* SUB-TAB 3: EXPORT EXCEL */}
+      {/* SUB-TAB 3: EXPORT EXCEL - Fluent UI v2 Responsive Multi-Column Layout */}
       {activeSubTab === 'EXPORT' && (
-        <div className="space-y-4">
-          <div className="fluent-box p-5 rounded-[4px] border border-white/10 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
-                  <Download className="w-4 h-4 text-sky-400" />
-                  Xuất Ngân Hàng Câu Hỏi Ra File Excel
-                </h3>
-                <p className="text-xs text-white/60 mt-0.5">
-                  Lựa chọn định dạng xuất theo mẫu đa sheet chuẩn BTI hoặc xuất khớp 100% theo mẫu khảo thí đã học.
+        <div className="space-y-6 animate-fadeIn">
+          {/* Top Title Banner */}
+          <div className="fluent-card p-5 rounded-[6px] bg-gradient-to-r from-[#1C093B]/90 via-[#18072e]/90 to-[#0e1c31]/90 border border-purple-500/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-mono font-bold">
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Xuất Khẩu Ngân Hàng Đề Thi Chuẩn Quốc Gia</span>
+              </div>
+              <h3 className="text-lg sm:text-xl font-black text-white font-mono tracking-tight flex items-center gap-2">
+                <Download className="w-5 h-5 text-sky-400" />
+                Xuất Ngân Hàng Câu Hỏi Ra File Excel (.xlsx)
+              </h3>
+              <p className="text-xs text-slate-300/80 max-w-2xl font-sans">
+                Lựa chọn xuất theo mẫu đa trang tính (6 Sheets) chuẩn Phần mềm thi đấu BTI 2026 hoặc xuất khớp 100% cấu trúc các nền tảng khảo thí bạn đã nạp (Azota, K12Online, OLM...).
+              </p>
+            </div>
+
+            {/* Quick Stats Pill */}
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="px-3.5 py-2 rounded-[6px] bg-black/40 border border-white/10 text-right font-mono">
+                <span className="text-[10px] text-slate-400 block uppercase tracking-wider">Ngân hàng hiện có</span>
+                <span className="text-lg font-black text-white tabular-nums">{allBankQuestions.length} câu</span>
+              </div>
+              <div className="px-3.5 py-2 rounded-[6px] bg-emerald-950/40 border border-emerald-500/40 text-right font-mono">
+                <span className="text-[10px] text-emerald-300 block uppercase tracking-wider">Sẽ xuất tải về</span>
+                <span className="text-lg font-black text-emerald-400 tabular-nums">{questionsToExportCount} câu</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Main 2-Column Responsive Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* LEFT COLUMN: Configuration & Export Action (col-span-7) */}
+            <div className="lg:col-span-7 space-y-5">
+              {/* 1. Format Selection: BTI Official vs Custom Adaptive */}
+              <div className="fluent-card p-4 sm:p-5 rounded-[6px] bg-[#16072D]/90 border border-purple-500/30 space-y-3.5 shadow-lg">
+                <div className="flex items-center justify-between pb-2 border-b border-white/10 text-xs font-mono">
+                  <span className="font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <Layers className="w-4 h-4 text-purple-400" />
+                    1. Lựa Chọn Định Dạng Mẫu Xuất
+                  </span>
+                  <span className="text-[11px] text-purple-300 font-mono">Fluent UI v2 Engine</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Option 1: BTI Official */}
+                  <div
+                    onClick={() => {
+                      vibrateTap();
+                      soundFx.playClick();
+                      setExportMode('BTI_OFFICIAL');
+                    }}
+                    className={`p-4 rounded-[6px] border transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-3 relative overflow-hidden group ${
+                      exportMode === 'BTI_OFFICIAL'
+                        ? 'bg-emerald-950/30 border-emerald-500/70 shadow-lg shadow-emerald-950/30 ring-1 ring-emerald-500/40'
+                        : 'bg-black/30 border-white/10 hover:border-emerald-500/40 hover:bg-emerald-950/10'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition ${
+                          exportMode === 'BTI_OFFICIAL' 
+                            ? 'border-emerald-400 bg-emerald-500' 
+                            : 'border-white/40'
+                        }`}>
+                          {exportMode === 'BTI_OFFICIAL' && <div className="w-1.5 h-1.5 rounded-full bg-black" />}
+                        </div>
+                        <span className="text-xs font-bold text-white font-mono">Mẫu Thi Đấu BTI 2026</span>
+                      </div>
+                      <span className="px-1.5 py-0.5 rounded text-[9.5px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        Chuẩn BTC
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-300/80 leading-relaxed font-sans">
+                      Đa trang tính (Khởi động, VCNV, Tăng tốc, Về đích, Câu hỏi phụ, Vòng loại BGD). Tương thích 100% phần mềm điều khiển trận đấu BTI.
+                    </p>
+
+                    <div className="flex flex-wrap gap-1.5 pt-1 border-t border-white/5">
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/40 text-emerald-300 border border-emerald-500/20">
+                        6 Sheets riêng biệt
+                      </span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/40 text-sky-300 border border-sky-500/20">
+                        Tự khớp Media máy chủ
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Option 2: Custom Adaptive */}
+                  <div
+                    onClick={() => {
+                      vibrateTap();
+                      soundFx.playClick();
+                      setExportMode('CUSTOM_ADAPTIVE');
+                    }}
+                    className={`p-4 rounded-[6px] border transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-3 relative overflow-hidden group ${
+                      exportMode === 'CUSTOM_ADAPTIVE'
+                        ? 'bg-purple-950/30 border-purple-500/70 shadow-lg shadow-purple-950/30 ring-1 ring-purple-500/40'
+                        : 'bg-black/30 border-white/10 hover:border-purple-500/40 hover:bg-purple-950/10'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition ${
+                          exportMode === 'CUSTOM_ADAPTIVE' 
+                            ? 'border-purple-400 bg-purple-500' 
+                            : 'border-white/40'
+                        }`}>
+                          {exportMode === 'CUSTOM_ADAPTIVE' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                        <span className="text-xs font-bold text-white font-mono">Mẫu Tùy Biến Đã Học</span>
+                      </div>
+                      <span className="px-1.5 py-0.5 rounded text-[9.5px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                        {savedBlueprints.length} Mẫu
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-300/80 leading-relaxed font-sans">
+                      Tái tạo 100% thứ tự cột, tiêu đề và banner hướng dẫn của hệ thống khảo thí bạn đã nạp (Azota, K12Online, OLM...).
+                    </p>
+
+                    <div className="flex flex-wrap gap-1.5 pt-1 border-t border-white/5">
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/40 text-purple-300 border border-purple-500/20">
+                        Khớp cột thông minh
+                      </span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/40 text-amber-300 border border-amber-500/20">
+                        Bảo lưu banner gốc
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Stage Filter / Scope Selector */}
+              <div className="fluent-card p-4 sm:p-5 rounded-[6px] bg-[#16072D]/90 border border-purple-500/30 space-y-3.5 shadow-lg">
+                <div className="flex items-center justify-between pb-2 border-b border-white/10 text-xs font-mono">
+                  <span className="font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <Target className="w-4 h-4 text-emerald-400" />
+                    2. Phạm Vi Giai Đoạn Câu Hỏi Muốn Xuất
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    Đang chọn: <strong className="text-emerald-400">{questionsToExportCount} câu</strong>
+                  </span>
+                </div>
+
+                {/* Quick Stage Pills */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: 'ALL', label: 'Tất Cả Giai Đoạn', count: stageStats.ALL, desc: 'Toàn bộ ngân hàng đề' },
+                    { id: 'VONG_LOAI', label: 'Vòng Loại BGD', count: stageStats.VONG_LOAI, desc: 'Chuẩn 28 câu TT 02' },
+                    { id: 'BAN_KET_1', label: 'Bán Kết 1', count: stageStats.BAN_KET_1, desc: 'Trận bán kết 1' },
+                    { id: 'BAN_KET_2', label: 'Bán Kết 2', count: stageStats.BAN_KET_2, desc: 'Trận bán kết 2' },
+                    { id: 'BAN_KET_3', label: 'Bán Kết 3', count: stageStats.BAN_KET_3, desc: 'Trận bán kết 3' },
+                    { id: 'CHUNG_KET', label: 'Đêm Chung Kết', count: stageStats.CHUNG_KET, desc: 'Trận chung kết xếp hạng' },
+                  ].map(stage => {
+                    const isSelected = exportStage === stage.id;
+                    return (
+                      <button
+                        key={stage.id}
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setExportStage(stage.id as any);
+                        }}
+                        className={`p-2.5 rounded-[4px] border text-left transition-all duration-150 cursor-pointer flex flex-col justify-between ${
+                          isSelected
+                            ? 'bg-emerald-950/40 border-emerald-500/70 shadow-sm ring-1 ring-emerald-500/30'
+                            : 'bg-black/30 border-white/10 hover:border-white/20 hover:bg-white/5'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-xs font-mono">
+                          <span className={`font-bold truncate ${isSelected ? 'text-emerald-300' : 'text-slate-200'}`}>
+                            {stage.label}
+                          </span>
+                          <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold tabular-nums ${
+                            isSelected ? 'bg-emerald-500/30 text-emerald-200' : 'bg-white/10 text-white/60'
+                          }`}>
+                            {stage.count}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-white/50 truncate font-sans mt-0.5">{stage.desc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3. Live Export Metric Summary (Image 1 Style) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="fluent-card p-3.5 rounded-[6px] bg-[#1C093B]/80 border border-purple-500/40 space-y-1 shadow-md">
+                  <div className="flex items-center justify-between text-xs font-mono text-purple-200">
+                    <span className="font-semibold text-slate-200">Số Câu Sẽ Xuất</span>
+                    <Layers className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <strong className="text-2xl font-black text-white font-mono tracking-tight tabular-nums">
+                      {questionsToExportCount}
+                    </strong>
+                    <span className="text-[11px] font-mono text-slate-400">/ {allBankQuestions.length} câu</span>
+                  </div>
+                  <p className="text-[10px] text-purple-200/80 font-mono truncate">
+                    {exportStage === 'ALL' ? 'Toàn bộ câu hỏi hệ thống' : `Lọc theo ${exportStage}`}
+                  </p>
+                </div>
+
+                <div className="fluent-card p-3.5 rounded-[6px] bg-emerald-950/25 border border-emerald-500/40 space-y-1 shadow-md">
+                  <div className="flex items-center justify-between text-xs font-mono text-emerald-300">
+                    <span className="font-semibold text-slate-200">Tên Tệp Xuất</span>
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <strong className="text-lg font-black text-emerald-300 font-mono tracking-tight">
+                      Đề thi.xlsx
+                    </strong>
+                  </div>
+                  <p className="text-[10px] text-emerald-200/80 font-mono truncate">
+                    Tên cố định điều khiển BTI
+                  </p>
+                </div>
+
+                <div className="fluent-card p-3.5 rounded-[6px] bg-sky-950/25 border border-sky-500/40 space-y-1 shadow-md">
+                  <div className="flex items-center justify-between text-xs font-mono text-sky-300">
+                    <span className="font-semibold text-slate-200">Quy Chuẩn Xuất</span>
+                    <Cpu className="w-4 h-4 text-sky-400" />
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <strong className="text-lg font-black text-sky-300 font-mono tracking-tight truncate">
+                      {exportMode === 'BTI_OFFICIAL' ? '6 Sheets BTC' : (activeBlueprint?.name || 'Tùy Biến')}
+                    </strong>
+                  </div>
+                  <p className="text-[10px] text-sky-200/80 font-mono truncate">
+                    {exportMode === 'BTI_OFFICIAL' ? 'Đa sheet tương thích 100%' : 'Khớp cột khảo thí'}
+                  </p>
+                </div>
+              </div>
+
+              {/* 4. Action Export Button */}
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={isExporting || (exportMode === 'CUSTOM_ADAPTIVE' && !activeBlueprint)}
+                  className={`w-full py-3.5 px-5 rounded-[6px] text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2.5 shadow-xl transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:translate-y-[-1px] active:translate-y-[0px] ${
+                    exportMode === 'CUSTOM_ADAPTIVE'
+                      ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:to-indigo-500 text-white shadow-purple-950/50'
+                      : 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-950/50'
+                  }`}
+                >
+                  {isExporting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                      <span>Đang Xuất File Excel & Ánh Xạ Media...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 text-white" />
+                      <span>
+                        {exportMode === 'CUSTOM_ADAPTIVE'
+                          ? `Tải File Khớp Mẫu "${activeBlueprint?.name || 'Tùy Biến'}"`
+                          : 'Tải File "Đề thi.xlsx" Chuẩn Điều Khiển BTI 2026'}
+                      </span>
+                    </>
+                  )}
+                </button>
+                <p className="text-center text-[10.5px] text-slate-400 font-sans">
+                  💡 Tệp Excel sau khi tải về có thể nạp trực tiếp vào phần mềm điều khiển trận đấu BTI 2026 mà không cần chỉnh sửa thủ công.
                 </p>
               </div>
             </div>
 
-            {/* Mode selection: Standard BTI vs Adaptive Blueprint */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl">
-              <label 
-                onClick={() => setExportMode('BTI_OFFICIAL')}
-                className={`p-3.5 rounded-[4px] border cursor-pointer transition flex items-start gap-3 ${
-                  exportMode === 'BTI_OFFICIAL'
-                    ? 'bg-emerald-950/30 border-emerald-500/60 shadow-md shadow-emerald-950/40'
-                    : 'bg-white/[0.02] border-white/10 hover:bg-white/5'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="exportMode"
-                  checked={exportMode === 'BTI_OFFICIAL'}
-                  onChange={() => setExportMode('BTI_OFFICIAL')}
-                  className="mt-0.5 text-emerald-500"
-                />
-                <div className="space-y-1">
-                  <div className="text-xs font-bold text-white font-mono flex items-center gap-1.5">
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Mẫu Thi Đấu BTI 2026 Chuẩn BTC</span>
-                  </div>
-                  <p className="text-[11px] text-white/60 leading-relaxed">
-                    Đa trang tính (Khởi động, VCNV, Tăng tốc, Về đích, Câu hỏi phụ, Vòng loại Bộ GD&ĐT). Tương thích hệ thống điều khiển thi đấu BTI.
-                  </p>
-                </div>
-              </label>
-
-              <label 
-                onClick={() => setExportMode('CUSTOM_ADAPTIVE')}
-                className={`p-3.5 rounded-[4px] border cursor-pointer transition flex items-start gap-3 ${
-                  exportMode === 'CUSTOM_ADAPTIVE'
-                    ? 'bg-purple-950/30 border-purple-500/60 shadow-md shadow-purple-950/40'
-                    : 'bg-white/[0.02] border-white/10 hover:bg-white/5'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="exportMode"
-                  checked={exportMode === 'CUSTOM_ADAPTIVE'}
-                  onChange={() => setExportMode('CUSTOM_ADAPTIVE')}
-                  className="mt-0.5 text-purple-500"
-                />
-                <div className="space-y-1">
-                  <div className="text-xs font-bold text-white font-mono flex items-center gap-1.5">
-                    <Cpu className="w-3.5 h-3.5 text-purple-400" />
-                    <span>Mẫu Tùy Biến Đã Học (Adaptive)</span>
-                  </div>
-                  <p className="text-[11px] text-white/60 leading-relaxed">
-                    Tái tạo 100% thứ tự cột, tiêu đề và banner hướng dẫn của hệ thống thi bạn đã nạp (Azota, K12Online, OLM...).
-                  </p>
-                </div>
-              </label>
-            </div>
-
-            {/* If BTI Official Mode selected: Technical Rules Notice */}
-            {exportMode === 'BTI_OFFICIAL' && (
-              <div className="max-w-2xl p-4 bg-emerald-950/25 border border-emerald-500/40 rounded-[4px] space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-emerald-500/20">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span className="text-xs font-mono font-bold text-emerald-300 uppercase tracking-wide">
-                      Quy Định Kỹ Thuật Phần Mềm Điều Khiển Trận Đấu BTI 2026
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
-                    Tên file bắt buộc: Đề thi.xlsx
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] font-mono text-white/70">
-                  <div className="p-2.5 rounded bg-black/40 border border-white/10 space-y-1.5">
-                    <span className="text-emerald-400 font-bold flex items-center gap-1.5">
-                      📁 Cây Thư Mục Media Trên Máy Chủ:
-                    </span>
-                    <ul className="space-y-1 text-white/60 pl-1 text-[10.5px]">
-                      <li>• <strong className="text-white">StudentImage/</strong> : Chứa ảnh đại diện thí sinh</li>
-                      <li>• <strong className="text-white">Media/Starting/</strong> : Dữ liệu phần thi Khởi Động</li>
-                      <li>• <strong className="text-white">Media/Obstacle/</strong> : Dữ liệu (ảnh CNV) VCNV</li>
-                      <li>• <strong className="text-white">Media/Acceleration/</strong> : Tăng Tốc (<code className="text-amber-300">AC1, AC2, AC3, AC4</code>)</li>
-                      <li>• <strong className="text-white">Media/Finish/</strong> : Dữ liệu phần thi Về Đích</li>
-                    </ul>
-                  </div>
-
-                  <div className="p-2.5 rounded bg-black/40 border border-white/10 space-y-1.5">
-                    <span className="text-sky-400 font-bold flex items-center gap-1.5">
-                      ⚙️ Cơ Chế Tự Động Khớp Dữ Liệu:
-                    </span>
-                    <p className="text-white/60 leading-relaxed text-[10.5px]">
-                      • Tên tệp xuất luôn cố định là <strong className="text-emerald-300">Đề thi.xlsx</strong> (không đổi tên khi chạy phần mềm điều khiển).<br />
-                      • Trong file Excel chỉ lưu <strong className="text-white">tên file gốc</strong> (ví dụ: <code className="text-amber-300">cnv.jpg</code>, <code className="text-amber-300">tt1.png</code>, <code className="text-amber-300">audio.mp3</code>), phần mềm điều khiển trận đấu sẽ tự động liên kết đúng thư mục phần thi tương ứng.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* If Adaptive Mode selected */}
-            {exportMode === 'CUSTOM_ADAPTIVE' && (
-              <div className="max-w-2xl p-4 bg-purple-950/20 border border-purple-500/30 rounded-[4px] space-y-3">
-                {savedBlueprints.length === 0 ? (
-                  <div className="text-center py-4 space-y-2">
-                    <AlertTriangle className="w-6 h-6 text-amber-400 mx-auto" />
-                    <p className="text-xs text-white/80 font-mono">
-                      Bạn chưa nạp mẫu đề tùy biến nào để Agent học cấu trúc.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setActiveSubTab('TEMPLATE_LEARNER')}
-                      className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs font-mono font-bold cursor-pointer"
-                    >
-                      Sang Tab Học Mẫu Đề Ngay
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-mono text-purple-200 font-bold">
-                        Chọn Mẫu Đề Thi Khảo Thí Để Khớp Cấu Trúc:
-                      </label>
-                      <select
-                        value={activeBlueprint?.id || ''}
-                        onChange={e => {
-                          const bp = savedBlueprints.find(b => b.id === e.target.value);
-                          if (bp) handleSelectActiveBlueprint(bp);
-                        }}
-                        className="w-full bg-black/60 border border-purple-500/40 rounded-[4px] px-3 py-2 text-xs text-white font-mono focus:border-purple-400 focus:outline-none"
-                      >
-                        {savedBlueprints.map(bp => (
-                          <option key={bp.id} value={bp.id} className="bg-slate-900 text-white">
-                            {bp.systemName ? `[${bp.systemName}] ` : ''}{bp.name}
-                          </option>
-                        ))}
-                      </select>
+            {/* RIGHT COLUMN: Technical Specs & Sheet Structure (col-span-5) */}
+            <div className="lg:col-span-5 space-y-4">
+              {exportMode === 'BTI_OFFICIAL' ? (
+                <>
+                  {/* Card 1: Technical Regulation & Server Media Folder Tree */}
+                  <div className="fluent-card p-4 sm:p-5 rounded-[6px] bg-emerald-950/20 border border-emerald-500/40 space-y-3.5 shadow-xl">
+                    <div className="flex items-center justify-between pb-2 border-b border-emerald-500/20">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span className="text-xs font-mono font-bold text-emerald-300 uppercase tracking-wide">
+                          Quy Định Kỹ Thuật Phần Mềm BTI 2026
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
+                        Đề thi.xlsx
+                      </span>
                     </div>
 
-                    {activeBlueprint && (() => {
-                      const sheet = activeBlueprint.sheets.find(s => s.sheetName === activeSheetName) || activeBlueprint.sheets[0];
-                      return (
-                        <div className="p-3 bg-black/40 rounded border border-white/10 text-xs font-mono space-y-1.5 text-white/70">
-                          <div className="flex justify-between">
-                            <span>Hệ thống nhận diện:</span>
-                            <strong className="text-purple-300 font-bold">{activeBlueprint.systemName || 'Tùy biến'}</strong>
+                    {/* Media Directory Tree Inspector */}
+                    <div className="space-y-2">
+                      <span className="text-[11px] font-mono font-bold text-emerald-400 flex items-center gap-1.5">
+                        📁 Cây Thư Mục Media Trên Máy Chủ Trận Đấu:
+                      </span>
+                      <div className="p-3 rounded-[4px] bg-black/60 border border-emerald-500/20 font-mono text-[11px] space-y-1.5">
+                        <div className="text-slate-400 flex items-center gap-1">
+                          <span className="text-emerald-400">📂</span> Server_BTI_2026/
+                        </div>
+                        <div className="pl-4 text-slate-300 space-y-1 border-l border-white/10 ml-2">
+                          <div className="flex items-center gap-1.5 text-slate-200">
+                            <span className="text-amber-400">📁</span>
+                            <strong className="text-white">StudentImage/</strong>
+                            <span className="text-slate-400 text-[10px]">— Ảnh đại diện thí sinh (slot 1-4)</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span>Trang tính xuất:</span>
-                            <span className="text-white">{sheet?.sheetName} ({sheet?.columns.length} cột)</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Dòng chỉ dẫn bảo lưu:</span>
-                            <span className="text-emerald-400">{sheet?.preHeaderRows.length || 0} dòng tiêu đề</span>
+                          <div className="text-slate-200 space-y-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sky-400">📁</span>
+                              <strong className="text-white">Media/</strong>
+                            </div>
+                            <div className="pl-4 space-y-1 border-l border-white/10 ml-2 text-[10.5px]">
+                              <div><span className="text-teal-400">📁 Starting/</span> <span className="text-slate-400">— Media Khởi Động & Vòng loại BGD</span></div>
+                              <div><span className="text-teal-400">📁 Obstacle/</span> <span className="text-slate-400">— Ảnh gợi ý & Ô trung tâm VCNV</span></div>
+                              <div><span className="text-teal-400">📁 Acceleration/</span> <span className="text-slate-400">— Tăng Tốc (<code className="text-amber-300">AC1, AC2, AC3, AC4</code>)</span></div>
+                              <div><span className="text-teal-400">📁 Finish/</span> <span className="text-slate-400">— Media câu hỏi Về Đích</span></div>
+                            </div>
                           </div>
                         </div>
-                      );
-                    })()}
-                  </>
-                )}
-              </div>
-            )}
+                      </div>
+                    </div>
 
-            {/* Stage filter and Export button */}
-            <div className="max-w-md space-y-3">
-              <div>
-                <label className="block text-xs font-mono text-white/70 mb-1.5 font-semibold">
-                  Chọn Giai Đoạn Câu Hỏi Muốn Xuất:
-                </label>
-                <select
-                  value={exportStage}
-                  onChange={e => setExportStage(e.target.value as any)}
-                  className="w-full bg-black/50 border border-white/15 rounded-[4px] px-3 py-2 text-xs text-white focus:border-emerald-400 focus:outline-none"
-                >
-                  <option value="ALL">Tất Cả Các Giai Đoạn (Toàn bộ ngân hàng)</option>
-                  <option value="VONG_LOAI">Vòng loại (Theo đề thi chuẩn Bộ GD&ĐT)</option>
-                  <option value="BAN_KET_1">Vòng Bán kết 1</option>
-                  <option value="BAN_KET_2">Vòng Bán kết 2</option>
-                  <option value="BAN_KET_3">Vòng Bán kết 3</option>
-                  <option value="CHUNG_KET">Đêm Chung kết</option>
-                </select>
-              </div>
+                    {/* Auto-matching Rule */}
+                    <div className="p-3 rounded-[4px] bg-black/40 border border-white/10 space-y-1.5 text-[11px] font-mono">
+                      <span className="text-sky-300 font-bold flex items-center gap-1.5">
+                        ⚙️ Cơ Chế Tự Động Khớp Dữ Liệu:
+                      </span>
+                      <p className="text-slate-300/80 leading-relaxed text-[10.5px] font-sans">
+                        • Tên tệp xuất luôn được cố định là <strong className="text-emerald-300 font-mono">Đề thi.xlsx</strong> (không đổi tên khi nạp vào phần mềm điều khiển trận đấu).<br />
+                        • Trong file Excel chỉ lưu <strong className="text-white">tên file gốc</strong> (ví dụ: <code className="text-amber-300 font-mono">cnv.jpg</code>, <code className="text-amber-300 font-mono">tt1.png</code>, <code className="text-amber-300 font-mono">audio.mp3</code>), phần mềm điều khiển sẽ tự động quét và liên kết đúng thư mục phần thi tương ứng.
+                      </p>
+                    </div>
+                  </div>
 
-              <div className="p-3 bg-white/5 rounded-[4px] border border-white/10 text-xs font-mono text-white/70 space-y-1">
-                <div className="flex justify-between">
-                  <span>Tổng số câu hiện có:</span>
-                  <strong className="text-white">{questionBankManager.getQuestions().length} câu</strong>
+                  {/* Card 2: 6 Sheets Breakdown in Output Workbook */}
+                  <div className="fluent-card p-4 sm:p-5 rounded-[6px] bg-[#16072D]/90 border border-purple-500/30 space-y-3 shadow-lg">
+                    <div className="flex items-center justify-between pb-2 border-b border-white/10 text-xs font-mono">
+                      <span className="font-bold text-slate-200 uppercase tracking-wide flex items-center gap-1.5">
+                        <FileSpreadsheet className="w-4 h-4 text-sky-400" />
+                        Cấu Trúc 6 Trang Tính Trong "Đề thi.xlsx"
+                      </span>
+                      <span className="text-[10px] text-emerald-400 font-bold">6/6 Sheets</span>
+                    </div>
+
+                    <div className="space-y-1.5 font-mono text-xs">
+                      {[
+                        { sheet: 'Khởi động', desc: '12 câu lượt riêng (4 thí sinh) + 12 câu lượt chung', color: 'text-amber-300 border-amber-500/30 bg-amber-950/20' },
+                        { sheet: 'VCNV', desc: '4 từ hàng ngang + 1 từ khóa trung tâm + ảnh CNV', color: 'text-emerald-300 border-emerald-500/30 bg-emerald-950/20' },
+                        { sheet: 'Tăng tốc', desc: '4 câu hỏi với thời gian phản hồi tăng dần', color: 'text-purple-300 border-purple-500/30 bg-purple-950/20' },
+                        { sheet: 'Về đích', desc: 'Gói 20đ & 30đ có hỗ trợ cờ Ngôi sao hy vọng', color: 'text-rose-300 border-rose-500/30 bg-rose-950/20' },
+                        { sheet: 'Câu hỏi phụ', desc: '3 câu hỏi phụ phân định thắng thua khi hòa điểm', color: 'text-indigo-300 border-indigo-500/30 bg-indigo-950/20' },
+                        { sheet: 'Vòng loại Bộ GD&ĐT', desc: '28 câu trắc nghiệm & điền chuẩn TT 02/2025', color: 'text-sky-300 border-sky-500/30 bg-sky-950/20' },
+                      ].map((item, idx) => (
+                        <div key={idx} className={`p-2 rounded-[4px] border flex items-center justify-between gap-2 ${item.color}`}>
+                          <div className="flex items-center gap-2">
+                            <span className="w-4 h-4 rounded-full bg-black/40 flex items-center justify-center text-[10px] font-bold">
+                              {idx + 1}
+                            </span>
+                            <strong className="text-white text-xs">{item.sheet}</strong>
+                          </div>
+                          <span className="text-[10.5px] text-slate-300/80 font-sans truncate max-w-[220px]">
+                            {item.desc}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* Adaptive Blueprint Details */
+                <div className="fluent-card p-4 sm:p-5 rounded-[6px] bg-purple-950/20 border border-purple-500/40 space-y-4 shadow-xl">
+                  <div className="flex items-center justify-between pb-2 border-b border-purple-500/20">
+                    <div className="flex items-center gap-2">
+                      <Cpu className="w-4 h-4 text-purple-400 shrink-0" />
+                      <span className="text-xs font-mono font-bold text-purple-200 uppercase tracking-wide">
+                        Khớp Mẫu Đề Thi Khảo Thí (Adaptive)
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">
+                      {savedBlueprints.length} Mẫu
+                    </span>
+                  </div>
+
+                  {savedBlueprints.length === 0 ? (
+                    <div className="text-center py-6 space-y-3">
+                      <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto" />
+                      <div className="space-y-1">
+                        <p className="text-xs text-white font-mono font-bold">
+                          Chưa có mẫu đề tùy biến nào được lưu trong hệ thống.
+                        </p>
+                        <p className="text-[11px] text-slate-400 font-sans max-w-sm mx-auto">
+                          Tải lên bất kỳ file Excel nào từ Azota, K12Online, OLM để AI tự động giải mã cấu trúc cột và ghi nhớ mẫu đề.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateTap();
+                          soundFx.playClick();
+                          setActiveSubTab('TEMPLATE_LEARNER');
+                        }}
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-[4px] text-xs font-mono font-bold cursor-pointer transition shadow-md"
+                      >
+                        Chuyển Sang Tab Học Mẫu Đề Ngay
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3.5">
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-mono text-purple-200 font-bold">
+                          Chọn Mẫu Khảo Thí Đã Học:
+                        </label>
+                        <select
+                          value={activeBlueprint?.id || ''}
+                          onChange={e => {
+                            const bp = savedBlueprints.find(b => b.id === e.target.value);
+                            if (bp) handleSelectActiveBlueprint(bp);
+                          }}
+                          className="w-full bg-black/60 border border-purple-500/40 rounded-[4px] px-3 py-2 text-xs text-white font-mono focus:border-purple-400 focus:outline-none"
+                        >
+                          {savedBlueprints.map(bp => (
+                            <option key={bp.id} value={bp.id} className="bg-slate-900 text-white">
+                              {bp.systemName ? `[${bp.systemName}] ` : ''}{bp.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {activeBlueprint && (() => {
+                        const sheet = activeBlueprint.sheets.find(s => s.sheetName === activeSheetName) || activeBlueprint.sheets[0];
+                        return (
+                          <div className="p-3 bg-black/40 rounded-[4px] border border-white/10 text-xs font-mono space-y-2 text-slate-300">
+                            <div className="flex justify-between pb-1.5 border-b border-white/10">
+                              <span>Hệ thống nhận diện:</span>
+                              <strong className="text-purple-300 font-bold">{activeBlueprint.systemName || 'Tùy biến'}</strong>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Trang tính xuất:</span>
+                              <span className="text-white font-bold">{sheet?.sheetName} ({sheet?.columns.length} cột)</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Dòng chỉ dẫn bảo lưu:</span>
+                              <span className="text-emerald-400 font-bold">{sheet?.preHeaderRows.length || 0} dòng tiêu đề</span>
+                            </div>
+                            <div className="pt-1 text-[10.5px] text-slate-400 font-sans">
+                              ✓ Tệp xuất ra sẽ giữ nguyên hoàn toàn thứ tự cột, định dạng tiêu đề và văn bản hướng dẫn ban đầu của hệ thống khảo thí này.
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
-                <div className="flex justify-between">
-                  <span>Định dạng xuất:</span>
-                  <strong className={exportMode === 'CUSTOM_ADAPTIVE' ? 'text-purple-400' : 'text-emerald-400'}>
-                    {exportMode === 'CUSTOM_ADAPTIVE' 
-                      ? `Khớp 100% mẫu ${activeBlueprint?.name || 'tùy biến'}` 
-                      : 'File "Đề thi.xlsx" (Chuẩn điều khiển BTI 2026)'}
-                  </strong>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleExport}
-                disabled={isExporting || (exportMode === 'CUSTOM_ADAPTIVE' && !activeBlueprint)}
-                className={`w-full px-4 py-2.5 rounded-[4px] text-xs font-bold font-mono uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition cursor-pointer disabled:opacity-50 ${
-                  exportMode === 'CUSTOM_ADAPTIVE'
-                    ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-950/40'
-                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/40'
-                }`}
-              >
-                {isExporting ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Download className="w-4 h-4" />
-                )}
-                <span>
-                  {exportMode === 'CUSTOM_ADAPTIVE'
-                    ? `Tải File Khớp Mẫu ${activeBlueprint?.name || ''}`
-                    : 'Tải File "Đề thi.xlsx" Chuẩn BTI 2026'}
-                </span>
-              </button>
+              )}
             </div>
           </div>
         </div>

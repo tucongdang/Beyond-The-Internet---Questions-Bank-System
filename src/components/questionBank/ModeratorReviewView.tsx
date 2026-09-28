@@ -355,7 +355,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
   return (
     <div className="space-y-4">
       {/* 1. Header Banner & Stats Overview */}
-      <div className="p-4 sm:p-5 rounded-[4px] bg-gradient-to-r from-[#1b0838] via-[#220a44] to-[#15052c] border border-amber-500/40 shadow-xl relative overflow-hidden">
+      <div className="fluent-card p-4 sm:p-5 border border-theme-accent/30 shadow-xl relative overflow-hidden">
         {/* Background glow accent */}
         <div className="absolute -right-16 -top-16 w-56 h-56 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute right-1/3 -bottom-16 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -363,13 +363,13 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <div className="p-2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+              <div className="p-2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm">
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <h2 className="text-base sm:text-lg font-bold text-white tracking-wide">
                 TRUNG TÂM THẨM ĐỊNH &amp; PHÊ DUYỆT ĐỀ THI (MODERATOR REVIEW)
               </h2>
-              <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-purple-500/20 text-purple-200 border border-purple-400/30">
+              <span className="fluent-badge fluent-badge-accent text-[11px]">
                 Hội Đồng Khảo Thí BTI 2026
               </span>
             </div>
@@ -386,7 +386,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
             <div className="text-left font-mono">
               <div className="text-xs font-bold text-white flex items-center gap-1.5">
                 <span>{currentUser.name}</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-400/40">
+                <span className="fluent-badge fluent-badge-warning text-[10px]">
                   {currentUser.role}
                 </span>
               </div>
@@ -457,10 +457,10 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                   setStatusTab(tab.id);
                   setSelectedIds(new Set());
                 }}
-                className={`p-2.5 rounded-[4px] border flex items-center justify-between gap-2 transition cursor-pointer ${
+                className={`fluent-subtab-btn p-2.5 rounded-[4px] border flex items-center justify-between gap-2 transition cursor-pointer ${
                   isActive
                     ? tab.activeCls
-                    : `bg-black/40 border-white/10 text-white/70 hover:text-white hover:border-white/25 hover:bg-white/5`
+                    : `fluent-box-nested border-white/10 text-white/70 hover:text-white hover:border-white/25`
                 }`}
               >
                 <div className="flex items-center gap-1.5 truncate">
@@ -479,7 +479,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
       </div>
 
       {/* 2. Filter & Search Controls Bar */}
-      <div className="p-3.5 bg-[#14062E]/90 border border-white/10 rounded-[4px] shadow-sm space-y-3 font-mono">
+      <div className="fluent-box-nested p-3.5 rounded-[4px] shadow-sm space-y-3 font-mono">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2">
           {/* Search box */}
           <div className="lg:col-span-4 relative">
@@ -489,7 +489,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Tìm theo ID, câu hỏi, căn cứ luật, ghi chú..."
-              className="w-full bg-black/60 border border-white/15 rounded-[4px] pl-8 pr-3 py-1.5 text-xs text-white placeholder-white/40 focus:border-amber-400 focus:outline-none"
+              className="fluent-input w-full pl-8 pr-3 py-1.5 text-xs text-white placeholder-white/40 focus:outline-none"
             />
             {searchQuery && (
               <button
@@ -507,14 +507,14 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
             <select
               value={filterStage}
               onChange={e => setFilterStage(e.target.value)}
-              className="w-full bg-black/60 border border-white/15 rounded-[4px] px-2.5 py-1.5 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="fluent-input fluent-select w-full px-2.5 py-1.5 text-xs text-white focus:outline-none"
             >
-              <option value="ALL">🏆 Vòng thi: Tất cả</option>
-              <option value="VONG_LOAI">Vòng Loại (Bộ GD&ĐT)</option>
-              <option value="BAN_KET_1">Bán Kết 1</option>
-              <option value="BAN_KET_2">Bán Kết 2</option>
-              <option value="BAN_KET_3">Bán Kết 3</option>
-              <option value="CHUNG_KET">Chung Kết Toàn Quốc</option>
+              <option value="ALL" className="bg-[#190839]">🏆 Vòng thi: Tất cả</option>
+              <option value="VONG_LOAI" className="bg-[#190839]">Vòng Loại (Bộ GD&ĐT)</option>
+              <option value="BAN_KET_1" className="bg-[#190839]">Bán Kết 1</option>
+              <option value="BAN_KET_2" className="bg-[#190839]">Bán Kết 2</option>
+              <option value="BAN_KET_3" className="bg-[#190839]">Bán Kết 3</option>
+              <option value="CHUNG_KET" className="bg-[#190839]">Chung Kết Toàn Quốc</option>
             </select>
           </div>
 
@@ -523,11 +523,11 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
             <select
               value={filterFormat}
               onChange={e => setFilterFormat(e.target.value)}
-              className="w-full bg-black/60 border border-white/15 rounded-[4px] px-2.5 py-1.5 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="fluent-input fluent-select w-full px-2.5 py-1.5 text-xs text-white focus:outline-none"
             >
-              <option value="ALL">📋 Thể thức: Tất cả</option>
+              <option value="ALL" className="bg-[#190839]">📋 Thể thức: Tất cả</option>
               {Object.entries(BTI_ROUND_GROUPS).map(([k, v]) => (
-                <option key={k} value={k}>{v.name}</option>
+                <option key={k} value={k} className="bg-[#190839]">{v.name}</option>
               ))}
             </select>
           </div>
@@ -537,11 +537,11 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
             <select
               value={filterLevel}
               onChange={e => setFilterLevel(e.target.value)}
-              className="w-full bg-black/60 border border-white/15 rounded-[4px] px-2.5 py-1.5 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="fluent-input fluent-select w-full px-2.5 py-1.5 text-xs text-white focus:outline-none"
             >
-              <option value="ALL">🎯 Độ khó: Tất cả</option>
+              <option value="ALL" className="bg-[#190839]">🎯 Độ khó: Tất cả</option>
               {Object.values(COGNITIVE_LEVELS).map(lvl => (
-                <option key={lvl.level} value={lvl.level}>{lvl.name}</option>
+                <option key={lvl.level} value={lvl.level} className="bg-[#190839]">{lvl.name}</option>
               ))}
             </select>
           </div>
@@ -551,11 +551,11 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
             <select
               value={filterDomain}
               onChange={e => setFilterDomain(e.target.value)}
-              className="w-full bg-black/60 border border-white/15 rounded-[4px] px-2.5 py-1.5 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="fluent-input fluent-select w-full px-2.5 py-1.5 text-xs text-white focus:outline-none"
             >
-              <option value="ALL">🌐 Miền NL: 6 Miền</option>
+              <option value="ALL" className="bg-[#190839]">🌐 Miền NL: 6 Miền</option>
               {Object.values(DIGITAL_COMPETENCY_DOMAINS).map(d => (
-                <option key={d.key} value={d.key}>{d.code}: {d.name}</option>
+                <option key={d.key} value={d.key} className="bg-[#190839]">{d.code}: {d.name}</option>
               ))}
             </select>
           </div>
@@ -677,15 +677,11 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
             return (
               <div
                 key={q.id}
-                className={`rounded-[4px] border transition-all ${
-                  q.approval_status === 'APPROVED'
-                    ? 'bg-[#150a2e]/90 border-emerald-500/30 hover:border-emerald-500/60'
-                    : q.approval_status === 'REJECTED'
-                    ? 'bg-[#1a082b]/90 border-rose-500/30 hover:border-rose-500/60'
-                    : q.approval_status === 'PENDING_REVIEW'
-                    ? 'bg-[#1a0c36]/95 border-amber-500/40 hover:border-amber-500/70 shadow-lg'
-                    : 'bg-[#14062c]/80 border-white/15'
-                } ${isSelected ? 'ring-2 ring-amber-400/80 bg-amber-950/20' : ''}`}
+                className={`fluent-question-box transition-all space-y-3 ${
+                  q.approval_status === 'APPROVED' ? 'ring-1 ring-emerald-500/40' :
+                  q.approval_status === 'REJECTED' ? 'ring-1 ring-rose-500/40' :
+                  q.approval_status === 'PENDING_REVIEW' ? 'ring-1 ring-amber-500/40' : ''
+                } ${isSelected ? 'ring-2 ring-amber-400 bg-amber-950/20' : ''}`}
               >
                 {/* Top Question Header Bar */}
                 <div className="p-3 sm:p-4 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
@@ -699,7 +695,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                     />
 
                     {/* Question ID Badge */}
-                    <span className="font-mono font-bold text-xs px-2 py-0.5 rounded bg-black/60 text-amber-300 border border-amber-500/40">
+                    <span className="fluent-badge fluent-badge-accent font-bold text-xs">
                       #{q.id}
                     </span>
 
@@ -709,18 +705,13 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                     </span>
 
                     {/* Cognitive Level Badge */}
-                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
-                      q.cognitive_level === 'NHAN_BIET' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30' :
-                      q.cognitive_level === 'THONG_HIEU' ? 'bg-sky-500/20 text-sky-300 border-sky-400/30' :
-                      q.cognitive_level === 'VAN_DUNG' ? 'bg-amber-500/20 text-amber-300 border-amber-400/30' :
-                      'bg-rose-500/20 text-rose-300 border-rose-400/30'
-                    }`}>
+                    <span className="fluent-badge text-amber-300">
                       {COGNITIVE_LEVELS[q.cognitive_level]?.name || q.cognitive_level}
                     </span>
 
                     {/* Digital Competency Domain */}
                     {q.digital_competency_domain && (
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-400/30">
+                      <span className="fluent-badge text-purple-300">
                         {DIGITAL_COMPETENCY_DOMAINS[q.digital_competency_domain]?.code || q.digital_competency_domain}
                         {q.digital_sub_competency ? ` (${q.digital_sub_competency})` : ''}
                       </span>
@@ -736,11 +727,11 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                         soundFx.playClick();
                         setQuickReviewQuestion(q);
                       }}
-                      className={`px-2.5 py-0.5 rounded text-[11px] font-mono font-bold border flex items-center gap-1 cursor-pointer hover:brightness-125 transition ${
-                        q.approval_status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40' :
-                        (q.approval_status === 'REJECTED' || q.approval_status === 'NEEDS_REVISION') ? 'bg-rose-500/20 text-rose-300 border-rose-400/40' :
-                        q.approval_status === 'PENDING_REVIEW' ? 'bg-amber-500/20 text-amber-300 border-amber-400/40 animate-pulse' :
-                        'bg-slate-500/20 text-slate-300 border-slate-400/40'
+                      className={`fluent-badge text-[11px] font-mono font-bold flex items-center gap-1 cursor-pointer hover:brightness-125 transition ${
+                        q.approval_status === 'APPROVED' ? 'fluent-badge-success' :
+                        (q.approval_status === 'REJECTED' || q.approval_status === 'NEEDS_REVISION') ? 'fluent-badge-danger' :
+                        q.approval_status === 'PENDING_REVIEW' ? 'fluent-badge-warning animate-pulse' :
+                        'text-slate-300'
                       }`}
                       title="Nhấp để Review nhanh trạng thái & ghi chú (Lưu Firestore)"
                     >
@@ -757,7 +748,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                         soundFx.playClick();
                         setQuickReviewQuestion(q);
                       }}
-                      className="px-2 py-0.5 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/35 text-[11px] font-mono font-bold flex items-center gap-1 transition cursor-pointer"
+                      className="fluent-btn-secondary px-2.5 py-0.5 rounded text-amber-300 border-amber-500/35 text-[11px] font-mono font-bold flex items-center gap-1 transition cursor-pointer"
                       title="Review nhanh trạng thái & ghi chú trực tiếp vào Firestore"
                     >
                       <ShieldCheck className="w-3 h-3 text-amber-400" />
@@ -765,12 +756,12 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                     </button>
 
                     {q.approved_by && (
-                      <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/30" title="Kiểm duyệt viên đã phê duyệt">
+                      <span className="fluent-badge fluent-badge-success text-[10px]" title="Kiểm duyệt viên đã phê duyệt">
                         Duyệt: {q.approved_by}
                       </span>
                     )}
 
-                    <span className="text-[10px] font-mono text-white/40">
+                    <span className="text-[10px] font-mono text-white/50">
                       Tác giả: {q.created_by || 'Khảo thí viên'}
                     </span>
                   </div>
@@ -780,7 +771,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                 <div className="p-3.5 sm:p-4 space-y-3">
                   {/* Question Stem / Text */}
                   <div className="text-white text-sm leading-relaxed font-sans font-medium">
-                    <span className="text-amber-400 font-mono font-bold mr-1.5">Câu hỏi:</span>
+                    <span className="text-theme-accent font-mono font-bold mr-1.5">Câu hỏi:</span>
                     <HighlightedText text={q.question_text} searchQuery={searchQuery} />
                   </div>
 
@@ -794,18 +785,16 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                         return (
                           <div
                             key={key}
-                            className={`p-2 rounded border flex items-start gap-2 ${
-                              isCorrect
-                                ? 'bg-emerald-950/60 border-emerald-500/60 text-emerald-200 ring-1 ring-emerald-500/40 font-bold'
-                                : 'bg-black/40 border-white/10 text-white/70'
+                            className={`fluent-option-btn p-2 rounded-[4px] flex items-start gap-2 ${
+                              isCorrect ? 'selected font-semibold' : ''
                             }`}
                           >
-                            <span className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${
-                              isCorrect ? 'bg-emerald-500 text-slate-950' : 'bg-white/10 text-white/60'
+                            <span className={`fluent-option-badge w-4 h-4 flex items-center justify-center font-bold text-[10px] shrink-0 font-mono ${
+                              isCorrect ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-black' : 'text-white/80'
                             }`}>
                               {key}
                             </span>
-                            <span className="flex-1 leading-snug">
+                            <span className="flex-1 leading-snug text-white/90">
                               <HighlightedText text={optText} searchQuery={searchQuery} />
                             </span>
                             {isCorrect && (
@@ -816,7 +805,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                       })}
                     </div>
                   ) : q.round_type === 'TRUE_FALSE_4' || q.round_format === 'BGD_TRUE_FALSE_4' ? (
-                    <div className="p-2.5 rounded bg-purple-950/30 border border-purple-500/30 space-y-1.5 text-xs font-mono">
+                    <div className="fluent-box-nested p-2.5 rounded space-y-1.5 text-xs font-mono">
                       <span className="text-purple-300 font-bold block text-[11px]">4 Mệnh đề Đúng/Sai:</span>
                       {q.options && typeof q.options === 'object' && Object.entries(q.options).map(([k, val]) => (
                         <div key={k} className="flex items-center justify-between gap-2 p-1.5 rounded bg-black/40 border border-white/5">
@@ -834,7 +823,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                       ))}
                     </div>
                   ) : q.round_type === 'VCNV' || q.round_format === 'VCNV_HANG_NGANG' ? (
-                    <div className="p-2.5 rounded bg-amber-950/20 border border-amber-500/30 space-y-1 text-xs font-mono">
+                    <div className="fluent-box-nested p-2.5 rounded border-amber-500/30 space-y-1 text-xs font-mono">
                       <div className="flex items-center justify-between text-amber-300 font-bold text-[11px]">
                         <span>🧩 Từ khóa VCNV: {(q.obstacle_info as any)?.obstacleKeyword || q.correct_key}</span>
                         <span>{(q.obstacle_info as any)?.clues?.length || 4} hàng ngang + Ô Trung Tâm + Câu Hiểm Họa</span>
@@ -844,7 +833,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                       </p>
                     </div>
                   ) : (
-                    <div className="p-2.5 rounded bg-cyan-950/20 border border-cyan-500/30 text-xs font-mono flex items-center justify-between gap-2">
+                    <div className="fluent-box-nested p-2.5 rounded border-cyan-500/30 text-xs font-mono flex items-center justify-between gap-2">
                       <span className="text-cyan-300">
                         <strong>Đáp án chuẩn:</strong> {q.correct_key}
                       </span>
@@ -856,7 +845,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
 
                   {/* Explanation & Legal Basis Drawer / Section */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-mono">
-                    <div className="p-2 rounded bg-black/40 border border-white/10 space-y-1">
+                    <div className="fluent-box-nested p-2.5 rounded space-y-1">
                       <span className="text-white/50 text-[10px] flex items-center gap-1 font-bold">
                         <BookOpen className="w-3 h-3 text-blue-400" />
                         GIẢI THÍCH ĐÁP ÁN:
@@ -866,7 +855,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                       </p>
                     </div>
 
-                    <div className="p-2 rounded bg-black/40 border border-white/10 space-y-1">
+                    <div className="fluent-box-nested p-2.5 rounded space-y-1">
                       <span className="text-white/50 text-[10px] flex items-center gap-1 font-bold">
                         <Scale className="w-3 h-3 text-amber-400" />
                         CĂN CỨ PHÁP LÝ &amp; CHUẨN KHẢO THÍ:
@@ -878,7 +867,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                   </div>
 
                   {/* 4. MODERATOR REVIEW NOTES SECTION */}
-                  <div className="p-3 rounded bg-[#160830] border border-amber-500/30 space-y-2">
+                  <div className="fluent-box-nested p-3 rounded border-amber-500/30 space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="text-amber-300 text-xs font-mono font-bold flex items-center gap-1.5">
                         <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
@@ -892,7 +881,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                         <button
                           type="button"
                           onClick={() => handleSaveNotesOnly(q)}
-                          className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[10px] font-mono cursor-pointer flex items-center gap-1"
+                          className="fluent-btn-secondary px-2.5 py-0.5 rounded text-amber-300 text-[10px] font-mono cursor-pointer flex items-center gap-1"
                         >
                           <Send className="w-3 h-3" />
                           <span>Lưu ghi chú</span>
@@ -911,7 +900,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                         }));
                       }}
                       placeholder="Nhập nhận xét thẩm định, phân tích tính chuẩn xác hoặc lý do phê duyệt/từ chối..."
-                      className="w-full bg-black/60 border border-amber-500/30 rounded-[4px] px-3 py-1.5 text-xs text-amber-200 placeholder-amber-200/30 focus:border-amber-400 focus:outline-none leading-relaxed"
+                      className="fluent-input fluent-textarea w-full px-3 py-1.5 text-xs text-amber-200 placeholder-amber-200/30 focus:outline-none leading-relaxed"
                     />
 
                     {/* Quick Preset Feedback Chips */}
@@ -931,7 +920,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                             questionBankManager.updateReviewNotes(q.id, newNotes);
                             onShowToast(`Đã thêm ghi chú: "${snippet.slice(0, 30)}..."`);
                           }}
-                          className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 hover:bg-amber-500/20 text-white/70 hover:text-amber-300 border border-white/10 hover:border-amber-500/30 transition cursor-pointer"
+                          className="fluent-badge text-white/70 hover:text-amber-300 hover:border-amber-500/40 transition cursor-pointer text-[10px]"
                         >
                           {snippet}
                         </button>
@@ -950,7 +939,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                           soundFx.playClick();
                           setQualityReviewQuestion(q);
                         }}
-                        className="px-3 py-1.5 rounded bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-200 border border-amber-400/40 flex items-center gap-1.5 transition cursor-pointer font-bold shadow-xs"
+                        className="fluent-btn-secondary px-3 py-1.5 rounded text-amber-200 border-amber-400/40 flex items-center gap-1.5 transition cursor-pointer font-bold shadow-xs"
                         title="Thẩm định chất lượng & Đối soát pháp quy chuyên sâu với Deep Research Pro"
                       >
                         <Scale className="w-3.5 h-3.5 text-amber-300" />
@@ -964,7 +953,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                           soundFx.playClick();
                           setQuickReviewQuestion(q);
                         }}
-                        className="px-3 py-1.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-400/40 flex items-center gap-1.5 transition cursor-pointer font-bold shadow-xs"
+                        className="fluent-btn-secondary px-3 py-1.5 rounded text-amber-200 border-amber-400/40 flex items-center gap-1.5 transition cursor-pointer font-bold shadow-xs"
                         title="Mở hộp thoại Review nhanh để đổi trạng thái và thêm ghi chú trực tiếp vào Firestore"
                       >
                         <ShieldCheck className="w-3.5 h-3.5 text-amber-300" />
@@ -975,7 +964,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                         type="button"
                         onClick={() => handleAiAudit(q)}
                         disabled={isAuditingThis}
-                        className="px-3 py-1.5 rounded bg-gradient-to-r from-purple-600/40 to-indigo-600/40 hover:from-purple-600/60 hover:to-indigo-600/60 text-purple-200 border border-purple-400/40 flex items-center gap-1.5 transition cursor-pointer font-bold shadow-sm"
+                        className="fluent-btn-secondary px-3 py-1.5 rounded text-purple-200 border-purple-400/40 flex items-center gap-1.5 transition cursor-pointer font-bold shadow-sm"
                         title="Dùng Gemini AI thẩm định tự động tính chuẩn xác pháp lý và chất lượng khảo thí"
                       >
                         <Sparkles className={`w-3.5 h-3.5 text-purple-300 ${isAuditingThis ? 'animate-spin' : ''}`} />
@@ -990,7 +979,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                             soundFx.playClick();
                             onPreviewQuestion(q);
                           }}
-                          className="px-3 py-1.5 rounded bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5 transition cursor-pointer"
+                          className="fluent-btn-secondary px-3 py-1.5 rounded text-emerald-300 border-emerald-500/40 flex items-center gap-1.5 transition cursor-pointer"
                           title="Xem trước nội dung câu hỏi & thử nghiệm đồng hồ đếm ngược"
                         >
                           <Eye className="w-3.5 h-3.5 text-emerald-400" />
@@ -1004,7 +993,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                           vibrateTap();
                           onEditQuestion(q);
                         }}
-                        className="px-3 py-1.5 rounded bg-white/10 hover:bg-white/20 text-white border border-white/20 flex items-center gap-1.5 transition cursor-pointer"
+                        className="fluent-btn-secondary px-3 py-1.5 rounded text-white flex items-center gap-1.5 transition cursor-pointer"
                         title="Mở cửa sổ soạn thảo để sửa chi tiết nội dung câu hỏi"
                       >
                         <Edit3 className="w-3.5 h-3.5 text-sky-300" />
@@ -1014,10 +1003,10 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                       <button
                         type="button"
                         onClick={() => setExpandedHistory(prev => ({ ...prev, [q.id]: !prev[q.id] }))}
-                        className={`px-3 py-1.5 rounded border flex items-center gap-1.5 transition cursor-pointer ${
+                        className={`fluent-btn-secondary px-3 py-1.5 rounded flex items-center gap-1.5 transition cursor-pointer ${
                           expandedHistory[q.id] 
-                            ? 'bg-sky-900/40 border-sky-500/50 text-sky-300' 
-                            : 'bg-white/5 hover:bg-white/10 text-white/70 border-white/10'
+                            ? 'border-sky-500/50 text-sky-300' 
+                            : 'text-white/70'
                         }`}
                         title="Xem lịch sử chỉnh sửa và cập nhật của câu hỏi"
                       >
@@ -1032,10 +1021,10 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                         <button
                           type="button"
                           onClick={() => handleApprove(q)}
-                          className="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 transition cursor-pointer shadow-md"
+                          className="fluent-btn-primary px-4 py-1.5 rounded text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-md"
                           title="Phê duyệt câu hỏi này vào ngân hàng chính thức"
                         >
-                          <CheckCircle2 className="w-4 h-4" />
+                          <CheckCircle2 className="w-4 h-4 text-[#190839]" />
                           <span>✓ Phê Duyệt</span>
                         </button>
                       )}
@@ -1044,7 +1033,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                         <button
                           type="button"
                           onClick={() => handleReject(q)}
-                          className="px-3.5 py-1.5 rounded bg-rose-600/80 hover:bg-rose-600 text-white font-bold flex items-center gap-1.5 transition cursor-pointer shadow-md"
+                          className="fluent-btn-secondary px-3.5 py-1.5 rounded text-rose-300 hover:text-white hover:bg-rose-600/50 border-rose-500/40 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-md"
                           title="Từ chối câu hỏi và yêu cầu tác giả chỉnh sửa"
                         >
                           <XCircle className="w-4 h-4" />
@@ -1056,7 +1045,7 @@ export const ModeratorReviewView: React.FC<ModeratorReviewViewProps> = ({
                         <button
                           type="button"
                           onClick={() => handleSetPending(q)}
-                          className="px-3 py-1.5 rounded bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 border border-amber-500/40 flex items-center gap-1 transition cursor-pointer"
+                          className="fluent-btn-secondary px-3 py-1.5 rounded text-amber-300 hover:text-white border-amber-500/40 flex items-center gap-1 transition cursor-pointer text-xs"
                           title="Chuyển lại về trạng thái chờ thẩm định"
                         >
                           <Clock className="w-3.5 h-3.5" />
