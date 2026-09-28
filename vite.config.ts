@@ -17,6 +17,7 @@ export default defineConfig(() => {
       emptyOutDir: true,
       assetsDir: 'assets',
       sourcemap: false,
+      chunkSizeWarningLimit: 10000,
     },
     server: {
       allowedHosts: true as true,
