@@ -1912,7 +1912,7 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                 setIsToolsDropdownOpen(prev => !prev);
               }}
               className={`px-3.5 py-2 rounded-[4px] text-xs font-semibold whitespace-nowrap transition flex items-center gap-2 cursor-pointer ${
-                ['EXCEL_HUB', 'SCENARIOS', 'LEGAL_DOCS', 'MATRIX'].includes(activeTab)
+                ['EXCEL_HUB', 'SCENARIOS', 'LEGAL_DOCS', 'MATRIX', 'STATS', 'PRACTICE'].includes(activeTab)
                   ? 'bg-theme-accent text-[#190839] shadow-md shadow-theme-accent/20 font-bold'
                   : 'text-[#F5EFF9]/75 hover:text-white hover:bg-white/10'
               }`}
@@ -1921,8 +1921,8 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
               {activeTab === 'SCENARIOS' && <Theater className="w-4 h-4 text-purple-900" />}
               {activeTab === 'LEGAL_DOCS' && <Scale className="w-4 h-4 text-amber-900" />}
               {activeTab === 'MATRIX' && <BarChart3 className="w-4 h-4 text-[#190839]" />}
-              {activeTab === 'STATS' && <TrendingUp className="w-4 h-4 text-purple-300" />}
-              {activeTab === 'PRACTICE' && <PlayCircle className="w-4 h-4 text-emerald-300" />}
+              {activeTab === 'STATS' && <TrendingUp className="w-4 h-4 text-[#190839]" />}
+              {activeTab === 'PRACTICE' && <PlayCircle className="w-4 h-4 text-[#190839]" />}
               {!['EXCEL_HUB', 'SCENARIOS', 'LEGAL_DOCS', 'MATRIX', 'STATS', 'PRACTICE'].includes(activeTab) && (
                 <FolderPlus className="w-4 h-4 text-purple-300" />
               )}
@@ -2047,6 +2047,9 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                       <TrendingUp className="w-4 h-4 text-purple-400" />
                       <span>Thống Kê Ngân Hàng</span>
                     </div>
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-purple-500/20 text-purple-300 border border-purple-400/30">
+                      {stats.total}
+                    </span>
                   </button>
 
                   <button
@@ -2067,6 +2070,9 @@ export const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
                       <PlayCircle className="w-4 h-4 text-emerald-400" />
                       <span>Thi Thử BTI 2026</span>
                     </div>
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                      Luyện Tập
+                    </span>
                   </button>
                 </div>
               </div>

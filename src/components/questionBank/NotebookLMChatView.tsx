@@ -100,70 +100,56 @@ export const NotebookLMChatView: React.FC<NotebookLMChatViewProps> = ({
     vibrateTap();
     soundFx.playClick();
     if (selectedSourceIds.size === documents.length) {
-      setSelectedSourceIds(new Set([documents[0]?.id]));
+      if (documents.length > 0) setSelectedSourceIds(new Set([documents[0].id]));
     } else {
       setSelectedSourceIds(new Set(documents.map(d => d.id)));
     }
   };
 
-  const handleSendChat = async (queryText?: string) => {
-    const q = queryText || chatInput;
-    if (!q.trim() || isChatLoading) return;
-
-    if (activeSources.length === 0) {
-      alert('Vui lòng tích chọn ít nhất 1 nguồn văn bản pháp lý làm căn cứ.');
-      return;
-    }
+  const handleSendChat = async (overridePrompt?: string) => {
+    const promptToSend = overridePrompt || chatInput;
+    if (!promptToSend.trim() || isChatLoading) return;
 
     vibrateTap();
     soundFx.playClick();
 
-    const userMsg: NotebookLMChatMessage = {
-      id: `usr-${Date.now()}`,
+    const userMessage: NotebookLMChatMessage = {
+      id: `user-${Date.now()}`,
       role: 'user',
-      text: q.trim(),
+      text: promptToSend.trim(),
       timestamp: Date.now()
     };
 
-    setChatMessages(prev => [...prev, userMsg]);
-    setChatInput('');
+    setChatMessages(prev => [...prev, userMessage]);
+    if (!overridePrompt) setChatInput('');
     setIsChatLoading(true);
 
     try {
-      const history = chatMessages.slice(-6).map(m => ({
-        role: m.role,
-        text: m.text
-      }));
-
-      const res = await notebookLMService.askChat({
-        sources: activeSources,
-        query: q.trim(),
-        chatHistory: history
+      const response = await notebookLMService.queryGroundedAnswer({
+        query: promptToSend,
+        sourceDocuments: activeSources
       });
 
-      const modelMsg: NotebookLMChatMessage = {
-        id: `ai-${Date.now()}`,
+      const modelMessage: NotebookLMChatMessage = {
+        id: `model-${Date.now()}`,
         role: 'model',
-        text: res.answer,
-        citations: res.citations,
-        keyTakeaway: res.keyTakeaway,
-        suggestedFollowUps: res.suggestedFollowUps,
+        text: response.answer,
+        citations: response.citations,
+        keyTakeaway: response.keyTakeaway,
+        suggestedFollowUps: response.suggestedQuestions,
         timestamp: Date.now()
       };
 
-      setChatMessages(prev => [...prev, modelMsg]);
-      soundFx.playCorrect();
+      setChatMessages(prev => [...prev, modelMessage]);
       vibrateSuccess();
     } catch (err: any) {
-      console.error('NotebookLM Chat Error:', err);
-      soundFx.playError();
-      const errorMsg: NotebookLMChatMessage = {
+      const errorMessage: NotebookLMChatMessage = {
         id: `err-${Date.now()}`,
         role: 'model',
-        text: `⚠️ **Không thể kiểm chứng nguồn:** ${err.message || 'Lỗi kết nối máy chủ NotebookLM.'}\nVui lòng thử lại hoặc giảm số lượng câu hỏi.`,
+        text: `Đã xảy ra lỗi khi tra cứu tài liệu: ${err?.message || 'Vui lòng kiểm tra lại API key hoặc kết nối mạng.'}`,
         timestamp: Date.now()
       };
-      setChatMessages(prev => [...prev, errorMsg]);
+      setChatMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsChatLoading(false);
     }
@@ -171,67 +157,65 @@ export const NotebookLMChatView: React.FC<NotebookLMChatViewProps> = ({
 
   const handleApplyToStudio = (msg: NotebookLMChatMessage) => {
     if (!onUseForExamQuestion) return;
-    vibrateTap();
+    vibrateSuccess();
     soundFx.playClick();
 
-    const firstCitation = msg.citations?.[0];
-    const legalRef = firstCitation 
-      ? `${firstCitation.sourceTitle} (${firstCitation.article})` 
-      : (activeSources[0]?.title || 'Thông tư 02/2025/TT-BGDĐT');
-
-    const topic = msg.keyTakeaway || msg.text.slice(0, 160).replace(/\*\*/g, '');
-
+    const firstCitation = msg.citations && msg.citations.length > 0 ? msg.citations[0] : undefined;
     onUseForExamQuestion({
-      topic,
-      legalReference: legalRef,
-      docId: activeSources[0]?.id,
-      contextText: `${msg.text}\n\nCăn cứ: ${msg.citations?.map(c => `${c.documentNumber} - ${c.article}: ${c.snippet}`).join('; ')}`
+      topic: msg.keyTakeaway || msg.text.slice(0, 120),
+      legalReference: firstCitation ? `${firstCitation.documentNumber} - ${firstCitation.article}` : undefined,
+      docId: firstCitation?.documentId,
+      contextText: firstCitation ? firstCitation.snippet : msg.text.slice(0, 300)
     });
   };
 
   return (
-    <div className={`space-y-3.5 flex flex-col ${className}`}>
-      {/* Top Controls: Sources & Grounding Banner */}
-      <div className="p-3 bg-black/40 rounded-[6px] border border-white/10 flex flex-wrap items-center justify-between gap-2.5">
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-purple-300 bg-purple-950/60 px-2.5 py-1 rounded border border-purple-500/30">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>NotebookLM Grounded Chat</span>
+    <div className={`fluent-box rounded-[8px] flex flex-col p-4 sm:p-5 space-y-4 shadow-xl ${className}`}>
+      {/* Header bar - Fluent 2 Header */}
+      {!compactHeader && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-200 border border-purple-400/30 text-[10.5px] font-mono font-bold uppercase tracking-wider mb-1">
+              <Sparkles className="w-3 h-3 text-amber-300" />
+              <span>Grounded Legal Assistant • NotebookLM</span>
+            </div>
+            <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">Trợ Lý Pháp Lý Chuyên Sâu BTI</h3>
+            <p className="text-xs text-white/60 font-sans">
+              Hỏi đáp quy định, đối chiếu điều khoản và trích dẫn chuẩn hóa theo văn bản pháp quy.
+            </p>
           </div>
 
-          <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-500/30 flex items-center gap-1">
-            <ShieldCheck className="w-3 h-3 text-emerald-400" />
-            <span>{activeSources.length}/{documents.length} Nguồn luật đang bật</span>
-          </span>
+          <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+            <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/40 px-2.5 py-1 rounded-[4px] border border-emerald-500/30 flex items-center gap-1.5 shadow-sm">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>{activeSources.length}/{documents.length} Nguồn Bật</span>
+            </span>
+
+            <button
+              type="button"
+              onClick={() => { vibrateTap(); setShowSourcesPanel(!showSourcesPanel); }}
+              className="fluent-btn-secondary px-2.5 py-1 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
+            >
+              <Layers className="w-3.5 h-3.5 text-purple-400" />
+              <span>{showSourcesPanel ? 'Ẩn Nguồn' : 'Chọn Nguồn'}</span>
+              {showSourcesPanel ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+          </div>
         </div>
+      )}
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowSourcesPanel(!showSourcesPanel)}
-            className="text-[11px] font-mono text-white/70 hover:text-white bg-white/5 hover:bg-white/10 px-2.5 py-1 rounded border border-white/10 transition flex items-center gap-1 cursor-pointer"
-          >
-            <Layers className="w-3 h-3 text-purple-400" />
-            <span>{showSourcesPanel ? 'Ẩn Nguồn' : 'Chọn Nguồn Luật'}</span>
-            {showSourcesPanel ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          </button>
-
-          <button
-            type="button"
-            onClick={toggleAllSources}
-            className="text-[11px] font-mono text-purple-300 hover:text-purple-200 underline cursor-pointer"
-          >
-            {selectedSourceIds.size === documents.length ? 'Bỏ chọn' : 'Tất cả'}
-          </button>
-        </div>
-      </div>
-
-      {/* Expandable Sources Selector Drawer */}
+      {/* Expandable Sources Selector Drawer - Fluent 2 Nested Box */}
       {showSourcesPanel && (
-        <div className="p-3 bg-purple-950/30 border border-purple-500/30 rounded-[6px] space-y-2 animate-fadeIn">
-          <div className="flex items-center justify-between text-[11px] font-mono text-white/60">
-            <span>Tích chọn các văn bản pháp lý AI sẽ sử dụng để kiểm chứng và trích dẫn:</span>
-            <span className="text-amber-300 font-bold">{activeSources.length} nguồn chọn</span>
+        <div className="fluent-box-nested p-4 rounded-[6px] space-y-3 animate-fadeIn border border-purple-500/30">
+          <div className="flex items-center justify-between text-xs font-mono text-white/70">
+            <span className="font-bold text-amber-300">Tài liệu pháp lý đang nạp vào bộ nhớ Agent:</span>
+            <button
+              type="button"
+              onClick={toggleAllSources}
+              className="text-[11px] text-purple-300 hover:text-white underline cursor-pointer"
+            >
+              {selectedSourceIds.size === documents.length ? 'Bỏ chọn tất cả' : 'Chọn toàn bộ nguồn'}
+            </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
@@ -241,23 +225,23 @@ export const NotebookLMChatView: React.FC<NotebookLMChatViewProps> = ({
                 <label
                   key={doc.id}
                   onClick={() => toggleSource(doc.id)}
-                  className={`flex items-start gap-2 p-2 rounded border text-xs cursor-pointer transition select-none ${
+                  className={`flex items-start gap-2.5 p-2 rounded-[4px] border text-xs cursor-pointer transition select-none ${
                     isChecked
-                      ? 'bg-purple-950/60 border-purple-400/50 text-white'
-                      : 'bg-black/30 border-white/10 text-white/50 hover:text-white/80'
+                      ? 'bg-purple-950/70 border-purple-400/50 text-white shadow-sm ring-1 ring-purple-400/30'
+                      : 'bg-black/30 border-white/10 text-white/50 hover:bg-white/5 hover:text-white/80'
                   }`}
                 >
                   <input
                     type="checkbox"
                     checked={isChecked}
                     onChange={() => {}}
-                    className="w-3.5 h-3.5 mt-0.5 rounded text-purple-600 focus:ring-purple-500 border-white/30 bg-black/40 cursor-pointer shrink-0"
+                    className="w-3.5 h-3.5 mt-0.5 rounded-[2px] text-purple-600 focus:ring-purple-500 border-white/30 bg-black/40 cursor-pointer shrink-0"
                   />
                   <div className="min-w-0">
                     <span className="font-mono font-bold text-[10.5px] text-amber-300 block truncate">
                       {doc.documentNumber}
                     </span>
-                    <span className="text-[11px] leading-tight line-clamp-1 block">
+                    <span className="text-[11px] leading-tight line-clamp-1 block text-white/90">
                       {doc.title}
                     </span>
                   </div>
@@ -268,27 +252,29 @@ export const NotebookLMChatView: React.FC<NotebookLMChatViewProps> = ({
         </div>
       )}
 
-      {/* Main Messages Area */}
+      {/* Main Messages Area - Fluent 2 Scrollable Stream */}
       <div className="flex-1 overflow-y-auto space-y-3.5 pr-1.5 custom-scrollbar min-h-[420px] max-h-[560px]">
         {chatMessages.map(msg => (
           <div
             key={msg.id}
-            className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+            className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-fadeIn`}
           >
             <div
-              className={`max-w-[90%] sm:max-w-[85%] rounded-[6px] p-3.5 text-xs leading-relaxed ${
+              className={`max-w-[92%] sm:max-w-[85%] text-xs leading-relaxed transition-all ${
                 msg.role === 'user'
-                  ? 'bg-purple-600 text-white rounded-br-none shadow-md'
-                  : 'bg-black/50 border border-white/15 text-white/90 rounded-bl-none shadow-md space-y-2.5'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-[8px] rounded-br-[2px] p-3.5 shadow-md'
+                  : 'fluent-box-nested rounded-[8px] rounded-bl-[2px] p-4 text-white/90 shadow-md space-y-3 border border-white/15'
               }`}
             >
               {/* Speaker Header */}
-              <div className="flex items-center justify-between gap-3 text-[10px] font-mono text-white/50 border-b border-white/10 pb-1">
-                <span className="font-bold flex items-center gap-1">
-                  {msg.role === 'user' ? 'Bạn' : (
+              <div className="flex items-center justify-between gap-3 text-[10px] font-mono text-white/50 border-b border-white/10 pb-1.5">
+                <span className="font-bold flex items-center gap-1.5">
+                  {msg.role === 'user' ? (
+                    <span className="text-white/90">Bạn</span>
+                  ) : (
                     <>
-                      <Sparkles className="w-3 h-3 text-amber-400" />
-                      <span>NotebookLM Legal Agent</span>
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      <span className="text-amber-200">NotebookLM Legal Agent</span>
                     </>
                   )}
                 </span>
@@ -296,25 +282,25 @@ export const NotebookLMChatView: React.FC<NotebookLMChatViewProps> = ({
               </div>
 
               {/* Message Body */}
-              <div className="whitespace-pre-wrap font-sans text-xs leading-relaxed space-y-1">
+              <div className="whitespace-pre-wrap font-sans text-xs leading-relaxed space-y-1.5 text-white/95">
                 {msg.text}
               </div>
 
               {/* Key Takeaway Box */}
               {msg.keyTakeaway && (
-                <div className="mt-2.5 p-2 bg-emerald-950/30 border border-emerald-500/30 rounded font-mono text-[11px] text-emerald-300 flex items-start gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                <div className="mt-2.5 p-2.5 bg-emerald-950/30 border border-emerald-500/35 rounded-[4px] font-mono text-[11px] text-emerald-300 flex items-start gap-2 shadow-inner">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                   <div>
-                    <strong>Kết luận then chốt:</strong> {msg.keyTakeaway}
+                    <strong className="text-emerald-200">Kết luận then chốt:</strong> {msg.keyTakeaway}
                   </div>
                 </div>
               )}
 
-              {/* Citations Chips */}
+              {/* Citations Chips - Fluent 2 Chips */}
               {msg.citations && msg.citations.length > 0 && (
-                <div className="mt-2.5 pt-2 border-t border-white/10 space-y-1 font-mono">
-                  <span className="text-[10px] uppercase font-bold text-amber-300 flex items-center gap-1">
-                    <Scale className="w-3 h-3 text-amber-400" />
+                <div className="mt-2.5 pt-2 border-t border-white/10 space-y-1.5 font-mono">
+                  <span className="text-[10.5px] uppercase font-bold text-amber-300 flex items-center gap-1.5">
+                    <Scale className="w-3.5 h-3.5 text-amber-400" />
                     Căn cứ trích dẫn kiểm chứng ({msg.citations.length}):
                   </span>
                   <div className="flex flex-wrap gap-1.5 pt-0.5">
@@ -327,8 +313,8 @@ export const NotebookLMChatView: React.FC<NotebookLMChatViewProps> = ({
                           soundFx.playClick();
                           setActiveCitation(cite);
                         }}
-                        className="px-2 py-0.5 rounded text-[10.5px] bg-amber-500/15 border border-amber-500/30 text-amber-300 hover:bg-amber-500/25 transition cursor-pointer flex items-center gap-1"
-                        title="Xem chi tiết đoạn trích dẫn"
+                        className="px-2.5 py-1 rounded-[4px] text-[10.5px] bg-amber-500/15 border border-amber-500/35 text-amber-200 hover:bg-amber-500/30 hover:border-amber-400 transition cursor-pointer flex items-center gap-1 shadow-sm active:scale-95"
+                        title="Xem chi tiết đoạn trích dẫn từ văn bản pháp lý"
                       >
                         <span>[{cite.documentNumber} - {cite.article}]</span>
                       </button>
@@ -339,18 +325,18 @@ export const NotebookLMChatView: React.FC<NotebookLMChatViewProps> = ({
 
               {/* Suggested Follow-up Questions */}
               {msg.suggestedFollowUps && msg.suggestedFollowUps.length > 0 && (
-                <div className="mt-2.5 pt-2 border-t border-white/10 space-y-1 font-mono">
-                  <span className="text-[10px] text-purple-300/80 block">Gợi ý câu hỏi tiếp theo:</span>
-                  <div className="flex flex-col gap-1">
+                <div className="mt-2.5 pt-2 border-t border-white/10 space-y-1.5 font-mono">
+                  <span className="text-[10px] text-purple-300/80 block uppercase tracking-wider">Gợi ý câu hỏi tiếp theo:</span>
+                  <div className="flex flex-col gap-1.5">
                     {msg.suggestedFollowUps.map((sug, i) => (
                       <button
                         key={i}
                         type="button"
                         onClick={() => handleSendChat(sug)}
-                        className="text-left text-[11px] text-white/80 hover:text-white bg-white/5 hover:bg-white/10 p-1.5 rounded border border-white/10 transition flex items-center justify-between group cursor-pointer"
+                        className="text-left text-[11px] text-white/80 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-[4px] border border-white/10 transition flex items-center justify-between group cursor-pointer active:scale-[0.99]"
                       >
-                        <span>• {sug}</span>
-                        <ArrowRight className="w-3 h-3 text-purple-400 opacity-0 group-hover:opacity-100 transition shrink-0 ml-1" />
+                        <span className="font-sans">• {sug}</span>
+                        <ArrowRight className="w-3.5 h-3.5 text-purple-400 opacity-0 group-hover:opacity-100 transition shrink-0 ml-1.5" />
                       </button>
                     ))}
                   </div>
@@ -359,14 +345,14 @@ export const NotebookLMChatView: React.FC<NotebookLMChatViewProps> = ({
 
               {/* Action: Use for Exam Question Studio */}
               {msg.role === 'model' && onUseForExamQuestion && msg.id !== 'welcome-nb' && (
-                <div className="mt-2.5 pt-2 border-t border-white/10 flex justify-end">
+                <div className="mt-2.5 pt-2.5 border-t border-white/10 flex justify-end">
                   <button
                     type="button"
                     onClick={() => handleApplyToStudio(msg)}
-                    className="px-2.5 py-1 rounded bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white text-[11px] font-mono font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm shadow-indigo-950/40"
-                    title="Chuyển sang màn hình soạn thảo đề thi với căn cứ pháp lý này"
+                    className="fluent-btn-primary px-3 py-1.5 text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
+                    title="Chuyển dữ liệu này sang màn hình soạn thảo câu hỏi thi BTI"
                   >
-                    <FileQuestion className="w-3 h-3 text-amber-300" />
+                    <FileQuestion className="w-3.5 h-3.5 text-[#190839]" />
                     <span>Áp Dụng Soạn Đề Thi BTI</span>
                   </button>
                 </div>
@@ -376,7 +362,7 @@ export const NotebookLMChatView: React.FC<NotebookLMChatViewProps> = ({
         ))}
 
         {isChatLoading && (
-          <div className="flex items-center gap-2 p-3 bg-black/40 rounded-[6px] border border-white/10 text-xs font-mono text-purple-300 animate-pulse">
+          <div className="fluent-box-nested flex items-center gap-2.5 p-3.5 rounded-[6px] text-xs font-mono text-purple-300 animate-pulse border border-purple-500/30">
             <RefreshCw className="w-4 h-4 animate-spin text-purple-400" />
             <span>NotebookLM Agent đang tra cứu và kiểm chứng từ {activeSources.length} nguồn tài liệu...</span>
           </div>
@@ -384,8 +370,8 @@ export const NotebookLMChatView: React.FC<NotebookLMChatViewProps> = ({
         <div ref={chatBottomRef} />
       </div>
 
-      {/* Input Bar & Quick Prompts */}
-      <div className="space-y-2 pt-2 border-t border-white/10">
+      {/* Input Bar & Quick Prompts - Fluent 2 Input Controls */}
+      <div className="space-y-2.5 pt-2 border-t border-white/10">
         <form
           onSubmit={e => {
             e.preventDefault();
@@ -399,16 +385,16 @@ export const NotebookLMChatView: React.FC<NotebookLMChatViewProps> = ({
             value={chatInput}
             onChange={e => setChatInput(e.target.value)}
             disabled={isChatLoading}
-            className="flex-1 bg-black/60 border border-white/20 rounded-[4px] px-3.5 py-2.5 text-xs text-white placeholder-white/40 focus:border-purple-400 focus:outline-none"
+            className="fluent-input flex-1 bg-black/60 border border-white/20 rounded-[4px] px-3.5 py-2.5 text-xs text-white placeholder-white/40 focus:border-theme-accent focus:outline-none font-sans"
           />
 
           <button
             type="submit"
             disabled={isChatLoading || !chatInput.trim()}
-            className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-900/40 text-white rounded-[4px] text-xs font-bold font-mono transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-purple-950/40 shrink-0"
+            className="fluent-btn-primary px-4 py-2.5 text-xs font-bold font-mono transition cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
           >
-            <Send className="w-3.5 h-3.5" />
-            <span>Hỏi</span>
+            <Send className="w-3.5 h-3.5 text-[#190839]" />
+            <span>Gửi</span>
           </button>
         </form>
 
@@ -418,68 +404,68 @@ export const NotebookLMChatView: React.FC<NotebookLMChatViewProps> = ({
           <button
             type="button"
             onClick={() => handleSendChat("Tóm tắt các điểm mới và phạm vi điều chỉnh của các văn bản đang chọn")}
-            className="px-2 py-0.5 bg-white/5 hover:bg-white/15 border border-white/10 rounded shrink-0 transition cursor-pointer"
+            className="px-2 py-0.5 bg-white/5 hover:bg-white/15 border border-white/10 rounded-[3px] shrink-0 transition cursor-pointer"
           >
             Tóm tắt điểm mới
           </button>
           <button
             type="button"
             onClick={() => handleSendChat("Liệt kê các hành vi bị cấm và chế tài xử lý theo luật")}
-            className="px-2 py-0.5 bg-white/5 hover:bg-white/15 border border-white/10 rounded shrink-0 transition cursor-pointer"
+            className="px-2 py-0.5 bg-white/5 hover:bg-white/15 border border-white/10 rounded-[3px] shrink-0 transition cursor-pointer"
           >
             Hành vi bị cấm
           </button>
           <button
             type="button"
             onClick={() => handleSendChat("Quy định cụ thể về bảo vệ dữ liệu cá nhân của người học và học sinh")}
-            className="px-2 py-0.5 bg-white/5 hover:bg-white/15 border border-white/10 rounded shrink-0 transition cursor-pointer"
+            className="px-2 py-0.5 bg-white/5 hover:bg-white/15 border border-white/10 rounded-[3px] shrink-0 transition cursor-pointer"
           >
             Bảo vệ dữ liệu cá nhân
           </button>
           <button
             type="button"
             onClick={() => handleSendChat("Gợi ý 3 chủ đề tình huống hay cho đề thi BTI 2026")}
-            className="px-2 py-0.5 bg-white/5 hover:bg-white/15 border border-white/10 rounded shrink-0 transition cursor-pointer"
+            className="px-2 py-0.5 bg-white/5 hover:bg-white/15 border border-white/10 rounded-[3px] shrink-0 transition cursor-pointer"
           >
             Chủ đề thi BTI 2026
           </button>
         </div>
       </div>
 
-      {/* Citation Preview Modal */}
+      {/* Citation Preview Modal - Fluent 2 Dialog */}
       {activeCitation && typeof document !== 'undefined' && createPortal(
         <div 
           className="fixed inset-0 z-[99999999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
           onClick={() => setActiveCitation(null)}
         >
           <div 
-            className="bg-[#190839] border border-amber-500/40 rounded-[8px] max-w-lg w-full p-5 space-y-3 shadow-2xl text-white font-sans"
+            className="fluent-box rounded-[8px] max-w-lg w-full p-5 space-y-3.5 shadow-2xl text-white font-sans border border-amber-500/40"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-white/10 pb-2">
-              <span className="font-mono font-bold text-amber-400 text-xs flex items-center gap-1.5">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+              <span className="font-mono font-bold text-amber-300 text-xs flex items-center gap-1.5 uppercase tracking-wide">
                 <Scale className="w-4 h-4 text-amber-400" />
-                Trích dẫn căn cứ pháp lý kiểm chứng
+                <span>Trích Dẫn Căn Cứ Pháp Lý Kiểm Chứng</span>
               </span>
               <button
                 type="button"
                 onClick={() => setActiveCitation(null)}
-                className="text-white/60 hover:text-white cursor-pointer"
+                className="text-white/60 hover:text-white cursor-pointer p-1"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-2 text-xs">
+            <div className="space-y-2.5 text-xs">
               <div>
-                <span className="text-white/50 block text-[10px] font-mono">Văn bản:</span>
+                <span className="text-white/50 block text-[10.5px] font-mono uppercase">Văn bản pháp quy:</span>
                 <span className="font-bold text-white text-xs">{activeCitation.sourceTitle} ({activeCitation.documentNumber})</span>
               </div>
               <div>
-                <span className="text-white/50 block text-[10px] font-mono">Điều khoản:</span>
+                <span className="text-white/50 block text-[10.5px] font-mono uppercase">Điều khoản căn cứ:</span>
                 <span className="font-bold text-amber-300 font-mono text-xs">{activeCitation.article}</span>
               </div>
-              <div className="p-3 bg-black/40 rounded border border-white/10 text-white/85 leading-relaxed italic">
+              <div className="p-3.5 bg-black/50 rounded-[4px] border border-white/15 text-white/90 leading-relaxed italic font-serif">
                 "{activeCitation.snippet}"
               </div>
             </div>
@@ -488,7 +474,7 @@ export const NotebookLMChatView: React.FC<NotebookLMChatViewProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveCitation(null)}
-                className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-mono font-bold cursor-pointer"
+                className="fluent-btn-primary px-4 py-1.5 text-xs font-mono font-bold cursor-pointer"
               >
                 Đóng
               </button>
