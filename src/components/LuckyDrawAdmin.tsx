@@ -8,6 +8,21 @@ import { getUserDisplayUid } from '../utils/uidUtils';
 export const LuckyDrawAdmin: React.FC<{ gameState: GameState; allResponses: any }> = ({ gameState, allResponses }) => {
   const [notification, setNotification] = useState<string | null>(null);
 
+  const getSecureRandomIndex = (maxExclusive: number): number => {
+    if (maxExclusive <= 0) return 0;
+    const randomBuffer = new Uint32Array(1);
+    const maxUint32 = 0x100000000;
+    const limit = maxUint32 - (maxUint32 % maxExclusive);
+
+    let randomValue: number;
+    do {
+      window.crypto.getRandomValues(randomBuffer);
+      randomValue = randomBuffer[0];
+    } while (randomValue >= limit);
+
+    return randomValue % maxExclusive;
+  };
+
   const notify = (message: string) => {
     setNotification(message);
     setTimeout(() => setNotification(null), 3000);
@@ -56,7 +71,7 @@ export const LuckyDrawAdmin: React.FC<{ gameState: GameState; allResponses: any 
       });
       return;
     }
-    const randomIndex = Math.floor(Math.random() * candidates.length);
+    const randomIndex = getSecureRandomIndex(candidates.length);
     const selected = candidates[randomIndex];
     const winner: UserInfo = {
       ...selected,
