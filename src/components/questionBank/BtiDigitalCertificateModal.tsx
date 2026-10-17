@@ -36,7 +36,10 @@ export const BtiDigitalCertificateModal: React.FC<BtiDigitalCertificateModalProp
   useLockBodyScroll(isOpen);
 
   const [studentName, setStudentName] = useState<string>(candidateName);
-  const [certId] = useState<string>(() => `BTI-2026-CERT-${Math.floor(100000 + Math.random() * 900000)}`);
+  const [certId] = useState<string>(() => {
+    const sixDigitSuffix = window.crypto.randomInt(100000, 1000000);
+    return `BTI-2026-CERT-${sixDigitSuffix}`;
+  });
   const certDate = new Date().toLocaleDateString('vi-VN');
 
   const handlePrint = () => {
