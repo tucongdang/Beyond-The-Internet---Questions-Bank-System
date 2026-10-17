@@ -2833,7 +2833,7 @@ HƯỚNG DẪN ĐỊNH DẠNG: Khi trình bày công thức toán học, thuật
           }
         } catch (err: any) {
           lastError = err;
-          console.warn(`Model ${m} encountered an issue, trying fallback:`, err?.message || err);
+          console.warn("Model %s encountered an issue, trying fallback:", String(m), err?.message || err);
         }
       }
 
